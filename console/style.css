@@ -403,10 +403,12 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 [data-theme="dark"] .scene-alert { background: #30291c; color: #f2ce8b; }
 
 .trace-heading { margin-bottom: 10px; min-height: 34px; }
-.trace-heading button { margin: 0; }
+.trace-footer { display: flex; align-items: flex-start; gap: 12px; }
+.trace-footer .timeline-control { flex: 1; min-width: 0; }
+.trace-footer button { margin: 0; flex: none; }
 .connect-row { display: flex; align-items: center; gap: 8px; }
 .connect-row span { font-size: 13px; }
-.trace-options { margin: 0 4px 0 auto; display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.trace-options { margin: 0 0 0 auto; display: flex; align-items: center; gap: 7px; font-size: 12px; }
 .trace-options input { width: auto; margin: 0; }
 #trace .trace-internal { padding: 8px 10px; border: 1px dashed var(--scene-border, #dae2e9); border-radius: 6px; margin-bottom: 6px; font-size: 12px; }
 .trace-internal summary { cursor: pointer; }

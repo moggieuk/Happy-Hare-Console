@@ -128,9 +128,9 @@
           <div class="heading trace-heading">
           <h2 tabindex="0" data-tooltip="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture." aria-description="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture.">Movement trace</h2>
           <label class="trace-options"><input id="show-internal" type="checkbox" data-tooltip="Show diagnostic updates; playback skips these rows">Show internal updates</label>
-          <button id="save-motion" type="button" hidden>Save telemetry</button>
           </div>
           <div id="trace" role="log"></div>
+        <div class="trace-footer">
         <div class="controls timeline-control">
           <input
             id="timeline"
@@ -141,6 +141,8 @@
             value="0"
           />
           <div id="toolchange-ticks" aria-hidden="true"></div>
+        </div>
+        <button id="save-motion" type="button" hidden>Save telemetry</button>
         </div>
         </div>
 
