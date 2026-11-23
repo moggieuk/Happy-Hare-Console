@@ -159,9 +159,9 @@ all other MMU state, so a change undone before then leaves no entry. A change re
 step, such as a selector's grip, is shown as part of that step. Exported traces include these settings and
 configuration boundaries.
 
-Choose a built-in console profile and select **Restart with profile** to boot a
-fresh session. Alternatively, upload the installed configuration directory with
-one `printer.cfg` and its `mmu/` tree. This uses the existing installed-profile
+Choose a built-in console profile and select **Restart profile** to boot a
+fresh session. Alternatively, **Load config** uploads the installed configuration directory with
+one `printer.cfg` and its `mmu/` tree; choose the folder holding `printer.cfg`, or its `mmu` folder. This uses the existing installed-profile
 loader and its include ordering; it is not a new config interpreter. Files are
 copied to temporary storage, and the original files are never modified. As with
 `--profile`, saved variables are not imported. A failed boot attempts to restore

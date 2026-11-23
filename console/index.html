@@ -23,10 +23,11 @@
         <input id="telemetry-file" type="file" accept=".jsonl,.ndjson,.json" hidden>
         <p id="recording-name" class="note" hidden></p>
         <div id="simulator-controls" hidden>
-          <p id="profile"></p>
-          <label>Profile<select id="profiles"></select></label>
-          <button id="restart" type="button">Restart with profile</button>
-          <label>Or load a configuration directory<input id="files" type="file" webkitdirectory multiple></label>
+          <div id="profile" class="settings-divider" role="separator">Simulator</div>
+          <label>Choose profile<span class="profile-choice"><select id="profiles"></select><span id="profile-name" aria-hidden="true"></span></span></label>
+          <div class="connect-row"><button id="restart" type="button">Restart profile</button><span>or</span><button id="load-config" type="button">Load config</button></div>
+          <p id="simulator-message" class="note" role="status" hidden></p>
+          <input id="files" type="file" webkitdirectory multiple hidden>
         </div>
       </section>
       <section class="card" id="sidebar-playback" aria-label="Playback" hidden>
@@ -127,9 +128,9 @@
           <div class="heading trace-heading">
           <h2 tabindex="0" data-tooltip="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture." aria-description="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture.">Movement trace</h2>
           <label class="trace-options"><input id="show-internal" type="checkbox" data-tooltip="Show diagnostic updates; playback skips these rows">Show internal updates</label>
-          <button id="save-motion" type="button" hidden>Save telemetry</button>
           </div>
           <div id="trace" role="log"></div>
+        <div class="trace-footer">
         <div class="controls timeline-control">
           <input
             id="timeline"
@@ -140,6 +141,8 @@
             value="0"
           />
           <div id="toolchange-ticks" aria-hidden="true"></div>
+        </div>
+        <button id="save-motion" type="button" hidden>Save telemetry</button>
         </div>
         </div>
 

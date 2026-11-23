@@ -146,10 +146,6 @@ svg {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-#profile {
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
@@ -362,9 +358,12 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 
  .left-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .left-column > aside { width: 100%; box-sizing: border-box; }
-#simulator-controls { margin-top: 12px; padding-top: 10px; border-top: 1px solid #dae2e9; }
-[data-theme="dark"] #simulator-controls { border-color: #344554; }
-#simulator-controls #profile { margin: 0 0 8px; }
+.profile-choice { position: relative; display: block; }
+#profiles { white-space: nowrap; overflow: hidden; }
+#profile-name { position: absolute; left: 1px; right: 1px; top: 5px; bottom: 1px; padding: 0 8px; display: flex; align-items: center;
+  overflow: hidden; white-space: nowrap; border-radius: 5px; background: white; pointer-events: none; }
+[data-theme="dark"] #profile-name { background: #111c26; }
+#profile-name::after { content: '▼'; margin-left: auto; padding-left: 8px; font-size: 9px; }
 #sidebar-playback .playback-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 #sidebar-playback button { margin: 0; }
 #sidebar-playback button[aria-label] { width: 44px; height: 38px; padding: 7px; }
@@ -399,10 +398,15 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 [data-theme="dark"] .scene-alert { background: #30291c; color: #f2ce8b; }
 
 .trace-heading { margin-bottom: 10px; min-height: 34px; }
-.trace-heading button { margin: 0; }
+.trace-footer { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.trace-footer .timeline-control { flex: 1; min-width: 0; padding: 0; margin: 0; }
+.trace-footer #timeline { margin: 0; display: block; }
+.trace-footer button { margin: 0; flex: none; }
 .connect-row { display: flex; align-items: center; gap: 8px; }
 .connect-row span { font-size: 13px; }
-.trace-options { margin: 0 auto; display: flex; align-items: center; gap: 7px; font-size: 12px; }
+#simulator-message { margin: 4px 0 0; overflow-wrap: anywhere; }
+.connect-row button { flex: 1; margin: 5px 0; }
+.trace-options { margin: 0 0 0 auto; display: flex; align-items: center; gap: 7px; font-size: 12px; }
 .trace-options input { width: auto; margin: 0; }
 #trace .trace-internal { padding: 8px 10px; border: 1px dashed var(--scene-border, #dae2e9); border-radius: 6px; margin-bottom: 6px; font-size: 12px; }
 .trace-internal summary { cursor: pointer; }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {detectConnection, telemetryAvailable} from './simulator.js';
+import {detectConnection, telemetryAvailable, hasMmuConfig} from './simulator.js';
 import {connectionControls} from './telemetry-stream.js';
 const app=readFileSync(new URL('./app.js',import.meta.url),'utf8');
 const isSimulator=app.match(/function isSimulator\(\) \{.*\}/)[0];
@@ -66,6 +66,12 @@ test('simulator subscription warning clears on mode, source, and connection chan
  assert.equal(nodes['filament-notice'].hidden,false);assert.equal(nodes['filament-warning'].hidden,false);
  c.store.viewMode='live';c.store.setup.connection_kind='live_machine';draw();assert.equal(nodes['filament-warning'].hidden,true);
  c.store.setup.connection_kind='simulator';c.store.socket.readyState=3;draw();assert.equal(nodes['filament-warning'].hidden,true);
+});
+
+test('an uploaded folder is a configuration only when it holds mmu.cfg',()=>{
+ assert.equal(hasMmuConfig(['cfg/mmu/base/mmu.cfg','cfg/printer.cfg']),true);
+ assert.equal(hasMmuConfig(['mmu.cfg']),true);
+ assert.equal(hasMmuConfig(['cfg/mmu/base/mmu_hardware.cfg','cfg/printer.cfg']),false);
 });
 
 test('reconnect leaves loaded recordings offline',async()=>{

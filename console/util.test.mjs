@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {syncChildren, brightness} from './util.js';
+import {syncChildren, brightness, spanArrow} from './util.js';
 
 // The few DOM calls syncChildren makes, with a count of the nodes it moved
 function parentOf(names) {
@@ -38,4 +38,10 @@ test('brightness is the relative luminance of a hex colour, from 0 for black to 
   assert.ok(brightness('0000ff')<.1);
   assert.ok(Math.abs(brightness('808080')-.2159)<.001);
   assert.equal(brightness('not a colour'),0);
+});
+
+test('an arrow between two lines points up at the upper one and down at the lower one, whichever is given first',()=>{
+  const expected='M10 102 V198 M7 106 L10 102 L13 106 M7 194 L10 198 L13 194';
+  assert.equal(spanArrow(10,100,200),expected);
+  assert.equal(spanArrow(10,200,100),expected);
 });
