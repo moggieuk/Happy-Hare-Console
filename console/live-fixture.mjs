@@ -23,7 +23,7 @@ export function liveObjects() {
  const m=facts.printer.mmu, machine=facts.printer.mmu_machine;
  const unit=machine.units[m.unit];
  const {sensors,active_sensors,...rest}=m;
- return {configfile:{settings:settingsOf(machine)},
+ return {mmu_machine:{happy_hare_version:'4.3.0'},configfile:{settings:settingsOf(machine)},
   save_variables:{variables:{[`mmu_${m.unit}_bowden_lengths`]:unit.gates.map(g=>unit.bowden_lengths[g])}},
   mmu:{...rest,unit:0,sensors:{mmu_entry:false,encoder:false,extruder:false,toolhead:false},
    config_changes:{},bowden_progress:-1,sync_drive:false,filament_pos:0},

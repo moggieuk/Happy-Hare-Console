@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {detectConnection, telemetryAvailable, hasMmuConfig} from './simulator.js';
+import {detectConnection, telemetryAvailable, hasMmuConfig, versionProblem, versionAtLeast} from './simulator.js';
 import {connectionControls} from './telemetry-stream.js';
 const app=readFileSync(new URL('./app.js',import.meta.url),'utf8');
 const isSimulator=app.match(/function isSimulator\(\) \{.*\}/)[0];
@@ -12,7 +12,7 @@ async function connection(kind,chosen=false,mode='live',offline=false,components
  const c=vm.createContext({store:{connectionGeneration:1,modeChosen:chosen,viewMode:mode,setup:null,offline,socket:{readyState:1}},
    rpc:async method=>{ if (method==='server.info') return {components};
      if (kind!=='simulator') throw Error(`Method not found: ${method}`); return {units:[]}; },
-   detectConnection,telemetryAvailable,$:()=>({value:'0'}),sourceMode:()=>{},setConnection:()=>{},refreshLiveEditor:async()=>{},message:()=>{},
+   detectConnection,telemetryAvailable,versionProblem:async()=>null,$:()=>({value:'0'}),sourceMode:()=>{},setConnection:()=>{},refreshLiveEditor:async()=>{},message:()=>{},
    refresh:async probed=>{c.store.setup=probed;},
    startStream:async()=>calls.push('telemetry'),
    changeView:async mode=>calls.push(mode),subscribeLive:async()=>calls.push('subscribe')});
@@ -72,6 +72,16 @@ test('an uploaded folder is a configuration only when it holds mmu.cfg',()=>{
  assert.equal(hasMmuConfig(['cfg/mmu/base/mmu.cfg','cfg/printer.cfg']),true);
  assert.equal(hasMmuConfig(['mmu.cfg']),true);
  assert.equal(hasMmuConfig(['cfg/mmu/base/mmu_hardware.cfg','cfg/printer.cfg']),false);
+});
+
+test('a source older than the required Happy Hare, or without it, is a problem; one that cannot answer is not',async()=>{
+ const source=(version,objects=['mmu_machine'])=>async method=>method==='printer.objects.list' ? {objects} : {status:{mmu_machine:{happy_hare_version:version}}};
+ assert.equal(await versionProblem(source('4.3.0')),null);
+ assert.equal(await versionProblem(source('4.10.1')),null);
+ assert.match(await versionProblem(source('4.2.0')),/This is Happy Hare 4\.2\.0\. The Console needs 4\.3\.0 or later/);
+ assert.match(await versionProblem(source(null,['mmu'])),/Happy Hare was not found/);
+ assert.equal(await versionProblem(async()=>{throw Error('Klippy Disconnected');}),null);
+ assert.equal(versionAtLeast('5.0','4.3.0'),true);assert.equal(versionAtLeast('4.3','4.3.0'),true);assert.equal(versionAtLeast('3.99.9','4.3.0'),false);
 });
 
 test('reconnect leaves loaded recordings offline',async()=>{

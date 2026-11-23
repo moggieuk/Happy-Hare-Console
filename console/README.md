@@ -31,6 +31,10 @@ Everything outside `app.js`, `scene.js` and the small DOM modules has no DOM acc
 - **Telemetry stream**: follows the `server.mmu.telemetry.*` stream and overlays the latest sensor readings.
 - **Loaded telemetry recording**: plays a saved recording (`.jsonl`) offline.
 
+The Console needs Happy Hare 4.3.0 or later (`REQUIRED_VERSION` in `simulator.js`). On connect it reads
+`mmu_machine.happy_hare_version`; an older printer or simulator, or one without Happy Hare, is refused with the
+reason shown in the Connection panel and is not retried until **Connect** is pressed. Loading a recording still works.
+
 The Connection panel follows the source. A printer or the simulator shows **Data source**; it starts on the
 telemetry stream when the source has one (the simulator always, a printer when Moonraker's `server.info` lists the
 `mmu_telemetry` component) and otherwise the stream option is disabled with a note. **Save telemetry** shows only for

@@ -1,7 +1,7 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
 import {LiveState, liveFrame} from './live-state.js';
 import {liveMachine} from './live-config.js';
-import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig} from './simulator.js';
+import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
 import {unitInfo, unitObjectFields} from './unit-info.js';
 import {gateMenu, GATE_MENU_OBJECTS, GATE_MENU_MMU_FIELDS} from './gate-menu.js';
@@ -45,6 +45,7 @@ function setConnection(text, state) {
 }
 function showConnection() {
   const kind = store.setup?.connection_kind;
+  if (store.refused) return setConnection('Connection refused', 'disconnected');
   if (store.socket?.readyState !== 1) return setConnection('Disconnected · retrying', 'disconnected');
   setConnection(kind === 'simulator' ? 'Connected to the simulator' : kind === 'live_machine' ? 'Connected to printer' : 'Connected · unknown source', 'connected');
 }
@@ -133,6 +134,7 @@ async function action(fn, report = true) {
   }
 }
 function connect() {
+  store.refused=false; $('connection-error').hidden=true;
   const generation=++store.connectionGeneration;
   const endpoint=new URL(store.connectionUrl);
   endpoint.protocol=endpoint.protocol==='https:' || endpoint.protocol==='wss:' ? 'wss:' : 'ws:';
@@ -191,17 +193,27 @@ function connect() {
     if (store.viewMode==='live' && store.displayed) store.displayed.espoolers={};
     draw();
     sourceMode();
-    if (!store.offline) setConnection("Disconnected · retrying", "disconnected");
+    if (!store.offline && !store.refused) setConnection("Disconnected · retrying", "disconnected");
     store.pending.forEach((p) => p.reject(Error("Console disconnected")));
     store.pending.clear();
-    store.reconnectTimer=setTimeout(connect, 1500);
+    if (!store.refused) store.reconnectTimer=setTimeout(connect, 1500);
   };
+}
+// An unusable source is dropped and not retried: Connect tries again
+function refuseConnection(problem) {
+  store.refused=true;
+  store.socket.close();
+  $('connection-error').textContent=problem; $('connection-error').hidden=false;
+  setConnection('Connection refused', 'disconnected');
 }
 async function initializeConnection() {
   const generation=store.connectionGeneration;
   editorStatic=null;
   const probe=await detectConnection(rpc,Number($('unit').value || 0));
   if (generation!==store.connectionGeneration || store.socket?.readyState!==1) return;
+  const problem=await versionProblem(rpc);
+  if (generation!==store.connectionGeneration || store.socket?.readyState!==1) return;
+  if (problem) return refuseConnection(problem);
   store.telemetryAvailable=await telemetryAvailable(rpc,probe.connection_kind);
   if (generation!==store.connectionGeneration || store.socket?.readyState!==1) return;
   if (probe.connection_kind==='live_machine') {
