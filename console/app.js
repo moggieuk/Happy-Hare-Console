@@ -843,7 +843,7 @@ $('telemetry-file').onchange = async () => {
     store.sourceReplay=replay; store.sourceRecords=records;
     store.rawEvents=replay.events; store.events=visibleSteps(store.rawEvents); store.session=replay.session;
     store.live=false; store.paused=true; store.cursor=0; store.playing=null; store.sensorPulse=null; store.pauseAfterStep=false; store.displayed=null;
-    $('recording-name').textContent=file.name;
+    $('recording-name').textContent='Loaded: '+file.name;
     setConnection('Offline recording · not connected', 'offline');
     sourceMode(); draw(); renderTrace();
     if (replay.checkpoint) message('Loaded checkpoint: earlier motion and inferred geometry are unavailable.');
