@@ -16,12 +16,10 @@
       <section class="card" id="connection-panel" aria-label="Connection">
         <div class="heading"><h2>Connection</h2><span id="console-live" class="console-live" role="status" aria-label="Not live"><span aria-hidden="true"></span>Live</span></div>
         <label>Printer / simulator URL<input id="printer-url" type="text" aria-label="Printer or simulator URL"></label>
-        <button id="connect-printer" type="button">Connect</button>
-        <button id="load-telemetry" type="button">Load telemetry</button>
+        <div class="connect-row"><button id="connect-printer" type="button">Connect</button><span>or</span><button id="load-telemetry" type="button">Load telemetry</button></div>
         <label id="source-row" hidden>Data source<select id="view-mode"><option value="live">Live status subscription</option><option id="telemetry-option" value="playback">Telemetry stream</option></select></label>
         <p id="telemetry-hint" class="note" hidden>Add [mmu_telemetry] to moonraker.conf to enable the telemetry stream.</p>
         <label id="record-row" hidden>Record to log<select id="record-mode"><option value="off">Off</option><option value="on">On</option><option value="toolchange">Next toolchange only</option></select></label>
-        <button id="save-motion" type="button" hidden>Save telemetry</button>
         <input id="telemetry-file" type="file" accept=".jsonl,.ndjson,.json" hidden>
         <p id="recording-name" class="note" hidden></p>
         <div id="simulator-controls" hidden>
@@ -71,7 +69,7 @@
         <label class="playback-option"><input id="unit-logos" type="checkbox" checked>Show unit logos</label>
         <label class="playback-option"><input id="unit-names" type="checkbox" checked>Show unit names</label>
         <label class="playback-option"><input id="compress-bowden" type="checkbox">Compress Bowden playback time</label>
-        <div class="settings-divider" role="separator" aria-label="Debug controls">Debug</div>
+        <div class="settings-divider" role="separator" aria-label="Debug controls">Debug (temporary)</div>
         <label class="nozzle-control" for="nozzle-diameter">Nozzle size
           <select id="nozzle-diameter" aria-label="Nozzle diameter">
             <option value="0.2">0.2mm</option>
@@ -129,6 +127,7 @@
           <div class="heading trace-heading">
           <h2 tabindex="0" data-tooltip="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture." aria-description="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture.">Movement trace</h2>
           <label class="trace-options"><input id="show-internal" type="checkbox" data-tooltip="Show diagnostic updates; playback skips these rows">Show internal updates</label>
+          <button id="save-motion" type="button" hidden>Save telemetry</button>
           </div>
           <div id="trace" role="log"></div>
         <div class="controls timeline-control">

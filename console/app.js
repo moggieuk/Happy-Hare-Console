@@ -239,7 +239,7 @@ async function subscribeLive() {
       : /^(extruder\d*|heater_generic .+)$/.test(n) ? ['target'] : null]));
   wanted.mmu=['unit','gate','tool','filament_pos','bowden_progress','homing','selector','sync_drive','sensors','config_changes',
     'gate_color_rgb','gate_status','gate_initial_weight','gate_remaining_weight','espooler','action',
-    'filament_cut_fragment','filament_remaining_color'];
+    'filament_cut_fragment','filament_remaining_color','ttg_map','endless_spool_groups'];
   wanted.save_variables=['variables'];
   Object.assign(wanted,await unitObjectsWanted(objects));
   wanted.mmu.push('drying_state','enabled');
@@ -352,7 +352,7 @@ async function refresh(probed) {
   );
   if (store.setup.profiles.some((p) => p.name === store.setup.profile))
     $("profiles").value = store.setup.profile;
-  $("profile").textContent = "Running: " + store.setup.profile;
+  $("profile").textContent = "Running profile: " + store.setup.profile;
   filter();
   await refreshToolheads().catch(error=>message(error.message,true));
 }

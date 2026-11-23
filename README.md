@@ -61,7 +61,6 @@ type: git_repo
 path: ~/Happy-Hare-Console
 origin: https://github.com/moggieuk/Happy-Hare-Console.git
 primary_branch: main
-is_system_service: False
 ```
 
 ### Uninstalling
