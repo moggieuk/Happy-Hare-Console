@@ -403,7 +403,7 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 .trace-footer #timeline { margin: 0; display: block; }
 .trace-footer button { margin: 0; flex: none; }
 .connect-row { display: flex; align-items: center; gap: 8px; }
-.connect-row span { font-size: 13px; }
+.connect-row span { font-size: 13px; flex: 1; text-align: center; }
 .trace-options { margin: 0 0 0 auto; display: flex; align-items: center; gap: 7px; font-size: 12px; }
 .trace-options input { width: auto; margin: 0; }
 #trace .trace-internal { padding: 8px 10px; border: 1px dashed var(--scene-border, #dae2e9); border-radius: 6px; margin-bottom: 6px; font-size: 12px; }
