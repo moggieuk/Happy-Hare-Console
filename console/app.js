@@ -99,7 +99,7 @@ function rpc(method, params = {}) {
     if (store.offline) return reject(Error("Select a live source before changing the printer"));
     if (store.socket?.readyState !== 1) return reject(Error("Console disconnected"));
     const id = ++store.serial;
-    // A lost reply must not hold the viewer forever; only G-code is allowed to take as long as it takes.
+    // A lost reply must not hold the console forever; only G-code is allowed to take as long as it takes.
     const timer = method === 'printer.gcode.script' ? null
       : setTimeout(() => { if (store.pending.delete(id)) reject(Error(`${method} timed out`)); }, RPC_TIMEOUT_MS);
     const done = (settle) => (value) => { clearTimeout(timer); settle(value); };
@@ -550,7 +550,7 @@ function animationNow() {
   return animationTime;
 }
 const scene=createScene($('scene'), {now:animationNow, requestFrame:draw,
-  rackHeld:()=>!$('viewer-tooltip').hidden || gateMenuView.isOpen(), rackMoved:()=>gateMenuView.close()});
+  rackHeld:()=>!$('console-tooltip').hidden || gateMenuView.isOpen(), rackMoved:()=>gateMenuView.close()});
 // Gate lanes and spool columns share the same spacing.
 function currentIndex() {
   return store.live ? Math.max(0, store.events.findIndex(e => e.seq === (store.playing?.event.seq || store.played))) : store.cursor;
@@ -884,8 +884,8 @@ function updateLiveIndicator() {
       && (store.playing?.event.seq ?? store.played) >= (store.events.at(-1)?.seq ?? 0)));
   if (active===liveIndicator) return;
   liveIndicator=active;
-  $('viewer-live').classList.toggle('active',active);
-  $('viewer-live').setAttribute('aria-label',active ? 'Live' : 'Not live');
+  $('console-live').classList.toggle('active',active);
+  $('console-live').setAttribute('aria-label',active ? 'Live' : 'Not live');
 }
 function drawFrame() {
   updateLiveIndicator();

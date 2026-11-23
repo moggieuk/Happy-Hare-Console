@@ -459,7 +459,7 @@ export function selectorSummary(event) {
 }
 
 // The notice for a selector move: up from the move through the gate-selection slide that follows a
-// stepper move, and until the viewer leaves that gate change. Following the stream at rest, a selector
+// stepper move, and until the console leaves that gate change. Following the stream at rest, a selector
 // move that is not about to slide (a lone servo move) does not leave it behind.
 export function selectorNotice(events, event, playing, following) {
   const index=events.indexOf(event);

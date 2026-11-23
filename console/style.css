@@ -246,7 +246,7 @@ main > section { display: flex; flex-direction: column; gap: 16px; align-self: s
 .sensor-marker.sensor-disabled { opacity: .5; }
 
 h2[data-tooltip] { position: relative; width: fit-content; cursor: help; }
-#viewer-tooltip {
+#console-tooltip {
   position: fixed;
   z-index: 20;
   top: calc(100% + 6px);
@@ -264,7 +264,7 @@ h2[data-tooltip] { position: relative; width: fit-content; cursor: help; }
   white-space: pre-line;
   pointer-events: none;
 }
-[data-theme="dark"] #viewer-tooltip { background: #dce5ef; color: #172431; }
+[data-theme="dark"] #console-tooltip { background: #dce5ef; color: #172431; }
 
 #theme-toggle { padding: 8px; line-height: 0; }
 #theme-toggle svg { width: 24px; height: 24px; fill: currentColor; }
@@ -417,22 +417,22 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 [data-theme="dark"] #trace .trace-event.selected { background: #365b6a; }
 #trace .trace-event > .trace-telemetry { margin-bottom: 0; }
 
-.viewer-readout-controls { position: relative; }
+.console-readout-controls { position: relative; }
 .dimensions-option { position: absolute; right: 0; top: 0; margin: 0; }
-.viewer-readout-controls summary { padding-right: 140px; }
+.console-readout-controls summary { padding-right: 140px; }
 #scene.hide-dimensions :is(.toolhead-reference, .cooling-measurements, #encoder-offset, #residual-dimension, #cut-fragment-label) { visibility: hidden; }
 
 .spool-settings-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 16px; margin: 10px 0 12px; }
 .setting-label { font-size: 12px; margin-bottom: 4px; }
 .spool-settings-row .playback-option { margin: 8px 0 0; }
-.spool-sliders .viewer-setting-slider { margin: 0 0 16px; }
+.spool-sliders .console-setting-slider { margin: 0 0 16px; }
 .settings-divider { display: flex; align-items: center; gap: 8px; opacity: .6; margin: 14px 0; font-size: 11px; }
 .settings-divider::before, .settings-divider::after { content: ''; flex: 1; border-top: 1px solid var(--scene-border, #96abba); }
 .virtual-gate-sensor > circle { opacity: calc(.55 + .45 * var(--sensor-lit, 0)); }
-.viewer-live { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; opacity: .55; }
-.viewer-live > span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.viewer-live.active { color: #48c982; opacity: 1; }
-.viewer-live.active > span { box-shadow: 0 0 5px #48c98280; }
+.console-live { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; opacity: .55; }
+.console-live > span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.console-live.active { color: #48c982; opacity: 1; }
+.console-live.active > span { box-shadow: 0 0 5px #48c98280; }
 .spool-style-picker { position: relative; width: 76px; padding: 0; }
 .spool-style-picker summary { display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; height: 72px; padding: 6px; border: 1px solid #bac9d7; background: white; border-radius: 5px; cursor: pointer; list-style: none; }
 [data-theme="dark"] .spool-style-picker summary { background: #111c26; border-color: #526779; }
@@ -447,9 +447,9 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 .spool-style-choice input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .spool-style-choice svg { width: 60px; height: 66px; }
 
-.viewer-setting-slider { display: grid; grid-template-columns: 1fr auto; gap: 4px; font-size: 12px; }
-.viewer-setting-slider input { grid-column: 1 / -1; width: 100%; padding: 0; }
-.viewer-setting-slider output { font-variant-numeric: tabular-nums; }
+.console-setting-slider { display: grid; grid-template-columns: 1fr auto; gap: 4px; font-size: 12px; }
+.console-setting-slider input { grid-column: 1 / -1; width: 100%; padding: 0; }
+.console-setting-slider output { font-variant-numeric: tabular-nums; }
 
 .gate-preview-control { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .gate-preview-control label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; }

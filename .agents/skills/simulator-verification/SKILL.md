@@ -16,10 +16,10 @@ In a Happy Hare checkout (`make console` passes flags through `ARGS`):
 make console ARGS='--profile boxturtle2_ercf --serve 7131'
 ```
 
-- The page is at `http://127.0.0.1:<port>/sim/viewer/` (the address is in the console banner).
+- The page is at `http://127.0.0.1:<port>/sim/console/` (the address is in the console banner).
   The default port is 7125, which is also a real Moonraker's port; choose another when one may be
   running on the machine.
-- The simulator serves `../Happy-Hare-Console/viewer` relative to the Happy Hare checkout, or the
+- The simulator serves `../Happy-Hare-Console/console` relative to the Happy Hare checkout, or the
   folder named by `HH_CONSOLE_DIR`. Without either the address returns a 404 explaining this.
 - It serves the files on every request, so an edit needs only a page reload.
 - **It must run under a terminal.** Started with no terminal attached (from a script or a background

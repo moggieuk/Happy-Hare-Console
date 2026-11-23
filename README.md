@@ -1,6 +1,6 @@
 # Happy Hare Console
 
-![The Console connected to the Happy Hare simulator (boxturtle2_ercf profile), mid-load on a BoxTurtle gate with its espooler assisting](viewer/docs/boxturtle2-ercf-load.jpg)
+![The Console connected to the Happy Hare simulator (boxturtle2_ercf profile), mid-load on a BoxTurtle gate with its espooler assisting](console/docs/boxturtle2-ercf-load.jpg)
 
 A web interface for [Happy Hare](https://github.com/moggieuk/Happy-Hare) that animates what the MMU
 is doing: the filament in every gate, the selector, gears, sensors, buffer, spools and toolhead, live
@@ -31,7 +31,7 @@ cd Happy-Hare-Console
 The installer does two things and prints the Console's address when it finishes:
 
 1. **Adds an nginx site of its own**, beside Mainsail or Fluidd, on the first free port from 8090 (for
-   example `http://<printer>:8090/`). It serves the `viewer/` folder and proxies `/websocket` and the
+   example `http://<printer>:8090/`). It serves the `console/` folder and proxies `/websocket` and the
    Moonraker API paths to Moonraker, exactly as Mainsail's own site does, so the page and the API share
    an origin and nothing needs adding to `cors_domains`.
 2. **Registers the checkout with Moonraker's update manager**, so the Console appears in the update
@@ -84,7 +84,7 @@ checkout afterwards if you no longer want it.
 
 ## Other ways to host it
 
-Any static web server can serve the `viewer/` folder. The page connects to Moonraker at its own
+Any static web server can serve the `console/` folder. The page connects to Moonraker at its own
 origin, so either proxy Moonraker's paths as `nginx/happy-hare-console.conf` does, or set the
 connection address in the page and allow the page's host in Moonraker's `cors_domains`.
 
@@ -102,7 +102,7 @@ make spellcheck   # CSpell
 `make test` needs Node.js 22 or later and Python 3. The same checks run on every pull request.
 Pull request titles follow conventional commits (`feat`, `fix`, `chore` or `docs`).
 
-[viewer/README.md](viewer/README.md) describes the modules, the data sources, how telemetry is drawn
+[console/README.md](console/README.md) describes the modules, the data sources, how telemetry is drawn
 and the fixtures.
 
 ## License

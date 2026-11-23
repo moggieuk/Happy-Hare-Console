@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # Happy Hare Console
 #
-# Serve the Console (the viewer/ folder of this checkout) from an nginx site of its own, beside
+# Serve the Console (the console/ folder of this checkout) from an nginx site of its own, beside
 # Mainsail/Fluidd, and register the checkout with Moonraker's update manager.
 #
 # The site shares no files with other web UIs, so removing it never affects them.
@@ -9,13 +9,13 @@
 #
 # Environment (for testing and unusual layouts):
 #   NGINX_DIR (/etc/nginx)  NGINX_BIN (nginx)  NGINX_ARGS (extra args for nginx -t)
-#   SUDO (sudo, or empty when root)  NO_RELOAD (skip the reload)  VIEWER_DIR (folder to serve)
+#   SUDO (sudo, or empty when root)  NO_RELOAD (skip the reload)  CONSOLE_DIR (folder to serve)
 #   MOONRAKER_CONF (moonraker.conf to register with)
 #
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 NGINX_DIR="${NGINX_DIR:-/etc/nginx}"
 NGINX_BIN="${NGINX_BIN:-nginx}"
-VIEWER_DIR="${VIEWER_DIR:-${HERE}/viewer}"
+CONSOLE_DIR="${CONSOLE_DIR:-${HERE}/console}"
 CONFIG_DIR="${HOME}/printer_data/config"
 UPSTREAM_PORT=7125
 FIRST_PORT=8090
@@ -68,7 +68,7 @@ choose_port() {
     echo "${port}"
 }
 
-render() { # <viewer_dir> <port>
+render() { # <console_dir> <port>
     sed -e "s#%ROOT%#$1#g" -e "s#%PORT%#$2#g" -e "s#%UPSTREAM%#${UPSTREAM_PORT}#g" "${HERE}/nginx/${NAME}.conf"
 }
 
@@ -77,7 +77,7 @@ reload_nginx() {
     ${SUDO} systemctl reload nginx 2>/dev/null || ${SUDO} "${NGINX_BIN}" -s reload
 }
 
-check_readable() { # <viewer_dir>
+check_readable() { # <console_dir>
     user=$(sed -n 's/^[[:space:]]*user[[:space:]]\{1,\}\([A-Za-z0-9_.-]\{1,\}\).*/\1/p' "${NGINX_DIR}/nginx.conf" 2>/dev/null | head -n 1)
     user=${user:-www-data}
     id "${user}" >/dev/null 2>&1 || return 0
@@ -136,18 +136,18 @@ unregister_updates() {
 }
 
 do_install() {
-    viewer=${VIEWER_DIR}
-    [ -f "${viewer}/index.html" ] || fail "No Console found at ${viewer}"
+    console=${CONSOLE_DIR}
+    [ -f "${console}/index.html" ] || fail "No Console found at ${console}"
     if ! have_nginx; then
         say "The Console needs a web server and nginx was not found (or is not laid out like a Debian install)."
         say "See README.md: 'Other ways to host it' for installing nginx or serving the folder yourself."
         return 0
     fi
     port=$(choose_port)
-    say "Serving ${viewer} on port ${port}, proxying Moonraker on port ${UPSTREAM_PORT}."
+    say "Serving ${console} on port ${port}, proxying Moonraker on port ${UPSTREAM_PORT}."
     confirm "This uses sudo to write ${SITE} and reload nginx. Continue?" || { say "Nothing changed."; return 0; }
     tmp=$(mktemp) || fail "Cannot create a temporary file"
-    render "${viewer}" "${port}" >"${tmp}"
+    render "${console}" "${port}" >"${tmp}"
     previous=
     if [ -f "${SITE}" ]; then previous=$(mktemp); cp "${SITE}" "${previous}"; fi
     ${SUDO} cp "${tmp}" "${SITE}" && ${SUDO} ln -sf "${SITE}" "${LINK}" || { rm -f "${tmp}" "${previous}"; fail "Unable to write the nginx site"; }
@@ -160,7 +160,7 @@ do_install() {
     fi
     rm -f "${previous}"
     reload_nginx || fail "nginx could not be reloaded"
-    check_readable "${viewer}"
+    check_readable "${console}"
     register_updates
     say "The Console is at http://$(address):${port}/"
 }

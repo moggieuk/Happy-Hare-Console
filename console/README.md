@@ -1,4 +1,4 @@
-# Happy Hare viewer
+# Happy Hare Console internals
 
 ![The Console connected to the simulator (boxturtle2_ercf profile), mid-load on a BoxTurtle gate with its espooler assisting](docs/boxturtle2-ercf-load.jpg)
 
@@ -47,23 +47,23 @@ moves that park the filament straight after it. Rings pulse from the tag mark on
 status mode has no record of a scan, so shows neither.
 
 ## Simulator-only features
-Profile switching and sensor toggles use `sim.viewer.*` RPCs that only
-the simulator provides. The viewer probes for them once on connect and hides those controls elsewhere.
+Profile switching and sensor toggles use `sim.console.*` RPCs that only
+the simulator provides. The Console probes for them once on connect and hides those controls elsewhere.
 
 ## Running it
 See the [repository README](../README.md) for installing it on a printer, running it against the Happy Hare
 simulator and other ways to host it.
 
 ## Tests
-`make test` from the repository root, or `node --test viewer/*.test.mjs` for the JavaScript tests alone
-(optional browser tests: `viewer/*.browser.mjs`, need Playwright).
+`make test` from the repository root, or `node --test console/*.test.mjs` for the JavaScript tests alone
+(optional browser tests: `console/*.browser.mjs`, need Playwright).
 
-## Using the live viewer
+## Using the Console
 
 The diagram follows the console session, including commands typed at the terminal
 or sent from the browser. It shows the MMU and extruder gears, a compressed Bowden
 path, configured switches and encoder/buffer state. Animation is reconstructed
-from Happy Hare source telemetry in `viewer/telemetry.js`; it never reads the
+from Happy Hare source telemetry in `console/telemetry.js`; it never reads the
 simulator's filament coordinates or stepper-observer hooks. This is a schematic
 interpretation of commanded motion and sensor observations, not a melt simulation.
 Most macro bodies retain the harness's recorded-only behavior described below.
@@ -71,7 +71,7 @@ Most macro bodies retain the harness's recorded-only behavior described below.
 The trace records MMU gear/extruder moves, MMU-owned G1 extrusion, cutter hooks,
 toolchange markers, filament state changes and relevant configuration edits.
 Selector motion and simulator-only macro fallbacks do not create animation steps. Logical movement records are published when each move completes, with start/end
-states, actual travel and homing outcome. The viewer queues and interpolates them.
+states, actual travel and homing outcome. The Console queues and interpolates them.
 Acknowledged WebSocket batches preserve event order even when the simulator
 delivers them after a command returns. Socket reader threads never enter the reactor. Pacing (`--pace`) makes
 long moves easier to follow. Instant operations can finish before the browser's
@@ -118,7 +118,7 @@ equal synced travel preserves that position. Encoder labels update at move endpo
 `mmu.telemetry_mode` printer variable (off, on or next toolchange only); see the telemetry README. **Save telemetry** exports the bounded source recording as JSONL. **Load telemetry**
 opens that JSONL (or a JSON array/envelope of records) with the same replay reducer
 used live. Loading starts paused at the beginning. Printer controls are disabled,
-live updates cannot overwrite the file, and playback stops at its end. The viewer
+live updates cannot overwrite the file, and playback stops at its end. The Console
 continues working if the simulator disconnects after the page has loaded.
 **Reconnect** (the Connect button) leaves the recording and reconnects to the current source. Files require a v2 session
 snapshot; older motion-only JSONL and diagnostic trace files cannot be loaded.
@@ -211,7 +211,7 @@ It is read-only.
 
 ## Modes and panels
 
-The viewer has two independent modes, identified at the top left. Simulator
+The Console has two independent modes, identified at the top left. Simulator
 connections default to telemetry playback; other connections default to live view.
 Explicit mode choices survive reconnects. To open a recording, select telemetry
 playback and use **Load telemetry**:
@@ -224,13 +224,13 @@ playback and use **Load telemetry**:
   simulator's piped telemetry stream. Current printer status never changes an
   old recording. Playback controls and the movement trace appear in this mode.
   While following the stream at rest (not paused, not animating, no move in
-  progress) the viewer also subscribes to `mmu.sensors` and shows those readings
+  progress) the Console also subscribes to `mmu.sensors` and shows those readings
   on the live end, so a sensor toggled or triggered while idle appears at once
   instead of when the capture's next read records it (`overlay.js`). Nothing else is
   overlaid, and the recorded state carries the same values.
 
 The Settings panel accepts a printer/simulator URL (default: the server hosting
-this viewer). The parameter editor and Toolhead Config panel work on a real printer
+this Console). The parameter editor and Toolhead Config panel work on a real printer
 because they only send `MMU_TEST_CONFIG` and `SET_GCODE_VARIABLE`; the Buffer and Encoder
 panels, which set object attributes directly, are simulator-only.
 
@@ -242,7 +242,7 @@ builds the machine description from state Klipper already publishes (see
 reduces recordings. Both use `scene-state.js` for scene geometry and share the SVG
 components. New movement recordings omit heater target changes; old recordings
 containing these fields remain readable. Run the live browser regression with
-`node --test viewer/live.browser.mjs` using the same Playwright/Chrome
+`node --test console/live.browser.mjs` using the same Playwright/Chrome
 settings as the spool browser test below.
 
 The **Toolhead Config** panel appears when the machine has a toolhead section. A toolhead shared
@@ -250,7 +250,7 @@ by several units is listed once with those units, and edits are sent as `MMU_TES
 
 ## How telemetry is drawn
 
-The viewer holds the severed fragment until an advancing filament end pushes it.
+The Console holds the severed fragment until an advancing filament end pushes it.
 A withdrawn nozzle tip has a schematic cone and approximately 15mm hair; cutting
 transfers that shape to the fragment and leaves the attached end square. Residual
 melt stays at the nozzle. These shapes are illustrations, not measured tip geometry.
@@ -271,7 +271,7 @@ Configuration changes are included in telemetry. **Show internal updates** also
 adds expandable raw telemetry details to each trace entry; movements expose both
 the start and outcome messages without changing playback selection.
 
-Viewer snapshots retain `raw_state`/`raw_before` separately from displayed states.
+Console snapshots retain `raw_state`/`raw_before` separately from displayed states.
 A forward move with stationary extruder motors stops the displayed tip at the
 configured gear position, while motor travel continues. The calibrated Bowden endpoint is the extruder gear position;
 `toolhead_entry_to_extruder` locates the entry sensor upstream of it. Clear enabled presence
@@ -294,20 +294,20 @@ behind the lower screen and the next coil starts growing. Any actual extruder
 retraction detaches accumulated purge within that movement's animation; gear-only
 retraction does not. There is no separate purge-release animation event.
 
-The viewer’s previous/next toolchange buttons navigate these markers; the
+The Console’s previous/next toolchange buttons navigate these markers; the
 previous button returns to the current operation’s start before moving to an
 earlier operation. Older recordings without markers disable these buttons.
 
 ## Fixtures and browser tests
 
-The replay fixtures under `viewer/fixtures/` were captured with `ercf_vvd`
+The replay fixtures under `console/fixtures/` were captured with `ercf_vvd`
 and `emu` console profiles using `MMU_LOAD`, `MMU_UNLOAD`, then `MMU_LOAD`.
 They contain source records only. Tests compare batched live reduction with JSONL
 loading and exercise every interpolated movement endpoint.
 
 The optional spool browser regression compares retained SVG updates with fresh
 renders across styles, fill levels, viewing angles, and rotation. With Playwright
-and Chromium available, run `node --test viewer/spool.browser.mjs`.
+and Chromium available, run `node --test console/spool.browser.mjs`.
 Set `PLAYWRIGHT_MODULE` to its module path and `CHROME_PATH` to a Chrome executable
 when using external installations. It also checks that motion preserves geometry
 nodes and unchanged props do not write to the DOM.

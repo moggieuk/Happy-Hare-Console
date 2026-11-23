@@ -1,6 +1,6 @@
 ---
 name: scene-and-frame-loop
-description: Explains how the Happy Hare Console draws — the split between app.js (state, connection, frame loop) and scene.js (one render of one scene state), the named render parts, spool rotation and tag-pulse conventions in spool.js, and the test traps (frame.test.mjs slices app.js by source text, syntax.test.mjs parses every file as a module). Use this whenever touching viewer/app.js, viewer/scene.js, viewer/spool.js, viewer/style.css or a view module, adding something to the drawing, changing what animates per frame, or when frame.test.mjs fails after an edit that looks unrelated.
+description: Explains how the Happy Hare Console draws — the split between app.js (state, connection, frame loop) and scene.js (one render of one scene state), the named render parts, spool rotation and tag-pulse conventions in spool.js, and the test traps (frame.test.mjs slices app.js by source text, syntax.test.mjs parses every file as a module). Use this whenever touching console/app.js, console/scene.js, console/spool.js, console/style.css or a view module, adding something to the drawing, changing what animates per frame, or when frame.test.mjs fails after an edit that looks unrelated.
 ---
 
 # Scene and frame loop
@@ -16,7 +16,7 @@ description: Explains how the Happy Hare Console draws — the split between app
   and others) sharing one frame context. Add a feature as a part, or inside the part that owns the
   geometry it needs; do not reach across parts through module globals.
 - Everything else is pure logic with no DOM access, or a small view module for one panel.
-- `simulator.js` is the only module that calls `sim.viewer.*`. The app probes for those calls once
+- `simulator.js` is the only module that calls `sim.console.*`. The app probes for those calls once
   on connect and hides the controls on a printer.
 
 Known and accepted: the scene is rebuilt from one SVG string on every animated frame. Spools are the

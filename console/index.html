@@ -14,7 +14,7 @@
     <main>
       <div class="left-column">
       <section class="card" id="connection-panel" aria-label="Connection">
-        <div class="heading"><h2>Connection</h2><span id="viewer-live" class="viewer-live" role="status" aria-label="Not live"><span aria-hidden="true"></span>Live</span></div>
+        <div class="heading"><h2>Connection</h2><span id="console-live" class="console-live" role="status" aria-label="Not live"><span aria-hidden="true"></span>Live</span></div>
         <label>Printer / simulator URL<input id="printer-url" type="text" aria-label="Printer or simulator URL"></label>
         <button id="connect-printer" type="button">Connect</button>
         <label>Data source<select id="view-mode"><option value="live">Live status subscription</option><option id="recording-option" value="recording" disabled hidden>Loaded telemetry recording</option><option value="playback">Telemetry stream</option></select></label>
@@ -65,15 +65,15 @@
         </p>
         <p id="profile"></p>
       </aside>
-      <section class="card" id="viewer-settings" aria-label="Viewer settings">
+      <section class="card" id="console-settings" aria-label="Console settings">
         <h2>Settings</h2>
         <div class="spool-settings-row">
           <div><div id="spool-type-label" class="setting-label">Spool type</div><details class="spool-style-picker" id="spool-style-menu"><summary aria-labelledby="spool-type-label"><span id="spool-style-current"></span></summary><div id="spool-style-grid" role="group" aria-label="Spool type"></div></details>
           <label class="playback-option"><input id="spool-realism" type="checkbox" checked>Shadows</label>
           </div>
           <div class="spool-sliders">
-        <label class="viewer-setting-slider" for="spool-angle">Viewing angle <output id="spool-angle-value">77°</output><input id="spool-angle" type="range" min="65" max="90" value="77" step="1"></label>
-        <label class="viewer-setting-slider" for="spool-spacing">Spool spacing <output id="spool-spacing-value">54</output><input id="spool-spacing" type="range" min="45" max="75" value="54" step="1"></label>
+        <label class="console-setting-slider" for="spool-angle">Viewing angle <output id="spool-angle-value">77°</output><input id="spool-angle" type="range" min="65" max="90" value="77" step="1"></label>
+        <label class="console-setting-slider" for="spool-spacing">Spool spacing <output id="spool-spacing-value">54</output><input id="spool-spacing" type="range" min="45" max="75" value="54" step="1"></label>
           </div>
         </div>
         <label class="playback-option"><input id="unit-logos" type="checkbox" checked>Show unit logos</label>
@@ -116,7 +116,7 @@
             aria-label="Filament path from MMU through Bowden to extruder"
           ></svg>
           </div>
-          <div class="viewer-readout-controls">
+          <div class="console-readout-controls">
           <label class="playback-option dimensions-option"><input id="show-dimensions" type="checkbox" checked>Show dimensions</label>
           <details id="sensor-readout">
             <summary>Sensor and device readout <span class="expand-label">Expand</span><span class="collapse-label">Collapse</span></summary>

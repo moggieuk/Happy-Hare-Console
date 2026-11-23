@@ -1,4 +1,4 @@
-// Optional integration regression: node --test viewer/live.browser.mjs
+// Optional integration regression: node --test console/live.browser.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -24,12 +24,12 @@ test('live subscriptions remain isolated from file playback',async()=>{
       ws.send(JSON.stringify({id:request.id,result}));
     });
   });
-  await page.route('http://viewer.test/**',route=>{
+  await page.route('http://console.test/**',route=>{
     const name=new URL(route.request().url()).pathname.split('/').at(-1) || 'index.html';
     if(name==='telemetry') {telemetryRequests.push(name);return route.fulfill({status:500});}
     return route.fulfill({body:readFileSync(new URL('./'+name,import.meta.url)),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
   });
-  await page.goto('http://viewer.test/');
+  await page.goto('http://console.test/');
   await page.locator('#scene [data-part="espooler"]').first().waitFor();
   assert.match(await page.locator('#mode').textContent(),/^Live view/);
   assert.equal(await page.locator('#previous').isVisible(),false);

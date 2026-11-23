@@ -1,18 +1,18 @@
 ---
 name: telemetry-playback
-description: Explains how the Happy Hare Console turns Happy Hare motion telemetry into animation steps — the happy_hare.motion record format, what a movement event's time, duration and requested fields mean, and the inferences the Console makes where telemetry is silent (NFC scan moves, an empty selected gate, sensor limits on the drawn tip). Use this whenever touching viewer/telemetry.js, viewer/playback.js, viewer/scene-state.js, viewer/overlay.js or the fixtures, adding an animation that depends on a kind of move, debugging a tip that jumps, stalls or lands in the wrong place, or changing what the Console expects from Happy Hare's telemetry — even if the request only says "the filament jumps" or "the spool turns the wrong way".
+description: Explains how the Happy Hare Console turns Happy Hare motion telemetry into animation steps — the happy_hare.motion record format, what a movement event's time, duration and requested fields mean, and the inferences the Console makes where telemetry is silent (NFC scan moves, an empty selected gate, sensor limits on the drawn tip). Use this whenever touching console/telemetry.js, console/playback.js, console/scene-state.js, console/overlay.js or the fixtures, adding an animation that depends on a kind of move, debugging a tip that jumps, stalls or lands in the wrong place, or changing what the Console expects from Happy Hare's telemetry — even if the request only says "the filament jumps" or "the spool turns the wrong way".
 ---
 
 # Telemetry playback
 
 The Console never reads the simulator's filament coordinates. Every animated step is reconstructed
-from Happy Hare's source telemetry, the same on a printer and in the simulator. `viewer/README.md`
-("Using the live viewer", "How telemetry is drawn") describes what is drawn; this file records what
+from Happy Hare's source telemetry, the same on a printer and in the simulator. `console/README.md`
+("Using the Console", "How telemetry is drawn") describes what is drawn; this file records what
 is easy to get wrong.
 
 ## The record format is a contract with another repository
 
-`TelemetryReplay` (`viewer/telemetry.js`) accepts only records with `schema: happy_hare.motion` and
+`TelemetryReplay` (`console/telemetry.js`) accepts only records with `schema: happy_hare.motion` and
 `version: 1`, and a loaded file must begin with a session snapshot. The producer is Happy Hare
 (`extras/mmu/telemetry/`, documented in its `extras/mmu/telemetry/README.md`). Nothing in this
 repository tests the producer, so:
@@ -21,7 +21,7 @@ repository tests the producer, so:
   on a printer as well as in the simulator.
 - Prefer an explicit field over matching text. Where the Console does match text (below), say so in
   the code, because a reworded label in Happy Hare breaks it silently.
-- The two fixtures (`viewer/fixtures/ercf-vvd.json`, `emu.json`) are recordings of `MMU_LOAD`,
+- The two fixtures (`console/fixtures/ercf-vvd.json`, `emu.json`) are recordings of `MMU_LOAD`,
   `MMU_UNLOAD`, `MMU_LOAD` from those simulator profiles. Regenerate them from the simulator when the
   format changes; never edit them by hand.
 

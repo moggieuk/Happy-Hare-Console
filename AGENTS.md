@@ -7,12 +7,12 @@ listed at the end.
 
 ## Layout
 
-- `viewer/` is the whole application: one `index.html`, one `style.css` and flat ES modules. There is
-  **no build step, no bundler and no dependencies**. `viewer/README.md` is the technical reference
+- `console/` is the whole application: one `index.html`, one `style.css` and flat ES modules. There is
+  **no build step, no bundler and no dependencies**. `console/README.md` is the technical reference
   (modules, data sources, how telemetry is drawn); read it before changing behavior.
-- `install.sh` and `nginx/happy-hare-console.conf` serve `viewer/` from a printer.
+- `install.sh` and `nginx/happy-hare-console.conf` serve `console/` from a printer.
 - `test/test_install.py` tests the installer; the JavaScript tests sit beside their modules as
-  `viewer/*.test.mjs`.
+  `console/*.test.mjs`.
 
 ## Testing
 
@@ -27,15 +27,15 @@ enough.
 
 ## Rules that are easy to break
 
-- **Keep `viewer/` flat.** The Happy Hare simulator serves only `index.html` and `<name>.js` /
-  `<name>.css` directly inside `viewer/`. A module in a subfolder, or an image or font file, loads
+- **Keep `console/` flat.** The Happy Hare simulator serves only `index.html` and `<name>.js` /
+  `<name>.css` directly inside `console/`. A module in a subfolder, or an image or font file, loads
   from nginx but 404s under the simulator. Artwork is inline SVG paths (`unit-icons.js`).
-- **Relative URLs only.** The page is served from a port's root by nginx and from `/sim/viewer/` by
+- **Relative URLs only.** The page is served from a port's root by nginx and from `/sim/console/` by
   the simulator. `test/test_install.py` fails on a root-absolute `src`, `href`, `import` or `url()`.
 - **Logic modules have no DOM access.** Only `app.js`, `scene.js` and the small view modules touch
   the page; everything else is pure and is what the JavaScript tests cover.
 - **Happy Hare is a separate repository.** The telemetry stream, the `mmu_machine` object and the
-  simulator's `sim.viewer.*` calls are a contract with it. A change to what the Console expects
+  simulator's `sim.console.*` calls are a contract with it. A change to what the Console expects
   usually needs a matching change there, and nothing here tests that side.
 - **Changes that break existing setups will probably be rejected.** That includes the installed
   nginx site name, its port choice and the update manager section name.

@@ -1,5 +1,5 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
-// Near-live: while the viewer follows the telemetry stream and nothing is moving, sensors can
+// Near-live: while the console follows the telemetry stream and nothing is moving, sensors can
 // change without any event (a toggle, a filament inserted by hand). Status already reports them,
 // so show those readings on top of the recorded state until the next event carries the same values.
 import {qualifySensors} from './live-config.js';

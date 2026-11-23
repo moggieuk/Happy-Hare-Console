@@ -58,12 +58,12 @@ test('reconnect leaves loaded recordings offline',async()=>{
 test('a failed simulator probe is a live machine and nothing else calls sim.* afterwards',async()=>{
  const methods=[];
  const live=await detectConnection(async method=>{methods.push(method);throw Error('Method not found');},2);
- assert.equal(live.connection_kind,'live_machine');assert.deepEqual(methods,['sim.viewer.setup']);
+ assert.equal(live.connection_kind,'live_machine');assert.deepEqual(methods,['sim.console.setup']);
  const sim=await detectConnection(async(method,params)=>({units:[],unit:params.unit}),1);
  assert.equal(sim.connection_kind,'simulator');assert.equal(sim.unit,1);
 });
 
-test('a command from elsewhere never pulls a paused view back to live; one typed in the viewer follows it',()=>{
+test('a command from elsewhere never pulls a paused view back to live; one typed in the console follows it',()=>{
  const handler=app.slice(app.indexOf('data.method === "notify_gcode_command"'),app.indexOf('data.method === "notify_gcode_response"'));
  assert.ok(!handler.includes('followLive'));
  const send=app.slice(app.indexOf('function sendScript('),app.indexOf('$("command-form").onsubmit'));
