@@ -42,9 +42,9 @@ enough.
 
 ## Branches
 
-Work lands on `development` through pull requests; `main` is what printers install and update from
-(`primary_branch: main` in the update manager entry). `development` pairs with Happy Hare's
-`development` branch, whose simulator serves this checkout.
+There is one branch, `main`. Pull requests target it and printers install and update from it
+(`primary_branch: main` in the update manager entry). The simulator that serves this checkout is on
+Happy Hare's `development` branch until it reaches a Happy Hare release.
 
 ## Commit and PR titles
 

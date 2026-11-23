@@ -100,7 +100,6 @@ make spellcheck   # CSpell
 ```
 
 `make test` needs Node.js 22 or later and Python 3. The same checks run on every pull request.
-Pull requests target the `development` branch; `main` is the branch printers install from.
 Pull request titles follow conventional commits (`feat`, `fix`, `chore` or `docs`).
 
 [console/README.md](console/README.md) describes the modules, the data sources, how telemetry is drawn
