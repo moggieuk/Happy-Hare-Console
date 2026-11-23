@@ -23,8 +23,9 @@
         <input id="telemetry-file" type="file" accept=".jsonl,.ndjson,.json" hidden>
         <p id="recording-name" class="note" hidden></p>
         <div id="simulator-controls" hidden>
+          <div class="settings-divider" role="separator">Simulator</div>
           <p id="profile"></p>
-          <label>Choose profile<select id="profiles"></select></label>
+          <label>Choose profile<span class="profile-choice"><select id="profiles"></select><span id="profile-name" aria-hidden="true"></span></span></label>
           <button id="restart" type="button">Restart with profile</button>
           <label>Or load a configuration directory<input id="files" type="file" webkitdirectory multiple></label>
         </div>
