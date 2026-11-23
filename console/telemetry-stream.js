@@ -5,6 +5,14 @@
 export const recordControl=({viewMode,offline,simulator,connected,mode})=>({
   visible:viewMode==='playback' && !offline && !simulator && Boolean(connected),
   value:mode || 'off'});
+// What the Connection panel shows for the source in use: a printer, the simulator or a loaded file.
+export function connectionControls({kind,offline,connected,viewMode,telemetryAvailable,records}) {
+  const identified=!offline && Boolean(connected) && (kind==='simulator' || kind==='live_machine');
+  const telemetry=offline || (identified && viewMode==='playback');
+  return {sourceRow:identified, telemetryOption:!identified || Boolean(telemetryAvailable),
+    hint:identified && !telemetryAvailable, save:telemetry, saveEnabled:telemetry && records>0,
+    simulator:identified && kind==='simulator'};
+}
 export class TelemetryStream {
   constructor(rpc, accept, error) {
     Object.assign(this,{rpc,accept,error,generation:0,active:false});

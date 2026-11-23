@@ -1,7 +1,7 @@
-import {TelemetryStream, recordControl} from './telemetry-stream.js';
+import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
 import {LiveState, liveFrame} from './live-state.js';
 import {liveMachine} from './live-config.js';
-import {simulatorApi, detectConnection} from './simulator.js';
+import {simulatorApi, detectConnection, telemetryAvailable} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
 import {unitInfo, unitObjectFields} from './unit-info.js';
 import {gateMenu, GATE_MENU_OBJECTS, GATE_MENU_MMU_FIELDS} from './gate-menu.js';
@@ -55,17 +55,25 @@ function renderRecordControl() {
 }
 $('record-mode').onchange=()=>rpc('printer.gcode.script',{script:`MMU_TELEMETRY MODE=${$('record-mode').value}`})
   .catch(error=>{ message(error.message,true); renderRecordControl(); });
+function renderConnectionControls() {
+  const c=connectionControls({kind:store.setup?.connection_kind,offline:store.offline,connected:store.socket?.readyState===1,
+    viewMode:store.viewMode,telemetryAvailable:store.telemetryAvailable,records:store.sourceRecords?.length || 0});
+  $('source-row').hidden=!c.sourceRow;
+  $('telemetry-option').disabled=!c.telemetryOption;
+  $('telemetry-hint').hidden=!c.hint;
+  $('save-motion').hidden=!c.save;
+  $('save-motion').disabled=!c.saveEnabled;
+  $('simulator-controls').hidden=!c.simulator;
+}
 function sourceMode() {
   renderRecordControl();
   toolheadPanel.element.hidden=store.offline || store.socket?.readyState !== 1 || toolheadPanel.element.dataset.available !== 'true';
-  $('recording-option').hidden=!store.offline;
-  $('view-mode').value=store.offline ? 'recording' : store.viewMode;
+  $('view-mode').value=store.viewMode;
+  renderConnectionControls();
   $('sidebar-playback').hidden=store.viewMode==='live';
   $('trace').closest('.card').hidden=store.viewMode==='live';
   $('recording-name').hidden = !store.offline;
   $('connect-printer').textContent = store.offline ? 'Reconnect' : 'Connect';
-  $('save-motion').disabled = store.viewMode==='live' || store.offline;
-  $('simulator-controls').hidden = !isSimulator() || store.offline;
   $('runtime-parameters').hidden = store.offline;
   document.querySelectorAll('#simulator-controls input, #simulator-controls select, #simulator-controls button, #runtime-parameters input, #runtime-parameters select, #runtime-parameters button, #command-form input, #command-form button, [data-simulator-config] input, [data-simulator-config] select, [data-simulator-config] button')
     .forEach(node=>node.disabled=store.offline);
@@ -194,6 +202,8 @@ async function initializeConnection() {
   editorStatic=null;
   const probe=await detectConnection(rpc,Number($('unit').value || 0));
   if (generation!==store.connectionGeneration || store.socket?.readyState!==1) return;
+  store.telemetryAvailable=await telemetryAvailable(rpc,probe.connection_kind);
+  if (generation!==store.connectionGeneration || store.socket?.readyState!==1) return;
   if (probe.connection_kind==='live_machine') {
     store.setup=probe;
     if ($('command').value==='MMU_LOAD') $('command').value=''; // The simulator's default must not be one Enter away on a printer
@@ -201,7 +211,7 @@ async function initializeConnection() {
     await refreshLiveEditor().catch(error=>message(error.message,true));
   } else await refresh(probe);
   if (generation!==store.connectionGeneration || store.offline) return;
-  if (!store.modeChosen && isSimulator()) await changeView('playback');
+  if (!store.modeChosen && store.telemetryAvailable) await changeView('playback');
   else if (store.viewMode==='live') await subscribeLive();
   else await startStream();
 }
@@ -840,6 +850,7 @@ function updateSource(records, reset=false) {
   if (newSession) { store.sourceReplay=new TelemetryReplay(); store.sourceRecords=[]; }
   store.sourceReplay.accept(records);
   store.sourceRecords.push(...records);
+  renderConnectionControls();
   if (!records.length) return;
   const replay=store.sourceReplay;
   store.rawEvents=replay.events; store.events=visibleSteps(store.rawEvents);

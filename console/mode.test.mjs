@@ -2,23 +2,41 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {detectConnection} from './simulator.js';
+import {detectConnection, telemetryAvailable} from './simulator.js';
+import {connectionControls} from './telemetry-stream.js';
 const app=readFileSync(new URL('./app.js',import.meta.url),'utf8');
 const isSimulator=app.match(/function isSimulator\(\) \{.*\}/)[0];
 const initialize=app.slice(app.indexOf('async function initializeConnection()'),app.indexOf('async function subscribeLive()'));
-async function connection(kind,chosen=false,mode='live',offline=false) {
+async function connection(kind,chosen=false,mode='live',offline=false,components=[]) {
  const calls=[];
  const c=vm.createContext({store:{connectionGeneration:1,modeChosen:chosen,viewMode:mode,setup:null,offline,socket:{readyState:1}},
-   rpc:async method=>{ if (kind!=='simulator') throw Error(`Method not found: ${method}`); return {units:[]}; },
-   detectConnection,$:()=>({value:'0'}),sourceMode:()=>{},setConnection:()=>{},refreshLiveEditor:async()=>{},message:()=>{},
+   rpc:async method=>{ if (method==='server.info') return {components};
+     if (kind!=='simulator') throw Error(`Method not found: ${method}`); return {units:[]}; },
+   detectConnection,telemetryAvailable,$:()=>({value:'0'}),sourceMode:()=>{},setConnection:()=>{},refreshLiveEditor:async()=>{},message:()=>{},
    refresh:async probed=>{c.store.setup=probed;},
    startStream:async()=>calls.push('telemetry'),
    changeView:async mode=>calls.push(mode),subscribeLive:async()=>calls.push('subscribe')});
  vm.runInContext(isSimulator+initialize,c);await vm.runInContext('initializeConnection()',c);return calls;
 }
-test('simulator defaults to telemetry, printer defaults to subscriptions',async()=>{
+test('simulator and a printer with telemetry default to the stream, a printer without it to subscriptions',async()=>{
  assert.deepEqual(await connection('simulator'),['playback']);
  assert.deepEqual(await connection('live_machine'),['subscribe']);
+ assert.deepEqual(await connection('live_machine',false,'live',false,['mmu_telemetry']),['playback']);
+ assert.deepEqual(await connection('live_machine',true,'live',false,['mmu_telemetry']),['subscribe']);
+});
+test('the connection panel shows what the source in use allows',()=>{
+ const show=o=>connectionControls({connected:true,offline:false,viewMode:'playback',telemetryAvailable:true,records:0,...o});
+ const printer=show({kind:'live_machine',telemetryAvailable:false,viewMode:'live'});
+ assert.deepEqual([printer.sourceRow,printer.telemetryOption,printer.hint,printer.save,printer.simulator],[true,false,true,false,false]);
+ const stream=show({kind:'live_machine'});
+ assert.deepEqual([stream.telemetryOption,stream.hint,stream.save,stream.saveEnabled],[true,false,true,false]);
+ assert.equal(show({kind:'live_machine',records:3}).saveEnabled,true);
+ const sim=show({kind:'simulator'});
+ assert.deepEqual([sim.sourceRow,sim.simulator,sim.save],[true,true,true]);
+ const file=show({kind:'simulator',offline:true,records:5});
+ assert.deepEqual([file.sourceRow,file.simulator,file.save,file.saveEnabled],[false,false,true,true]);
+ const unknown=show({kind:undefined});
+ assert.deepEqual([unknown.sourceRow,unknown.save,unknown.simulator],[false,false,false]);
 });
 test('reconnect preserves explicitly selected live or playback mode',async()=>{
  assert.deepEqual(await connection('simulator',true,'live'),['subscribe']);

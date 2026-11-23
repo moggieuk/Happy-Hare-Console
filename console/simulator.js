@@ -21,3 +21,13 @@ export async function detectConnection(rpc, unit = 0) {
     }
   }
 }
+
+// Moonraker lists the components it loaded; the simulator always streams.
+export async function telemetryAvailable(rpc, kind) {
+  if (kind === 'simulator') return true;
+  try {
+    return ((await rpc('server.info')).components || []).includes('mmu_telemetry');
+  } catch {
+    return false;
+  }
+}
