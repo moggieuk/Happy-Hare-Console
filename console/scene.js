@@ -3,7 +3,7 @@
 // changes nothing outside it; the caller passes what to draw (view) and how (settings).
 import { SpoolRenderer, renderSpool, spoolWindingRadius, espoolerActive } from './spool.js';
 import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, movingTip, visualTip, withdrawTip} from './playback.js';
-import {$, escape, short as sensorName, DEFAULT_COLOR, round1, clamp01} from './util.js';
+import {$, escape, short as sensorName, DEFAULT_COLOR, round1, clamp01, dimensionArrow, spanArrow} from './util.js';
 import {renderBuffer} from './buffer-view.js';
 import {measurePath} from './path-measure.js';
 import {unitLogo, ICONS} from './unit-icons.js';
@@ -99,11 +99,6 @@ function homingRing(name,x,y) {
   return `<circle data-part="homing-sensor-ring" cx="${x}" cy="${y}" r="${radius}" fill="none" stroke="${color}" stroke-width="2" opacity="${opacity}" pointer-events="none"/>`;
 }
 // Fades the ends of the rack to nothing beneath each arrow (a luminance mask: white shows, black hides).
-// A vertical dimension line from y1 to y2 with arrowheads whose wings reach `wing` back along the line (outward if negative).
-const dimensionArrow=(x,y1,y2,wing=4)=>{
-  const head=(y,reach)=>`M${x-3} ${y+reach} L${x} ${y} L${x+3} ${y+reach}`, direction=Math.sign(y2-y1) || 1;
-  return `M${x} ${y1} V${y2} ${head(y1,direction*wing)} ${head(y2,-direction*wing)}`;
-};
 function rackFadeMask({left, right, bleed, top, bottom}) {
   const x0=-bleed, width=SCENE_WIDTH+2*bleed, inner=18, fade=48;                   // Arrow width plus a little clearance
   const stop=(x,white)=>`<stop offset="${(x-x0)/width}" stop-color="${white ? 'white' : 'black'}"/>`;
@@ -632,7 +627,7 @@ function references(c) {
     const startY = tube.getPointAtLength(progress(cooling.start) * length).y;
     const endY = tube.getPointAtLength(progress(cooling.end) * length).y;
     const midY = (startY + endY) / 2;
-    svg += `<g class="cooling-measurements" fill="var(--scene-muted, #6e8190)" font-size="10"><path d="M${E-25} ${startY} H${E-70} M${E-25} ${endY} H${E-70}" fill="none" stroke="var(--scene-border, #96abba)"/><path data-part="cooling-length-arrow" d="${dimensionArrow(E-55,startY-2,endY+2,-4)}" fill="none" stroke="var(--scene-border, #96abba)"/><text ${dimensionLink('Cooling tube position')} x="${E-76}" y="${startY}" text-anchor="end" dominant-baseline="middle">Cooling tube position · ${round1(cooling.position)}mm</text><text ${dimensionLink('Cooling tube length')} x="${E-63}" y="${midY}" text-anchor="end" dominant-baseline="middle">Cooling tube length · ${round1(cooling.length)}mm</text></g>`;
+    svg += `<g class="cooling-measurements" fill="var(--scene-muted, #6e8190)" font-size="10"><path d="M${E-25} ${startY} H${E-70} M${E-25} ${endY} H${E-70}" fill="none" stroke="var(--scene-border, #96abba)"/><path data-part="cooling-length-arrow" d="${spanArrow(E-55,startY,endY)}" fill="none" stroke="var(--scene-border, #96abba)"/><text ${dimensionLink('Cooling tube position')} x="${E-76}" y="${startY}" text-anchor="end" dominant-baseline="middle">Cooling tube position · ${round1(cooling.position)}mm</text><text ${dimensionLink('Cooling tube length')} x="${E-63}" y="${midY}" text-anchor="end" dominant-baseline="middle">Cooling tube length · ${round1(cooling.length)}mm</text></g>`;
   }
   Object.assign(c, {references, previousLabelY, cooling, svg});
 }
