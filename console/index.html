@@ -25,8 +25,8 @@
         <div id="simulator-controls" hidden>
           <div id="profile" class="settings-divider" role="separator">Simulator</div>
           <label>Choose profile<span class="profile-choice"><select id="profiles"></select><span id="profile-name" aria-hidden="true"></span></span></label>
-          <button id="restart" type="button">Restart with profile</button>
-          <label>Or load a configuration directory<input id="files" type="file" webkitdirectory multiple></label>
+          <div class="connect-row"><button id="restart" type="button">Restart profile</button><span>or</span><button id="load-config" type="button">Load config</button></div>
+          <input id="files" type="file" webkitdirectory multiple hidden>
         </div>
       </section>
       <section class="card" id="sidebar-playback" aria-label="Playback" hidden>

@@ -1,7 +1,7 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
 import {LiveState, liveFrame} from './live-state.js';
 import {liveMachine} from './live-config.js';
-import {simulatorApi, detectConnection, telemetryAvailable} from './simulator.js';
+import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
 import {unitInfo, unitObjectFields} from './unit-info.js';
 import {gateMenu, GATE_MENU_OBJECTS, GATE_MENU_MMU_FIELDS} from './gate-menu.js';
@@ -119,7 +119,7 @@ function rpc(method, params = {}) {
 async function action(fn, report = true) {
   if (store.busy) return;
   store.busy = true;
-  const disabled = [...document.querySelectorAll("aside button, #send")].filter((b) => !b.disabled);
+  const disabled = [...document.querySelectorAll("aside button, #simulator-controls button, #send")].filter((b) => !b.disabled);
   disabled.forEach((b) => (b.disabled = true));
   try {
     await fn();
@@ -539,15 +539,18 @@ $("restart").onclick = () =>
     await refresh();
     message("Fresh profile session started.");
   });
+$("load-config").onclick = () => $("files").click();
 $("files").onchange = () =>
   action(async () => {
+    const chosen = [...$("files").files].filter((f) => f.name.endsWith(".cfg"));
+    $("files").value = "";
+    if (!hasMmuConfig(chosen.map((f) => f.webkitRelativePath || f.name)))
+      throw Error("That folder has no mmu.cfg. Choose the folder holding the MMU configuration.");
     const files = await Promise.all(
-      [...$("files").files]
-        .filter((f) => f.name.endsWith(".cfg"))
-        .map(async (f) => ({
-          name: f.webkitRelativePath || f.name,
-          text: await f.text(),
-        })),
+      chosen.map(async (f) => ({
+        name: f.webkitRelativePath || f.name,
+        text: await f.text(),
+      })),
     );
     message("Loading uploaded profile…");
     await sim.restart({ files });

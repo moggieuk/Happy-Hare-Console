@@ -9,6 +9,9 @@ export const simulatorApi = rpc => ({
   sensor: (name, enabled) => rpc('sim.console.sensor', {name, enabled}),
 });
 
+// An uploaded folder is a configuration only if it holds mmu.cfg, at any depth
+export const hasMmuConfig = names => names.some(name => /(^|\/)mmu\.cfg$/.test(name));
+
 export async function detectConnection(rpc, unit = 0) {
   for (;;) {
     try {
