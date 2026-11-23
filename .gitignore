@@ -9,4 +9,5 @@ node_modules/
 
 # Local tools
 .DS_Store
-.claude/
+.claude/*
+!.claude/skills
