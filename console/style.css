@@ -146,10 +146,6 @@ svg {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-#profile {
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
@@ -368,7 +364,6 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
   overflow: hidden; white-space: nowrap; border-radius: 5px; background: white; pointer-events: none; }
 [data-theme="dark"] #profile-name { background: #111c26; }
 #profile-name::after { content: '▼'; margin-left: auto; padding-left: 8px; font-size: 9px; }
-#simulator-controls #profile { margin: 0 0 8px; }
 #sidebar-playback .playback-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 #sidebar-playback button { margin: 0; }
 #sidebar-playback button[aria-label] { width: 44px; height: 38px; padding: 7px; }

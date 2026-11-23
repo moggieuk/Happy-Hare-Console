@@ -355,7 +355,7 @@ async function refresh(probed) {
   );
   if (store.setup.profiles.some((p) => p.name === store.setup.profile))
     $("profiles").value = store.setup.profile;
-  $("profile").textContent = "Running profile: " + store.setup.profile;
+  $("profile").textContent = "Simulator: Running " + store.setup.profile;
   profileName();
   filter();
   await refreshToolheads().catch(error=>message(error.message,true));
