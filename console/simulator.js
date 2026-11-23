@@ -34,3 +34,29 @@ export async function telemetryAvailable(rpc, kind) {
     return false;
   }
 }
+
+// The oldest Happy Hare this Console works with
+export const REQUIRED_VERSION = '4.3.0';
+export function versionAtLeast(found, needed) {
+  const parts = text => String(text).split('.').map(part => parseInt(part, 10) || 0);
+  const a = parts(found), b = parts(needed);
+  for (let i = 0; i < Math.max(a.length, b.length); i++)
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0);
+  return true;
+}
+// Why this printer or simulator cannot be used, or null. A printer that cannot list its objects
+// (Klipper starting or stopped) is left to connect as it always has.
+export async function versionProblem(rpc) {
+  let objects;
+  try {
+    objects = (await rpc('printer.objects.list')).objects || [];
+  } catch {
+    return null;
+  }
+  const found = objects.includes('mmu_machine')
+    ? (await rpc('printer.objects.query', {objects: {mmu_machine: ['happy_hare_version']}})).status?.mmu_machine?.happy_hare_version
+    : null;
+  if (!found) return `Happy Hare was not found here. The Console needs Happy Hare ${REQUIRED_VERSION} or later.`;
+  return versionAtLeast(found, REQUIRED_VERSION) ? null
+    : `This is Happy Hare ${found}. The Console needs ${REQUIRED_VERSION} or later.`;
+}
