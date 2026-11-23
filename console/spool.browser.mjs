@@ -1,4 +1,4 @@
-// Optional browser regression: node --test viewer/spool.browser.mjs
+// Optional browser regression: node --test console/spool.browser.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -51,7 +51,7 @@ test('retained spool updates match fresh SVG without replacing geometry',async()
               if (observer.takeRecords().length) throw Error('Identical props mutated the SVG');
               observer.disconnect();
             }
-            // Simulate the legacy viewer rebuilding the surrounding scene.
+            // Simulate the legacy console rebuilding the surrounding scene.
             const replacement=spool.host.cloneNode(false), geometry=spool.host.firstChild;
             spool.host.replaceWith(replacement);renderer.mount(replacement);spool.host=replacement;
             if (replacement.firstChild!==geometry) throw Error('Remount replaced geometry');

@@ -1,12 +1,12 @@
 # Runs the JavaScript tests, the installer tests and the spelling check on PRs against main
-# and after merge.
+# and development and after merge.
 name: Test Suite
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
   pull_request:
-    branches: [main]
+    branches: [main, development]
 
 permissions:
   contents: read

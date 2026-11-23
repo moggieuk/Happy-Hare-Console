@@ -7,8 +7,8 @@ import {spawnSync} from 'node:child_process';
 
 // `node --check file.js` can accept a script that the browser rejects as a module (a repeated
 // const, for example), and app.js cannot be imported without a DOM. Check every file as a module.
-test('every viewer script parses as an ES module',()=>{
- const dir=new URL('.',import.meta.url).pathname, temp=fs.mkdtempSync(path.join(os.tmpdir(),'viewer-syntax-'));
+test('every console script parses as an ES module',()=>{
+ const dir=new URL('.',import.meta.url).pathname, temp=fs.mkdtempSync(path.join(os.tmpdir(),'console-syntax-'));
  try {
   for (const name of fs.readdirSync(dir).filter(n=>n.endsWith('.js'))) {
    const copy=path.join(temp,name.replace(/\.js$/,'.mjs'));

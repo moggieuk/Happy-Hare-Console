@@ -1,4 +1,4 @@
-// Optional browser integration: node --test viewer/stream.browser.mjs
+// Optional browser integration: node --test console/stream.browser.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -25,15 +25,15 @@ test('printer telemetry arrives by subscription and stops when leaving playback'
     ws.send(JSON.stringify({id:req.id,result}));
    });
   });
-  await page.route('http://viewer.test/**',route=>{
+  await page.route('http://console.test/**',route=>{
    const name=new URL(route.request().url()).pathname.split('/').at(-1)||'index.html';
    assert.notEqual(name,'telemetry');
    route.fulfill({body:readFileSync(new URL('./'+name,import.meta.url)),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
   });
-  await page.goto('http://viewer.test/');
+  await page.goto('http://console.test/');
   await page.locator('#scene [data-part="espooler"]').first().waitFor();
   assert.equal(calls.includes('server.mmu.telemetry.subscribe'),false);
-  await page.waitForFunction(()=>document.querySelector('#viewer-live').classList.contains('active'));
+  await page.waitForFunction(()=>document.querySelector('#console-live').classList.contains('active'));
   await page.locator('#view-mode').selectOption('playback');
   await page.waitForFunction(()=>document.querySelector('#trace').textContent.includes('move'));
   assert.equal(calls.filter(c=>c==='server.mmu.telemetry.ack').length,1);
@@ -43,12 +43,12 @@ test('printer telemetry arrives by subscription and stops when leaving playback'
   assert.notEqual(await page.locator('#trace').textContent(),before);
   assert.equal(calls.filter(c=>c==='server.mmu.telemetry.ack').length,2);
   await page.locator('#live').click();
-  await page.waitForFunction(()=>document.querySelector('#viewer-live').classList.contains('active'));
+  await page.waitForFunction(()=>document.querySelector('#console-live').classList.contains('active'));
   // While following the stream at rest, subscribed sensor readings are overlaid on the recorded state
   socket.send(JSON.stringify({method:'notify_status_update',params:[{mmu:{sensors:{mmu_entry:true,encoder:false}}},2]}));
   await page.waitForTimeout(150);
   await page.locator('#previous').click();
-  await page.waitForFunction(()=>!document.querySelector('#viewer-live').classList.contains('active'));
+  await page.waitForFunction(()=>!document.querySelector('#console-live').classList.contains('active'));
   await page.locator('#view-mode').selectOption('live');
   await page.waitForTimeout(100);
   assert.ok(calls.includes('server.mmu.telemetry.unsubscribe'));
@@ -60,7 +60,7 @@ test('printer telemetry arrives by subscription and stops when leaving playback'
   await page.waitForTimeout(100);
   assert.equal(calls.filter(c=>c==='server.mmu.telemetry.subscribe').length,subscribed);
   assert.equal(await page.locator('#view-mode').inputValue(),'recording');
-  assert.equal(await page.locator('#viewer-live').getAttribute('aria-label'),'Not live');
+  assert.equal(await page.locator('#console-live').getAttribute('aria-label'),'Not live');
   assert.deepEqual(errors,[]);
  } finally {await browser.close();}
 });

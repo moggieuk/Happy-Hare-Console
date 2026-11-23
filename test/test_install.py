@@ -10,7 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "install.sh"
-VIEWER = REPO_ROOT / "viewer"
+CONSOLE = REPO_ROOT / "console"
 
 
 def nginx_runs():
@@ -33,9 +33,9 @@ class TestInstall(unittest.TestCase):
         self.stub = self.root / "nginx-stub"
         self.stub.write_text('#!/bin/sh\necho "$@" >> "%s"\n[ -z "$FAIL_NGINX" ] || { echo "bad config" >&2; exit 1; }\n' % self.calls)
         self.stub.chmod(0o755)
-        self.viewer = self.root / "viewer"
-        self.viewer.mkdir()
-        (self.viewer / "index.html").write_text("<html></html>")
+        self.console = self.root / "console"
+        self.console.mkdir()
+        (self.console / "index.html").write_text("<html></html>")
         self.moonraker = self.root / "moonraker.conf"
         self.moonraker.write_text("[server]\nport: 7125\n\n[update_manager mainsail]\ntype: web\n")
 
@@ -44,7 +44,7 @@ class TestInstall(unittest.TestCase):
 
     def env(self, **env):
         return dict(os.environ, NGINX_DIR=str(self.nginx), NGINX_BIN=str(self.stub), SUDO="", NO_RELOAD="y",
-                    VIEWER_DIR=str(self.viewer), MOONRAKER_CONF=str(self.moonraker), **env)
+                    CONSOLE_DIR=str(self.console), MOONRAKER_CONF=str(self.moonraker), **env)
 
     def run_script(self, *args, **env):
         return subprocess.run(["/bin/sh", str(SCRIPT), "-y", *args], env=self.env(**env), text=True,
@@ -64,7 +64,7 @@ class TestInstall(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         text = self.site().read_text()
         self.assertIn("listen 8090;", text)
-        self.assertIn("root %s;" % self.viewer, text)
+        self.assertIn("root %s;" % self.console, text)
         self.assertIn("proxy_pass http://127.0.0.1:7125/websocket;", text)
         self.assertIn("(printer|api|access|machine|server)", text)
         self.assertIsNone(re.search(r"%(PORT|ROOT|UPSTREAM)%", text))
@@ -159,11 +159,11 @@ class TestInstall(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
 
-class TestViewerIsHostable(unittest.TestCase):
+class TestConsoleIsHostable(unittest.TestCase):
     def test_no_root_absolute_assets(self):
         """The same files are served from a sub-path by the simulator and from a port's root by nginx."""
         pattern = re.compile(r"""(?:src|href)\s*=\s*["']/(?!/)|from\s+["']/|import\(\s*["']/|url\(\s*["']?/(?!/)""")
-        for path in list(VIEWER.glob("*.html")) + list(VIEWER.glob("*.js")) + list(VIEWER.glob("*.css")):
+        for path in list(CONSOLE.glob("*.html")) + list(CONSOLE.glob("*.js")) + list(CONSOLE.glob("*.css")):
             if ".test." in path.name or ".browser." in path.name:
                 continue
             for number, line in enumerate(path.read_text().splitlines(), 1):

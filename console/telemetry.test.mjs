@@ -137,7 +137,7 @@ test('a gate selection shows the selector move, then the slide, with the notice 
  assert.match(traceText(stepper),/Positioning selector 4\.2 → 46\.2 mm/);
  assert.equal(duration(stepper),0);               // No artificial hold: the notice stays up through the slide
  assert.equal(annotatedStep(steps,stepper,false),stepper);
- // The notice is up from the selector move, through the slide, until the viewer leaves the gate change
+ // The notice is up from the selector move, through the slide, until the console leaves the gate change
  const move='Selector: Positioning selector 4.2 → 46.2 mm (0.19s)';
  assert.equal(selectorNotice(steps,stepper,true,true),move);
  assert.equal(selectorNotice(steps,stepper,false,true),move);  // At rest, about to slide

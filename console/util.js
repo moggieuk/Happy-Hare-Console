@@ -1,5 +1,5 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
-// Small helpers shared by the viewer modules.
+// Small helpers shared by the console modules.
 export const $ = id => document.getElementById(id);
 export const DEFAULT_COLOR = '808182';
 export const finite = value => typeof value === 'number' && Number.isFinite(value);

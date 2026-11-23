@@ -46,10 +46,10 @@ site, plus an entry in Moonraker's update manager. `./install.sh -u` removes bot
 
 - `NGINX_DIR` points at a fake `/etc/nginx`, `NGINX_BIN` at a stub that records its arguments and
   fails when `FAIL_NGINX` is set, `SUDO` is empty and `NO_RELOAD` skips the reload.
-- `VIEWER_DIR` and `MOONRAKER_CONF` point at stand-ins, so a test never touches the real checkout's
+- `CONSOLE_DIR` and `MOONRAKER_CONF` point at stand-ins, so a test never touches the real checkout's
   site or a real `moonraker.conf`.
 - One test renders the site and runs a real `nginx -t` on it. It is skipped where no working nginx
   is installed and runs in CI.
-- `TestViewerIsHostable` is the check that `viewer/` uses no root-absolute URLs.
+- `TestConsoleIsHostable` is the check that `console/` uses no root-absolute URLs.
 
 The script is POSIX `sh`, not bash; CI runs `sh -n install.sh`.

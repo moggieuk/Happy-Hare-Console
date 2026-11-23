@@ -1,9 +1,9 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
-// Page chrome that needs no viewer state: the shared tooltip overlay and the light/dark theme toggle.
+// Page chrome that needs no console state: the shared tooltip overlay and the light/dark theme toggle.
 import {$} from './util.js';
 // A shared overlay styles HTML and SVG tooltips consistently and avoids clipping.
 const tooltip = document.createElement('div');
-tooltip.id = 'viewer-tooltip';
+tooltip.id = 'console-tooltip';
 tooltip.setAttribute('role', 'tooltip');
 tooltip.hidden = true;
 document.body.append(tooltip);
@@ -52,10 +52,10 @@ function setTheme(theme) {
   $('theme-toggle').setAttribute('aria-label', 'Switch to ' + next.toLowerCase() + ' mode');
 }
 let savedTheme;
-try { savedTheme = localStorage.getItem('hh-viewer-theme'); } catch {}
+try { savedTheme = localStorage.getItem('hh-console-theme'); } catch {}
 setTheme(savedTheme === 'light' ? 'light' : 'dark');
 $('theme-toggle').onclick = () => {
   const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   setTheme(theme);
-  try { localStorage.setItem('hh-viewer-theme', theme); } catch {}
+  try { localStorage.setItem('hh-console-theme', theme); } catch {}
 };

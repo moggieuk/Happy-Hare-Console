@@ -14,7 +14,7 @@ CSPELL_VERSION ?= 9.8.0
 test: test-js test-install
 
 test-js:
-	node --test viewer/*.test.mjs
+	node --test console/*.test.mjs
 
 test-install:
 	$(PYTHON) -m unittest discover -s test
@@ -30,4 +30,4 @@ spellcheck:
 		npx --yes cspell@$(CSPELL_VERSION) lint --no-progress --file-list stdin $(ARGS)
 
 serve:
-	$(PYTHON) -m http.server $(PORT) --bind 127.0.0.1 --directory viewer
+	$(PYTHON) -m http.server $(PORT) --bind 127.0.0.1 --directory console

@@ -1,12 +1,12 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
-// The only place that knows the simulator's sim.viewer.* RPCs. A printer does not provide them,
-// so the viewer probes once on connect and treats a failed probe as a live machine.
+// The only place that knows the simulator's sim.console.* RPCs. A printer does not provide them,
+// so the console probes once on connect and treats a failed probe as a live machine.
 const liveMachineSetup = () => ({connection_kind: 'live_machine', units: [], parameters: [], profiles: []});
 
 export const simulatorApi = rpc => ({
-  setup: unit => rpc('sim.viewer.setup', {unit}),
-  restart: options => rpc('sim.viewer.restart', options),
-  sensor: (name, enabled) => rpc('sim.viewer.sensor', {name, enabled}),
+  setup: unit => rpc('sim.console.setup', {unit}),
+  restart: options => rpc('sim.console.restart', options),
+  sensor: (name, enabled) => rpc('sim.console.sensor', {name, enabled}),
 });
 
 export async function detectConnection(rpc, unit = 0) {
