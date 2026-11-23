@@ -17,7 +17,7 @@ test('printer telemetry arrives by subscription and stops when leaving playback'
    socket=ws;
    ws.onMessage(text=>{
     const req=JSON.parse(text);calls.push(req.method);let result={};
-    if(req.method==='server.info') result={moonraker_version:'v0.9.3'};
+    if(req.method==='server.info') result={moonraker_version:'v0.9.3',components:['mmu_telemetry']};
     else if(req.method==='printer.objects.list') result={objects:Object.keys(status)};
     else if(req.method==='printer.objects.query'||req.method==='printer.objects.subscribe') result={status,eventtime:1};
     else if(req.method==='server.mmu.telemetry.subscribe') result=batch(records.slice(0,20),1,true);
@@ -32,10 +32,8 @@ test('printer telemetry arrives by subscription and stops when leaving playback'
   });
   await page.goto('http://console.test/');
   await page.locator('#scene [data-part="espooler"]').first().waitFor();
-  assert.equal(calls.includes('server.mmu.telemetry.subscribe'),false);
-  await page.waitForFunction(()=>document.querySelector('#console-live').classList.contains('active'));
-  await page.locator('#view-mode').selectOption('playback');
-  await page.waitForFunction(()=>document.querySelector('#trace').textContent.includes('move'));
+  await page.waitForFunction(()=>document.querySelector('#trace').textContent.includes('move'));   // A printer with telemetry starts on the stream
+  assert.equal(await page.locator('#view-mode').inputValue(),'playback');
   assert.equal(calls.filter(c=>c==='server.mmu.telemetry.ack').length,1);
   const before=await page.locator('#trace').textContent();
   socket.send(JSON.stringify({method:'notify_mmu_telemetry',params:[batch(records.slice(20),2)]}));
@@ -54,12 +52,12 @@ test('printer telemetry arrives by subscription and stops when leaving playback'
   assert.ok(calls.includes('server.mmu.telemetry.unsubscribe'));
   await page.locator('#view-mode').selectOption('playback');
   await page.locator('#telemetry-file').setInputFiles(new URL('./fixtures/emu.json',import.meta.url).pathname);
-  await page.waitForFunction(()=>document.querySelector('#view-mode').value==='recording');
+  await page.waitForFunction(()=>document.querySelector('#source-row').hidden);
   const subscribed=calls.filter(c=>c==='server.mmu.telemetry.subscribe').length;
   socket.send(JSON.stringify({method:'notify_klippy_ready',params:[]}));
   await page.waitForTimeout(100);
   assert.equal(calls.filter(c=>c==='server.mmu.telemetry.subscribe').length,subscribed);
-  assert.equal(await page.locator('#view-mode').inputValue(),'recording');
+  assert.equal(await page.locator('#source-row').isVisible(),false);
   assert.equal(await page.locator('#console-live').getAttribute('aria-label'),'Not live');
   assert.deepEqual(errors,[]);
  } finally {await browser.close();}

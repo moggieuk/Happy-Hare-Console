@@ -39,7 +39,8 @@ test('live subscriptions remain isolated from file playback',async()=>{
   await page.waitForTimeout(100);
   assert.deepEqual(telemetryRequests,[]);
   assert.equal(await page.locator('#open-recording').count(),0);
-  await page.locator('#view-mode').selectOption('playback');
+  assert.equal(await page.locator('#telemetry-option').isDisabled(),true);
+  assert.equal(await page.locator('#save-motion').isVisible(),false);
   assert.equal(await page.locator('#load-telemetry').isVisible(),true);
   await page.locator('#telemetry-file').setInputFiles(new URL('./fixtures/emu.json',import.meta.url).pathname);
   await page.waitForTimeout(100);
@@ -49,7 +50,7 @@ test('live subscriptions remain isolated from file playback',async()=>{
   await page.waitForTimeout(100);
   assert.equal(await page.locator('#position').textContent(),position);
   await page.locator('#play-step').click();await page.waitForTimeout(100);
-  await page.locator('#view-mode').selectOption('live');await page.waitForTimeout(500);
+  await page.locator('#connect-printer').click();await page.waitForTimeout(500);
   assert.match(await page.locator('#mode').textContent(),/^Live view/);
   assert.deepEqual(errors,[]);assert.deepEqual(telemetryRequests,[]);
  } finally {await browser.close();}

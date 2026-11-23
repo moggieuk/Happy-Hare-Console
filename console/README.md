@@ -31,6 +31,12 @@ Everything outside `app.js`, `scene.js` and the small DOM modules has no DOM acc
 - **Telemetry stream**: follows the `server.mmu.telemetry.*` stream and overlays the latest sensor readings.
 - **Loaded telemetry recording**: plays a saved recording (`.jsonl`) offline.
 
+The Connection panel follows the source. A printer or the simulator shows **Data source**; it starts on the
+telemetry stream when the source has one (the simulator always, a printer when Moonraker's `server.info` lists the
+`mmu_telemetry` component) and otherwise the stream option is disabled with a note. **Save telemetry** shows only for
+telemetry and is enabled once there are records. The simulator adds its profile controls. A loaded recording shows
+only its file name.
+
 The parameter and Toolhead config editors send `MMU_TEST_CONFIG` / `SET_GCODE_VARIABLE` through
 `printer.gcode.script`, so they work against a real printer and the simulator alike.
 

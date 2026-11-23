@@ -17,11 +17,19 @@
         <div class="heading"><h2>Connection</h2><span id="console-live" class="console-live" role="status" aria-label="Not live"><span aria-hidden="true"></span>Live</span></div>
         <label>Printer / simulator URL<input id="printer-url" type="text" aria-label="Printer or simulator URL"></label>
         <button id="connect-printer" type="button">Connect</button>
-        <label>Data source<select id="view-mode"><option value="live">Live status subscription</option><option id="recording-option" value="recording" disabled hidden>Loaded telemetry recording</option><option value="playback">Telemetry stream</option></select></label>
-        <div class="playback-row"><button id="save-motion">Save telemetry</button><button id="load-telemetry">Load telemetry</button></div>
+        <button id="load-telemetry" type="button">Load telemetry</button>
+        <label id="source-row" hidden>Data source<select id="view-mode"><option value="live">Live status subscription</option><option id="telemetry-option" value="playback">Telemetry stream</option></select></label>
+        <p id="telemetry-hint" class="note" hidden>Add [mmu_telemetry] to moonraker.conf to enable the telemetry stream.</p>
         <label id="record-row" hidden>Record to log<select id="record-mode"><option value="off">Off</option><option value="on">On</option><option value="toolchange">Next toolchange only</option></select></label>
+        <button id="save-motion" type="button" hidden>Save telemetry</button>
         <input id="telemetry-file" type="file" accept=".jsonl,.ndjson,.json" hidden>
         <p id="recording-name" class="note" hidden></p>
+        <div id="simulator-controls" hidden>
+          <p id="profile"></p>
+          <label>Profile<select id="profiles"></select></label>
+          <button id="restart" type="button">Restart with profile</button>
+          <label>Or load a configuration directory<input id="files" type="file" webkitdirectory multiple></label>
+        </div>
       </section>
       <section class="card" id="sidebar-playback" aria-label="Playback" hidden>
         <h2>Playback</h2>
@@ -48,22 +56,6 @@
           temporary.
         </p>
         <p id="message" role="status"></p>
-      </aside>
-      <aside id="simulator-controls" hidden>
-        <h2>Simulator setup</h2>
-        <label>Profile<select id="profiles"></select></label
-        ><button id="restart">Restart with profile</button
-        ><label
-          >Or load a configuration directory<input
-            id="files"
-            type="file"
-            webkitdirectory
-            multiple
-        /></label>
-        <p class="note">
-          A profile change starts a fresh session. Hardware comes from the profile.
-        </p>
-        <p id="profile"></p>
       </aside>
       <section class="card" id="console-settings" aria-label="Console settings">
         <h2>Settings</h2>
