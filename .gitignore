@@ -1,4 +1,12 @@
-.ruff_cache/
+# Python (installer tests, ruff)
 __pycache__/
+*.pyc
+.ruff_cache/
+venv/
+
+# Node (CSpell and the optional Playwright browser tests)
 node_modules/
+
+# Local tools
 .DS_Store
+.claude/
