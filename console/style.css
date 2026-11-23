@@ -403,8 +403,9 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 [data-theme="dark"] .scene-alert { background: #30291c; color: #f2ce8b; }
 
 .trace-heading { margin-bottom: 10px; min-height: 34px; }
-.trace-footer { display: flex; align-items: flex-start; gap: 12px; }
-.trace-footer .timeline-control { flex: 1; min-width: 0; }
+.trace-footer { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.trace-footer .timeline-control { flex: 1; min-width: 0; padding: 0; margin: 0; }
+.trace-footer #timeline { margin: 0; display: block; }
 .trace-footer button { margin: 0; flex: none; }
 .connect-row { display: flex; align-items: center; gap: 8px; }
 .connect-row span { font-size: 13px; }
