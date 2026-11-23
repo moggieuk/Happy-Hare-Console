@@ -40,6 +40,12 @@ enough.
 - **Changes that break existing setups will probably be rejected.** That includes the installed
   nginx site name, its port choice and the update manager section name.
 
+## Branches
+
+Work lands on `development` through pull requests; `main` is what printers install and update from
+(`primary_branch: main` in the update manager entry). `development` pairs with Happy Hare's
+`development` branch, whose simulator serves this checkout.
+
 ## Commit and PR titles
 
 Conventional commits: `feat`, `fix`, `chore` or `docs`, then `: ` and a subject, with a scope where
