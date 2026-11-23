@@ -333,6 +333,15 @@ async function refreshLiveEditor() {
   filter();
   toolheadPanel.show(toolheadObjects(state));
 }
+// Closed, the profile list shows only the chosen profile's name; open, every profile with its description
+function profileLabels(full) {
+  for (const option of $("profiles").options) {
+    const profile = store.setup?.profiles?.find((p) => p.name === option.value);
+    if (profile) option.textContent = full || !option.selected ? profile.name + " · " + profile.description : profile.name;
+  }
+}
+for (const type of ["mousedown", "focus", "keydown"]) $("profiles").addEventListener(type, () => profileLabels(true));
+for (const type of ["change", "blur"]) $("profiles").addEventListener(type, () => profileLabels(false));
 async function refresh(probed) {
   if (store.offline) return;
   if (store.setup?.connection_kind==='live_machine') return refreshLiveEditor();
@@ -352,7 +361,8 @@ async function refresh(probed) {
   );
   if (store.setup.profiles.some((p) => p.name === store.setup.profile))
     $("profiles").value = store.setup.profile;
-  $("profile").textContent = "Running profile: " + store.setup.profile;
+  $("profile").textContent = "Simulator running profile: " + store.setup.profile;
+  profileLabels(false);
   filter();
   await refreshToolheads().catch(error=>message(error.message,true));
 }
