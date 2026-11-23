@@ -334,7 +334,7 @@ async function refreshLiveEditor() {
   toolheadPanel.show(toolheadObjects(state));
 }
 // Closed, the profile list shows only the chosen profile's name, laid over the browser's own text
-const profileName = () => { $("profile-name").textContent = $("profiles").value; };
+const profileName = () => { $("profile-name").textContent = $("profiles").value || "Choose…"; };
 $("profiles").addEventListener("change", profileName);
 async function refresh(probed) {
   if (store.offline) return;
@@ -355,7 +355,8 @@ async function refresh(probed) {
   );
   if (store.setup.profiles.some((p) => p.name === store.setup.profile))
     $("profiles").value = store.setup.profile;
-  $("profile").textContent = "Simulator: Running " + store.setup.profile;
+  else $("profiles").selectedIndex = -1; // An uploaded configuration is none of the listed profiles
+  $("profile").textContent = "Simulator: Running " + store.setup.profile.split("/").at(-1);
   profileName();
   filter();
   await refreshToolheads().catch(error=>message(error.message,true));
@@ -531,32 +532,48 @@ $("command-form").onsubmit = (event) => {
   sendScript(script);
   if (store.socket.readyState === WebSocket.OPEN) $("command").value = "";
 };
-$("restart").onclick = () =>
+// Progress and errors from the simulator's own controls show beside them
+function simulatorMessage(text, error = false) {
+  $("simulator-message").textContent = text;
+  $("simulator-message").hidden = !text;
+  $("simulator-message").classList.toggle("error", error);
+}
+const simulatorAction = (fn) =>
   action(async () => {
-    message("Restarting simulator…");
+    try {
+      await fn();
+    } catch (e) {
+      simulatorMessage(e.message, true);
+      throw e;
+    }
+  }, false);
+$("restart").onclick = () =>
+  simulatorAction(async () => {
+    if (!$("profiles").value) throw Error("Choose a profile first.");
+    simulatorMessage("Restarting simulator…");
     await sim.restart({ profile: $("profiles").value });
     $("unit").value = "0";
     await refresh();
-    message("Fresh profile session started.");
+    simulatorMessage("Fresh profile session started.");
   });
 $("load-config").onclick = () => $("files").click();
 $("files").onchange = () =>
-  action(async () => {
+  simulatorAction(async () => {
     const chosen = [...$("files").files].filter((f) => f.name.endsWith(".cfg"));
     $("files").value = "";
     if (!hasMmuConfig(chosen.map((f) => f.webkitRelativePath || f.name)))
-      throw Error("That folder has no mmu.cfg. Choose the folder holding the MMU configuration.");
+      throw Error("No Happy Hare configuration in that folder. Choose the folder holding printer.cfg, or its mmu folder.");
     const files = await Promise.all(
       chosen.map(async (f) => ({
         name: f.webkitRelativePath || f.name,
         text: await f.text(),
       })),
     );
-    message("Loading uploaded profile…");
+    simulatorMessage("Loading configuration…");
     await sim.restart({ files });
     $("unit").value = "0";
     await refresh();
-    message("Uploaded profile started.");
+    simulatorMessage("Configuration loaded.");
   });
 // Temporary visual-debug clock: telemetry and simulator execution keep their original timing.
 let animationRate=1, animationTime=0, animationRealTime=performance.now();

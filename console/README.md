@@ -161,7 +161,7 @@ configuration boundaries.
 
 Choose a built-in console profile and select **Restart profile** to boot a
 fresh session. Alternatively, **Load config** uploads the installed configuration directory with
-one `printer.cfg` and its `mmu/` tree; a folder without `mmu.cfg` is refused. This uses the existing installed-profile
+one `printer.cfg` and its `mmu/` tree; choose the folder holding `printer.cfg`, or its `mmu` folder. This uses the existing installed-profile
 loader and its include ordering; it is not a new config interpreter. Files are
 copied to temporary storage, and the original files are never modified. As with
 `--profile`, saved variables are not imported. A failed boot attempts to restore
