@@ -21,6 +21,7 @@ export function ttgMapChart({numGates, ttgMap = [], groups = [], tool = -1, gate
     `<text x="${x}" y="${row*ROW+START_Y+8}" text-anchor="end" font-size="10" fill="${selected ? SELECTED : 'currentColor'}"${selected ? ' font-weight="bold"' : ''}>${text}</text>`;
   const line = from => {
     const selected = from === tool, to = ttgMap[from] ?? -1;
+    if (to < 0) return '';
     const x = START_X+28, y1 = START_Y+from*ROW+4, y2 = START_Y+to*ROW+4, near = x+LEADER, far = near+MAP_SPACE;
     return `<path data-tool="${from}" d="M ${x} ${y1} L ${near} ${y1} L ${far-LEADER} ${y2} L ${far} ${y2}" fill="none" stroke="${selected ? SELECTED : REGULAR}" stroke-width="${selected ? 4 : 2}" marker-start="url(#ttg-square${selected ? '-selected' : ''})" marker-end="url(#ttg-arrow${selected ? '-selected' : ''})"/>`;
   };

@@ -17,6 +17,10 @@ test('each tool has a label, a gate label on its row and a line to its mapped ga
   assert.match(markup,/<text x="150" y="28" text-anchor="end" font-size="10" fill="currentColor">#1<\/text>/);
 });
 
+test('a tool with no gate known yet has its labels but no line',()=>{
+  const {markup}=ttgMapChart({numGates:2,ttgMap:[]});
+  assert.ok(!markup.includes('NaN'));assert.ok(!markup.includes('<path'));assert.ok(markup.includes('>T1<'));
+});
 test('the selected tool is drawn last, thicker and highlighted, with the selected gate',()=>{
   const {markup}=ttgMapChart({numGates:4,ttgMap:[2,0,1,3],groups:[0,1,2,3],tool:1,gate:0});
   assert.match(path(markup,1),/stroke="#2ca9bc" stroke-width="4" marker-start="url\(#ttg-square-selected\)"/);

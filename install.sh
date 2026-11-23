@@ -106,7 +106,6 @@ update_entry() {
     echo "path: ${HERE}"
     echo "origin: ${origin:-https://github.com/moggieuk/Happy-Hare-Console.git}"
     echo "primary_branch: main"
-    echo "is_system_service: False"
 }
 
 register_updates() {
