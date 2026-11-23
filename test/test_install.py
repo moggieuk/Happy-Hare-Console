@@ -1,4 +1,4 @@
-"""Tests for installer/visualizer_nginx.sh: the nginx site that serves the Visualizer."""
+"""Tests for install.sh: the nginx site that serves the Console and its update manager entry."""
 
 import os
 import re
@@ -8,8 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = REPO_ROOT / "installer" / "visualizer_nginx.sh"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = REPO_ROOT / "install.sh"
 VIEWER = REPO_ROOT / "viewer"
 
 
@@ -20,7 +20,7 @@ def nginx_runs():
         return False
 
 
-class TestVisualizerNginx(unittest.TestCase):
+class TestInstall(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
@@ -36,21 +36,25 @@ class TestVisualizerNginx(unittest.TestCase):
         self.viewer = self.root / "viewer"
         self.viewer.mkdir()
         (self.viewer / "index.html").write_text("<html></html>")
+        self.moonraker = self.root / "moonraker.conf"
+        self.moonraker.write_text("[server]\nport: 7125\n\n[update_manager mainsail]\ntype: web\n")
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_script(self, action="install", **env):
-        full = dict(os.environ, NGINX_DIR=str(self.nginx), NGINX_BIN=str(self.stub), SUDO="", F_YES="y",
-                    NO_RELOAD="y", **env)
-        return subprocess.run(["/bin/sh", str(SCRIPT), action, str(self.viewer)], env=full, text=True,
+    def env(self, **env):
+        return dict(os.environ, NGINX_DIR=str(self.nginx), NGINX_BIN=str(self.stub), SUDO="", NO_RELOAD="y",
+                    VIEWER_DIR=str(self.viewer), MOONRAKER_CONF=str(self.moonraker), **env)
+
+    def run_script(self, *args, **env):
+        return subprocess.run(["/bin/sh", str(SCRIPT), "-y", *args], env=self.env(**env), text=True,
                               capture_output=True)
 
     def site(self):
-        return self.nginx / "sites-available" / "happy-hare-visualizer"
+        return self.nginx / "sites-available" / "happy-hare-console"
 
     def link(self):
-        return self.nginx / "sites-enabled" / "happy-hare-visualizer"
+        return self.nginx / "sites-enabled" / "happy-hare-console"
 
     def add_other_site(self, name, port):
         (self.nginx / "sites-enabled" / name).write_text("server {\n    listen %d;\n}\n" % port)
@@ -76,16 +80,37 @@ class TestVisualizerNginx(unittest.TestCase):
         self.run_script()
         self.assertIn("listen 8092;", self.site().read_text())
 
+    def test_a_given_port_replaces_the_one_in_use(self):
+        self.run_script()
+        self.run_script("-p", "9000")
+        self.assertIn("listen 9000;", self.site().read_text())
+
+    def test_update_manager_entry_is_added_once_and_removed_cleanly(self):
+        before = self.moonraker.read_text()
+        self.run_script()
+        self.run_script()
+        text = self.moonraker.read_text()
+        self.assertEqual(text.count("[update_manager happy-hare-console]"), 1)
+        self.assertIn("type: git_repo\npath: %s\n" % REPO_ROOT, text)
+        self.assertIn("[update_manager mainsail]", text)
+        self.run_script("-u")
+        self.assertEqual(self.moonraker.read_text(), before)
+
+    def test_without_moonraker_conf_the_entry_is_printed(self):
+        self.moonraker.unlink()
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("[update_manager happy-hare-console]", result.stdout)
+        self.assertFalse(self.moonraker.exists())
+
     def test_moonraker_port_is_configurable(self):
-        self.run_script(UPSTREAM_PORT="7126")
+        self.run_script("-m", "7126")
         self.assertIn("127.0.0.1:7126/websocket", self.site().read_text())
 
     def test_declining_changes_nothing(self):
-        full = dict(os.environ, NGINX_DIR=str(self.nginx), NGINX_BIN=str(self.stub), SUDO="", NO_RELOAD="y")
-        full.pop("F_YES", None)
-        subprocess.run(["/bin/sh", str(SCRIPT), "install", str(self.viewer)], env=full, text=True,
-                       input="n\n", capture_output=True)
+        subprocess.run(["/bin/sh", str(SCRIPT)], env=self.env(), text=True, input="n\n", capture_output=True)
         self.assertFalse(self.site().exists())
+        self.assertNotIn("happy-hare-console", self.moonraker.read_text())
 
     def test_a_rejected_configuration_is_rolled_back(self):
         result = self.run_script(FAIL_NGINX="1")
@@ -97,19 +122,19 @@ class TestVisualizerNginx(unittest.TestCase):
     def test_a_rejected_rerun_keeps_the_previous_site(self):
         self.run_script()
         before = self.site().read_text()
-        self.run_script(FAIL_NGINX="1", UPSTREAM_PORT="9999")
+        self.run_script("-m", "9999", FAIL_NGINX="1")
         self.assertEqual(self.site().read_text(), before)
 
     def test_remove_leaves_other_sites(self):
         self.add_other_site("mainsail", 80)
         self.run_script()
-        self.assertEqual(self.run_script("remove").returncode, 0)
+        self.assertEqual(self.run_script("-u").returncode, 0)
         self.assertFalse(self.site().exists())
         self.assertFalse(self.link().is_symlink())
         self.assertTrue((self.nginx / "sites-enabled" / "mainsail").exists())
 
     def test_remove_with_nothing_installed_is_quiet(self):
-        result = self.run_script("remove")
+        result = self.run_script("-u")
         self.assertEqual((result.returncode, result.stdout), (0, ""))
         self.assertFalse(self.calls.exists())
 
@@ -136,7 +161,7 @@ class TestVisualizerNginx(unittest.TestCase):
 
 class TestViewerIsHostable(unittest.TestCase):
     def test_no_root_absolute_assets(self):
-        """The same files are served from /sim/viewer/ by the simulator and from a port's root by nginx."""
+        """The same files are served from a sub-path by the simulator and from a port's root by nginx."""
         pattern = re.compile(r"""(?:src|href)\s*=\s*["']/(?!/)|from\s+["']/|import\(\s*["']/|url\(\s*["']?/(?!/)""")
         for path in list(VIEWER.glob("*.html")) + list(VIEWER.glob("*.js")) + list(VIEWER.glob("*.css")):
             if ".test." in path.name or ".browser." in path.name:

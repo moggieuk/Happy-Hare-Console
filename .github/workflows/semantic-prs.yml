@@ -1,0 +1,27 @@
+# Validates that a PR title follows conventional commits: <type>: <subject>
+name: "Enforce PR Type"
+
+on:
+  # Use trusted workflow code so a PR cannot disable its own title check.
+  # Keep this metadata-only: never check out or execute code from the PR.
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR Title Prefix
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Permitted types:
+          types: |
+            feat
+            fix
+            chore
+            docs

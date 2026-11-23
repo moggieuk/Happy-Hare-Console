@@ -1,0 +1,55 @@
+# Runs the JavaScript tests, the installer tests and the spelling check on PRs against main
+# and after merge.
+name: Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  spellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check US English spelling
+        id: spelling
+        continue-on-error: true
+        run: make spellcheck
+
+      - name: Report spelling warning
+        if: steps.spelling.outcome == 'failure'
+        run: echo "::warning title=Spellcheck needs attention::make spellcheck reported spelling issues or could not complete. See the Check US English spelling step for details. This check is advisory."
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Syntax check the installer
+        run: |
+          sh -n install.sh
+          python -m compileall -q .
+
+      - name: Run JavaScript tests
+        run: make test-js
+
+      - name: Run installer tests
+        run: make test-install
