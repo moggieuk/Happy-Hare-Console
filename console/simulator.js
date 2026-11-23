@@ -1,6 +1,6 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
 // The only place that knows the simulator's sim.console.* RPCs. A printer does not provide them,
-// so the console probes once on connect and treats a failed probe as a live machine.
+// so the console probes on connect and treats a refused probe as a live machine.
 const liveMachineSetup = () => ({connection_kind: 'live_machine', units: [], parameters: [], profiles: []});
 
 export const simulatorApi = rpc => ({
@@ -10,10 +10,14 @@ export const simulatorApi = rpc => ({
 });
 
 export async function detectConnection(rpc, unit = 0) {
-  try {
-    const setup = await simulatorApi(rpc).setup(unit);
-    return {...setup, connection_kind: setup.connection_kind || 'simulator'}; // Older responses are simulator-only
-  } catch {
-    return liveMachineSetup();
+  for (;;) {
+    try {
+      const setup = await simulatorApi(rpc).setup(unit);
+      return {...setup, connection_kind: setup.connection_kind || 'simulator'}; // Older responses are simulator-only
+    } catch (error) {
+      // A printer answers that it has no such method. No answer in time says nothing: a simulator
+      // in the middle of a command or a restart is busy, so ask again.
+      if (!/timed out/.test(error?.message || '')) return liveMachineSetup();
+    }
   }
 }

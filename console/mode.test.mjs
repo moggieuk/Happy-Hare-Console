@@ -63,6 +63,12 @@ test('a failed simulator probe is a live machine and nothing else calls sim.* af
  assert.equal(sim.connection_kind,'simulator');assert.equal(sim.unit,1);
 });
 
+test('a simulator too busy to answer the probe in time is asked again, not taken for a printer',async()=>{
+ let calls=0;
+ const sim=await detectConnection(async()=>{ if (++calls<3) throw Error('sim.console.setup timed out'); return {units:[]}; });
+ assert.equal(sim.connection_kind,'simulator');assert.equal(calls,3);
+});
+
 test('a command from elsewhere never pulls a paused view back to live; one typed in the console follows it',()=>{
  const handler=app.slice(app.indexOf('data.method === "notify_gcode_command"'),app.indexOf('data.method === "notify_gcode_response"'));
  assert.ok(!handler.includes('followLive'));
