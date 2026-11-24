@@ -2,7 +2,7 @@
 // The main view: draws one scene state into the host <svg>. It reads nothing from the page outside the host and
 // changes nothing outside it; the caller passes what to draw (view) and how (settings).
 import { SpoolRenderer, renderSpool, spoolWindingRadius, espoolerActive } from './spool.js';
-import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, movingTip, visualTip, withdrawTip} from './playback.js';
+import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, meltColor, movingTip, visualTip, withdrawTip} from './playback.js';
 import {$, escape, short as sensorName, DEFAULT_COLOR, round1, clamp01, dimensionArrow, spanArrow} from './util.js';
 import {renderBuffer} from './buffer-view.js';
 import {measurePath} from './path-measure.js';
@@ -581,7 +581,9 @@ function tips(c) {
 // The MMU-side fade, and the synced and grip indicators
 function syncIndicators(c) {
   let {live, paused, playing, e, s, entry, end, mmuOffset, hardwareOffset, virtual, lane, mmuColumn, svg, tube, length, progress, endReach}=c;
-  svg += `<defs><linearGradient id="bowden-fade-gradient" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${470+mmuOffset}" y2="${484+mmuOffset}"><stop stop-color="rgb(${Math.round(128*endReach())},${Math.round(128*endReach())},${Math.round(128*endReach())})"/><stop offset="1" stop-color="black"/></linearGradient><mask id="bowden-end-fade" maskUnits="userSpaceOnUse" x="0" y="0" width="${SCENE_WIDTH}" height="${MASK_HEIGHT}"><rect width="${SCENE_WIDTH}" height="${MASK_HEIGHT}" fill="white"/><rect x="${mmuColumn.left}" y="${470+mmuOffset}" width="${mmuColumn.right-mmuColumn.left}" height="230" fill="${virtual ? 'black' : 'url(#bowden-fade-gradient)'}"/></mask></defs>`;
+  // Fades out at the selected spool's winding, as a virtual selector's feed does
+  const fadeEnd=549.6+mmuOffset-spoolWindingRadius(spoolFill(s,c.gate))*3.3;
+  svg += `<defs><linearGradient id="bowden-fade-gradient" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${470+mmuOffset}" y2="${fadeEnd}"><stop stop-color="rgb(${Math.round(128*endReach())},${Math.round(128*endReach())},${Math.round(128*endReach())})"/><stop offset="1" stop-color="black"/></linearGradient><mask id="bowden-end-fade" maskUnits="userSpaceOnUse" x="0" y="0" width="${SCENE_WIDTH}" height="${MASK_HEIGHT}"><rect width="${SCENE_WIDTH}" height="${MASK_HEIGHT}" fill="white"/><rect x="${mmuColumn.left}" y="${470+mmuOffset}" width="${mmuColumn.right-mmuColumn.left}" height="230" fill="${virtual ? 'black' : 'url(#bowden-fade-gradient)'}"/></mask></defs>`;
   const extruderGearY=tube.getPointAtLength(progress(s.layout.extruder_gears ?? entry) * length).y;
   if (syncForDisplay(e, s, Boolean(playing) || !live || paused)) {
     const syncY=435+hardwareOffset;
@@ -723,7 +725,7 @@ function nozzle(c) {
   if (Number.isFinite(excess) && excess !== 0) svg += `<text id="bowden-excess" x="${EXIT-20}" y="${bowdenLengthLabel(s).includes('Uncalibrated') ? 94 : 78}" font-size="10" fill="var(--scene-text, #304c65)"><tspan x="${EXIT-20}">Excess filament</tspan><tspan x="${EXIT-20}" dy="14">${excessFilamentLabel(excess)}</tspan></text>`;
   const residual = s.filament?.residual_mm || 0;
   const fragment = s.filament?.fragment_mm || 0;
-  const retainedColor = s.nozzle_color || s.filament?.retained_color || DEFAULT_COLOR;
+  const retainedColor = meltColor(s);
   const residualTop = tube.getPointAtLength(progress(end-residual)*length).y;
   const nozzleZero = tube.getPointAtLength(progress(end)*length).y;
   // The melt goes down first: a cut fragment passing through it keeps its own colour

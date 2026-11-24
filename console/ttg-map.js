@@ -17,8 +17,8 @@ export function spoolGroups(groups) {
 export function ttgMapChart({numGates, ttgMap = [], groups = [], tool = -1, gate = -1}) {
   const drawn = spoolGroups(groups);
   const currentGroup = gate >= 0 ? groups[gate] : tool >= 0 && ttgMap[tool] >= 0 ? groups[ttgMap[tool]] : -1;
-  const label = (x, row, text, selected) =>
-    `<text x="${x}" y="${row*ROW+START_Y+8}" text-anchor="end" font-size="10" fill="${selected ? SELECTED : 'currentColor'}"${selected ? ' font-weight="bold"' : ''}>${text}</text>`;
+  const label = (x, row, text, selected, anchor = 'end') =>
+    `<text x="${x}" y="${row*ROW+START_Y+8}" text-anchor="${anchor}" font-size="10" fill="${selected ? SELECTED : 'currentColor'}"${selected ? ' font-weight="bold"' : ''}>${text}</text>`;
   const line = from => {
     const selected = from === tool, to = ttgMap[from] ?? -1;
     if (to < 0) return '';
@@ -28,7 +28,7 @@ export function ttgMapChart({numGates, ttgMap = [], groups = [], tool = -1, gate
   // The selected tool is drawn last, so its line lies over the others
   const tools = Array.from({length: numGates}, (_, i) => i).filter(i => i !== tool);
   if (tool >= 0 && tool < numGates) tools.push(tool);
-  const rows = tools.map(i => label(START_X+14, i, `T${i}`, i === tool)+label(GATE_X, i, `#${i}`, i === gate)+line(i)).join('');
+  const rows = tools.map(i => label(START_X+14, i, `T${i}`, i === tool)+label(GATE_X-12, i, `#${i}`, i === gate, 'start')+line(i)).join('');
   const brackets = drawn.map(([group, gates], column) => {
     const x = GROUP_X+column*GROUP_SPACING, color = group === currentGroup ? SELECTED : REGULAR;
     const y = member => START_Y+4+member*ROW;

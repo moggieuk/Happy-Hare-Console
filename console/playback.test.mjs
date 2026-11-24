@@ -1010,3 +1010,10 @@ test('a cut fragment pressed into the melt loses its formed tip',async()=>{
  assert.equal(fragmentTipShape({tip_shape:'cone',end:790},803.1),'cone');
  assert.equal(fragmentTipShape({tip_shape:'cone',end:805.1},803.1),'square');
 });
+test('the melt at the nozzle keeps its colour until all of it is pushed out',async()=>{
+ const {meltColor}=await import('./playback.js');
+ const plan={start_mm:0,retained_mm:2,mix_mm:2,old_color:'808182',new_color:'8c42af'};
+ assert.equal(meltColor({purge_transition:plan,extruded_mm:1.5,nozzle_color:'8a4ca8'}),'808182');
+ assert.equal(meltColor({purge_transition:plan,extruded_mm:2,nozzle_color:'8c42af'}),'8c42af');
+ assert.equal(meltColor({nozzle_color:'123456'}),'123456');
+});
