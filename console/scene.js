@@ -742,7 +742,7 @@ function nozzle(c) {
       const rows=Array.from({length:281},(_,i)=>200+i)
         .filter(y=>Math.abs(y-452)>=20);
       const labelY=rows.reduce((best,y)=>Math.abs(y-centerY)<Math.abs(best-centerY) ? y : best,rows[0] ?? 470);
-      svg += `<g id="cut-fragment-label"><text id="cut-fragment-length" x="${E+64}" y="${labelY}" text-anchor="start" dominant-baseline="middle" font-size="9" fill="var(--scene-muted, #6e8190)">Cut fragment · ${round1(cutLength)}mm</text></g>`;
+      svg += `<g id="cut-fragment-label"><text id="cut-fragment-length" x="${E+76}" y="${labelY}" text-anchor="start" dominant-baseline="middle" font-size="9" fill="var(--scene-muted, #6e8190)">Cut fragment · ${round1(cutLength)}mm</text></g>`;
     }
     if (cone) {
       // The shrinking fragment's cone must never cover the incoming filament behind it.
@@ -841,7 +841,7 @@ function cutters(c) {
     }
     // The triangle tip rests at the 20px tube's outer wall, then crosses it.
     const x = pt.x - direction * 10 + direction * 20 * pressed;
-    svg += `<g class="cutter-blade" aria-label="${onMmu ? 'MMU servo cutter' : cutter.before_extruder ? 'Cutter before extruder' : 'Cutter inside extruder'}"><path data-part="blade" data-pressed="${pressed}" d="M${x} ${pt.y} l${-direction*42} -5 v10 Z" fill="var(--scene-nozzle, #9cafbe)" stroke="var(--scene-spoke, #526f86)"/><g data-part="cutter-icon" transform="translate(${x-direction*53} ${pt.y}) scale(${direction} 1)" fill="none" stroke="#53b9b0" stroke-width="1.6" stroke-linecap="round"><circle cx="-5" cy="-3.6" r="2.4"/><circle cx="-5" cy="3.6" r="2.4"/><path d="M-3 -2.2 L8 3.6 M-3 2.2 L8 -3.6"/></g></g>`;
+    svg += `<g class="cutter-blade" aria-label="${onMmu ? 'MMU servo cutter' : cutter.before_extruder ? 'Cutter before extruder' : 'Cutter inside extruder'}"><path data-part="blade" data-pressed="${pressed}" d="M${x} ${pt.y} l${-direction*38} -4.5 v9 Z" fill="var(--scene-nozzle, #9cafbe)" stroke="var(--scene-spoke, #526f86)"/><g data-part="cutter-icon" transform="translate(${x-direction*53} ${pt.y}) scale(${direction} 1)" fill="none" stroke="#53b9b0" stroke-width="1.6" stroke-linecap="round"><circle cx="-5" cy="-3.6" r="2.4"/><circle cx="-5" cy="3.6" r="2.4"/><path d="M-3 -2.2 L8 3.6 M-3 2.2 L8 -3.6"/></g></g>`;
   }
   Object.assign(c, {svg});
 }
