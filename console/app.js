@@ -164,8 +164,8 @@ function connect() {
       if (store.viewMode==='live') acceptLive(data.params[0],data.params[1]);
       else {
         const mmu=data.params[0].mmu;
-        if (mmu?.sensors) { store.statusSensors=mmu.sensors; draw(); }
-        if (Object.keys(data.params[0]).some(name=>/^extruder\d*$/.test(name))) draw();
+        if (mmu?.sensors) store.statusSensors=mmu.sensors;
+        draw();
         if (mmu && 'telemetry_mode' in mmu) { store.statusRecordMode=mmu.telemetry_mode; renderRecordControl(); }
       }
     } else if (['notify_klippy_ready','notify_klippy_shutdown','notify_klippy_disconnected'].includes(data.method)) {

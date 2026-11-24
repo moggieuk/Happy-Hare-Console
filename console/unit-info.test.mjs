@@ -91,3 +91,10 @@ test('the telemetry view reads the extruder target from the printer, as telemetr
   assert.equal(extruderTarget({extruder:{target:215}},'extruder'),215);
   assert.equal(extruderTarget({},'extruder'),null);
 });
+
+test('every unit reports its own heating, per gate where it has a heater per gate',()=>{
+  const info=unitInfo({mmu_machine:machine(unit({filament_heater:'heater_generic a'}),
+    unit({name:'unit1',first_gate:4,filament_heaters:['heater_generic h4','heater_generic h5','','']})),
+    'heater_generic a':{target:0},'heater_generic h4':{target:0},'heater_generic h5':{target:45}},0);
+  assert.deepEqual(info.map(u=>[u.heating,u.heatingGates]),[[false,null],[true,[5]]]);
+});

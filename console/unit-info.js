@@ -55,8 +55,8 @@ export function unitInfo(objects, selectedGate) {
     const drying = states.some(state => state === 'active' || state === 'queued');
     const heaterTarget = heater ? (heater.target > 0 ? several(reading(heater.target, '°C'), perGateHeaters) : undefined)
       : perGateHeaters ? '...' : undefined;
-    const heating = perGateHeaters
-      ? unit.filament_heaters.some(name => objects[stripQuotes(name)]?.target > 0) : Boolean(heaterTarget);
+    const heatingGates = perGateHeaters ? gates.filter((_, i) => objects[stripQuotes(unit.filament_heaters[i])]?.target > 0) : null;
+    const heating = heatingGates ? heatingGates.length > 0 : Boolean(heaterTarget);
     let tooltip = null;
     if (perGateHeaters || perGateSensors) {
       tooltip = gates.map((gate, i) => {
@@ -78,7 +78,7 @@ export function unitInfo(objects, selectedGate) {
       name: unit.name, display_name: unit.display_name || unit.name, vendor: unit.vendor || 'Unknown', gates,
       humidity: perGateSensors && !sensor ? '...' : reading(sensor?.humidity, '%'),
       temperature: perGateSensors && !sensor ? '...' : several(reading(sensor?.temperature, '°C'), perGateSensors),
-      heater: heaterTarget, heaterIcon: drying ? 'drying' : heating ? 'heater' : null,
+      heater: heaterTarget, heating, heatingGates, heaterIcon: drying ? 'drying' : heating ? 'heater' : null,
       climateIcons: count > 2, tooltip,
     };
   });
