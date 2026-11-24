@@ -492,7 +492,7 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 /* Tool-to-gate mapping chart */
 #ttg-map { display: block; width: 75%; height: auto; margin: 0 auto; }
 
-button.collapse-toggle, #sidebar-playback button.collapse-toggle { background: none; color: inherit; width: auto; height: auto; padding: 2px; margin: 0 0 0 -4px; line-height: 0; }
+button.collapse-toggle, #sidebar-playback button.collapse-toggle { background: none; color: inherit; width: auto; height: auto; padding: 2px; margin: 0 -2px 0 -4px; line-height: 0; }
 .panel-heading { margin-bottom: 10px; }
 .collapse-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
 .collapse-toggle + h2 { margin-right: auto; }
