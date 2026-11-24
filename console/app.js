@@ -1,5 +1,5 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
-import {LiveState, liveFrame, liveDuration, liveProgress, gateChanged} from './live-state.js';
+import {LiveState, liveFrame, liveDuration, liveProgress, gateChanged, liveMmuFields} from './live-state.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
@@ -260,7 +260,8 @@ async function subscribeLive() {
       : /^(extruder\d*|heater_generic .+)$/.test(n) ? ['target'] : null]));
   wanted.save_variables=['variables'];
   Object.assign(wanted,await unitObjectsWanted(objects));
-  wanted.mmu=null; // Everything, as Mainsail and Fluidd subscribe, so Status capture shows every change
+  // Everything else in mmu, so Status capture shows every change
+  wanted.mmu=liveMmuFields((await rpc('printer.objects.query',{objects:{mmu:null}})).status.mmu);
   const initial=await rpc('printer.objects.subscribe',{objects:wanted});
   if (generation===store.subscriptionGeneration) store.liveSubscribed=true;
   acceptUnitObjects(initial.status);

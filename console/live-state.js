@@ -84,6 +84,8 @@ export class LiveState {
   }
 }
 
+// Klipper resends a whole dictionary field when one value in it changes; the encoder's own object sends just that value
+export const liveMmuFields=mmu=>Object.keys(mmu || {}).filter(field=>field!=='encoder');
 export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 && from.gate!==to.gate;
 export const liveDuration=(from,to)=>gateChanged(from,to) ? duration({kind:'gate_changed'}) : 350;
 // The frame that reaches the target is drawn once, however late it comes
