@@ -89,12 +89,12 @@ function sourceMode() {
 
 // A notice (blue, "i") and a warning (amber, "!") each have their own box, stacked
 function renderWarning(warnings=[], notice=null) {
-  const simulatorLive=store.viewMode==='live' && !store.offline && store.socket?.readyState===1 && isSimulator();
+  const subscribed=store.viewMode==='live' && !store.offline && store.socket?.readyState===1;
   const playback=store.viewMode==='playback';
-  const warning=simulatorLive
-    ? 'Simulator subscriptions may skip movement updates. Select Telemetry stream for complete movement animation.'
+  const warning=subscribed
+    ? 'Status subscriptions may skip movement updates. Select Telemetry stream for complete movement animation.'
     : playback && warnings.length ? 'Displayed tip adjusted to sensor readings: '+warnings.join('; ') : '';
-  const info=playback && !simulatorLive && notice ? notice : '';
+  const info=playback && !subscribed && notice ? notice : '';
   for (const [id,text] of [['filament-notice',info],['filament-warning',warning]]) {
     $(id).hidden=!text;
     $(`${id}-message`).textContent=text;
