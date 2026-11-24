@@ -82,3 +82,14 @@ test('proportional position remains authoritative with released gears',()=>{
  assert.equal(d.displacement,d.maximum/2+.6*d.range/2);
  assert.equal(d.excess,0);
 });
+
+test('a gate change slides to the new gate as the telemetry view does, and a late frame still draws the result',async()=>{
+ const {liveDuration,liveProgress}=await import('./live-state.js');
+ const a={unit:'unit0',gate:7,tips:[],devices:{},motors:{}},b={unit:'unit1',gate:9,tips:[],devices:{},motors:{}};
+ assert.ok(liveDuration(a,b)>liveDuration(a,{...a}));
+ const half=liveFrame(a,b,.5);
+ assert.equal(half.gate_focus,8);assert.equal(half.gate_from,7);assert.equal(half.gate_to,9);
+ assert.equal(liveFrame(a,b,1),b);
+ assert.deepEqual(liveProgress(1000,350,false),{fraction:1,draw:true,settled:true});
+ assert.equal(liveProgress(1000,350,true).draw,false);
+});

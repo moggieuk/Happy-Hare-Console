@@ -2,6 +2,7 @@
 import {SceneModel} from './scene-state.js';
 import {liveMachine,qualifySensors} from './live-config.js';
 import {short as sensorName, DEFAULT_COLOR} from './util.js';
+import {interpolate, duration} from './playback.js';
 const clone=value=>structuredClone(value);
 const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('') : String(value || DEFAULT_COLOR).replace(/^#/,'').slice(0,6);
 
@@ -81,9 +82,18 @@ export class LiveState {
   }
 }
 
+export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 && from.gate!==to.gate;
+export const liveDuration=(from,to)=>gateChanged(from,to) ? duration({kind:'gate_changed'}) : 350;
+// The frame that reaches the target is drawn once, however late it comes
+export function liveProgress(elapsed,total,settled) {
+  const fraction=Math.min(1,elapsed/total);
+  return {fraction,draw:!settled,settled:fraction>=1};
+}
+
 // Cosmetic smoothing only: the target always comes from subscribed state.
 export function liveFrame(from,to,fraction) {
   if (!from || fraction>=1) return to;
+  if (gateChanged(from,to)) return interpolate({kind:'gate_changed',before:from,state:to},fraction);
   const f=Math.max(0,fraction), s={...to,tips:[...to.tips],devices:clone(to.devices)};
   if (from.unit===to.unit && from.gate===to.gate && to.gate>=0) {
     s.tips[to.gate]=from.tips[to.gate]+(to.tips[to.gate]-from.tips[to.gate])*f;
