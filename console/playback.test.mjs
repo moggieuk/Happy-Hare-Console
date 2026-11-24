@@ -49,11 +49,11 @@ test('speed controls playback independently of console pacing',()=>{
  assert.equal(duration(event),2000);
  assert.equal(duration({...event,speed:200}),1000);
 });
-test('only fast Bowden travel receives geometric time compression, in either direction',()=>{
+test('only fast Bowden travel plays four times faster when compressed, in either direction',()=>{
  const before={...state(0,false),layout:{extruder_entry:1000,toolhead:1060}};
  const after={...before,tips:[1000]};
  const e={kind:'movement',distance:1000,speed:200,fast_bowden:true,before,state:after};
- const expected=5000*(.56/1000)/(.27/90);
+ const expected=5000/4;
  assert.ok(Math.abs(duration(e,true)-expected)<1e-9);
  assert.ok(Math.abs(duration({...e,distance:-1000,before:after,state:before},true)-expected)<1e-9);
  assert.equal(duration(e),5000);
