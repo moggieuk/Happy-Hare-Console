@@ -3,7 +3,7 @@ import {LiveState, liveFrame} from './live-state.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
-import {unitInfo, unitObjectFields, savedUnits, recordedUnitInfo} from './unit-info.js';
+import {unitInfo, unitObjectFields, savedUnits, recordedUnitInfo, extruderObjectFields, extruderTarget} from './unit-info.js';
 import {gateMenu, GATE_MENU_OBJECTS, GATE_MENU_MMU_FIELDS} from './gate-menu.js';
 import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
@@ -165,6 +165,7 @@ function connect() {
       else {
         const mmu=data.params[0].mmu;
         if (mmu?.sensors) { store.statusSensors=mmu.sensors; draw(); }
+        if (Object.keys(data.params[0]).some(name=>/^extruder\d*$/.test(name))) draw();
         if (mmu && 'telemetry_mode' in mmu) { store.statusRecordMode=mmu.telemetry_mode; renderRecordControl(); }
       }
     } else if (['notify_klippy_ready','notify_klippy_shutdown','notify_klippy_disconnected'].includes(data.method)) {
@@ -288,7 +289,8 @@ function acceptLive(delta,time) {
 // recording mode (a status variable) drives the Record control.
 async function startStream() {
   const generation=store.viewGeneration;
-  const wanted=await unitObjectsWanted((await rpc('printer.objects.list')).objects);
+  const {objects}=await rpc('printer.objects.list');
+  const wanted={...await unitObjectsWanted(objects),...extruderObjectFields(objects)};
   const status=(await rpc('printer.objects.subscribe',{objects:{...wanted,mmu:['sensors','telemetry_mode','drying_state',...GATE_MENU_MMU_FIELDS]}})).status;
   const mmu=status.mmu;
   if (generation!==store.viewGeneration || store.viewMode!=='playback' || store.offline) return;
@@ -655,6 +657,7 @@ function currentView() {
   const moveReason = annotatedEvent.label || annotatedEvent.telemetry?.start?.label;
   const connected = store.socket?.readyState===1;
   return {viewMode:store.viewMode, offline:store.offline, live:store.live, paused:store.paused, playing:store.playing, played:store.played, events:store.events, sensorPulse:store.sensorPulse, event:e, state:s,
+    extruderTarget:store.offline ? null : extruderTarget(store.unitObjects,s.filament?.extruder),
     unitInfo:store.offline ? recordedUnitInfo(store.sourceRecords[0],s.gate) : unitInfo(store.unitObjects,s.gate),
     homing:store.liveTarget?.homing, simulator:isSimulator(), running, index, count:store.events.length, pauseAfterStep:store.pauseAfterStep,
     previousToolchange:toolchangeIndex(store.events, index, -1) >= 0, nextToolchange:toolchangeIndex(store.events, index, 1) >= 0,

@@ -84,3 +84,10 @@ test('a loaded recording shows the units saved with it, or its own unit names un
  const plain=recordedUnitInfo({state:{printer:{mmu_machine:{units:{unit0:{gates:[0,1]},unit1:{gates:[2,3,4]}}}}}},0);
  assert.deepEqual(plain.map(u=>[u.name,u.vendor,u.gates]),[['unit0','Unknown',[0,1]],['unit1','Unknown',[2,3,4]]]);
 });
+
+test('the telemetry view reads the extruder target from the printer, as telemetry carries no heater state',async()=>{
+  const {extruderObjectFields, extruderTarget}=await import('./unit-info.js');
+  assert.deepEqual(extruderObjectFields(['mmu','extruder','extruder1','extruder_stepper belt']),{extruder:['target'],extruder1:['target']});
+  assert.equal(extruderTarget({extruder:{target:215}},'extruder'),215);
+  assert.equal(extruderTarget({},'extruder'),null);
+});

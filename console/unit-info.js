@@ -109,3 +109,11 @@ export function recordedUnitInfo(session, selectedGate) {
   }
   return unitInfo({mmu_machine: machine}, selectedGate);
 }
+
+export function extruderObjectFields(available) {
+  return Object.fromEntries(available.filter(name => /^extruder\d*$/.test(name)).map(name => [name, ['target']]));
+}
+export function extruderTarget(objects, name) {
+  const target = objects?.[name]?.target;
+  return Number.isFinite(target) ? target : null;
+}
