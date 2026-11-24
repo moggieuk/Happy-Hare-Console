@@ -356,7 +356,7 @@ export function motionFraction(event, timeFraction) {
 const gripChanges = event => event.kind === 'selector_move' && event.before
   && (event.settled_state || event.state).mmu_gripped !== event.before.mmu_gripped;
 
-export function duration(event, compressBowden = false) {
+export function duration(event, compressBowden = false, compressPurge = false) {
   if (event.kind === 'gate_changed') return gateDuration;
   if (event.kind === 'cut' || event.kind === 'release') return 650;
   if (gripChanges(event)) return 650; // Long enough to see the gears grip or release
@@ -377,9 +377,9 @@ export function duration(event, compressBowden = false) {
       seconds *= (travel-Math.min(travel,overlap)*(1-ratio))/travel;
     }
   }
-  // Half-speed visual playback for moves that deposit filament at the nozzle.
+  // Half-speed visual playback for moves that deposit filament at the nozzle, or four times that when compressed.
   // Recorded feed rates and the running simulator remain unchanged.
-  if ((event.state?.extruded_mm || 0) > (event.before?.extruded_mm || 0)) seconds *= 2;
+  if ((event.state?.extruded_mm || 0) > (event.before?.extruded_mm || 0)) seconds *= compressPurge ? .5 : 2;
   // Let the detached purge fall visibly even when the releasing retract is brief.
   const releasingPurge = (event.state?.purge_base_mm || 0) > (event.before?.purge_base_mm || 0);
   return Math.max(releasingPurge ? 0.65 : 0.12,seconds)*1000;

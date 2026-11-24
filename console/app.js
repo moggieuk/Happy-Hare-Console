@@ -958,7 +958,7 @@ function drawFrame() {
       if (event) { store.playing={event,start:now,selectionGrip:store.displayed?.mmu_gripped ?? event.before?.mmu_gripped}; followTrace(); }
     }
     if (store.playing) {
-      const ms=duration(store.playing.event, $("compress-bowden").checked);
+      const ms=duration(store.playing.event, $("compress-bowden").checked, $("compress-purge").checked);
       const arrival=nozzleArrivalTime(store.playing.event,ms);
       const total=Math.max(ms,arrival === null ? 0 : arrival+500), elapsed=Math.min(total,now-store.playing.start);
       const f=total ? elapsed/total : 1;

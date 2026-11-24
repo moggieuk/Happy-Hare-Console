@@ -1023,3 +1023,10 @@ test('the recorded park retraction is labelled only when there is one',async()=>
  assert.equal(retractionLabel({filament:{retracted_length:0}}),'');
  assert.equal(retractionLabel({filament:{}}),'');
 });
+
+test('compressing purge playback runs a purging move four times faster',()=>{
+ const purge={kind:'movement',duration:2,before:{extruded_mm:0},state:{extruded_mm:10}};
+ assert.equal(duration(purge),4000);
+ assert.equal(duration(purge,false,true),1000);
+ assert.equal(duration({kind:'movement',duration:2},false,true),2000);
+});
