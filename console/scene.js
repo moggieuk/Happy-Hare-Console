@@ -227,8 +227,9 @@ function measure(c) {
           ? toolheadFraction-sensorGap/length+(sensorGap/length)*(p-sensorEntry)/(entry-sensorEntry)
         : Math.min(1, toolheadFraction + (1-toolheadFraction) * toolheadProgress(s,p));
   const pathDistance = position => progress(position)*length;
-  if (Number.isFinite(s.extruder_target_temperature))
-    svg += `<text id="extruder-temperature" x="${E+42}" y="426" text-anchor="end" font-size="9" fill="var(--scene-text, #304c65)" data-tooltip="Extruder target temperature">${round1(s.extruder_target_temperature)}°C</text>`;
+  const extruderTarget=s.extruder_target_temperature ?? view.extruderTarget;
+  if (Number.isFinite(extruderTarget))
+    svg += `<text id="extruder-temperature" x="${E+42}" y="426" text-anchor="end" font-size="9" fill="var(--scene-text, #304c65)" data-tooltip="Extruder target temperature">${round1(extruderTarget)}°C</text>`;
   const unitSensors = Object.entries(s.sensors).filter(([name]) => {
     if (name === `${s.unit}:mmu_gear_touch`) return true;
     if (s.active_sensors && !(virtual && /^mmu_(entry|exit)(?:_\d+)?$/.test(sensorName(name)))) return s.active_sensors.includes(name);
