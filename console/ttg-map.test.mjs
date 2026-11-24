@@ -14,7 +14,7 @@ test('each tool has a label, a gate label on its row and a line to its mapped ga
   assert.match(path(markup,0),/d="M 38 12 L 48 12 L 118 36 L 128 36"/);
   assert.match(path(markup,3),/d="M 38 48 L 48 48 L 118 48 L 128 48"/);
   assert.match(markup,/<text x="24" y="28" text-anchor="end" font-size="10" fill="currentColor">T1<\/text>/);
-  assert.match(markup,/<text x="150" y="28" text-anchor="end" font-size="10" fill="currentColor">#1<\/text>/);
+  assert.match(markup,/<text x="138" y="28" text-anchor="start" font-size="10" fill="currentColor">#1<\/text>/);
 });
 
 test('a tool with no gate known yet has its labels but no line',()=>{
