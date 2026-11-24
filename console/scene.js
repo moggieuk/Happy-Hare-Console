@@ -726,6 +726,10 @@ function nozzle(c) {
   const retainedColor = s.nozzle_color || s.filament?.retained_color || DEFAULT_COLOR;
   const residualTop = tube.getPointAtLength(progress(end-residual)*length).y;
   const nozzleZero = tube.getPointAtLength(progress(end)*length).y;
+  // The melt goes down first: a cut fragment passing through it keeps its own colour
+  if (residual > 0) {
+    svg += `<path id="residual-filament" d="M${E} ${residualTop} L${E} ${nozzleZero}" fill="none" stroke="#${retainedColor}" stroke-width="7"/><text id="residual-dimension" ${dimensionLink('Residual')} x="${E+19}" y="452" text-anchor="start" font-size="9" fill="var(--scene-muted, #6e8190)">Residual · ${residual}mm</text>`;
+  }
   if (s.retained_segment && !s.retained_segment.residual_only) {
     const segment = s.retained_segment;
     const top = tube.getPointAtLength(progress(segment.start)*length).y;
@@ -747,9 +751,6 @@ function nozzle(c) {
   } else if (fragment > 0 && !Object.hasOwn(s, 'retained_segment')) {
     const top = tube.getPointAtLength(progress(end-residual-fragment)*length).y;
     svg += `<path id="retained-fragment" d="M${E} ${top} L${E} ${residualTop}" fill="none" stroke="#${retainedColor}" stroke-width="7"/>`;
-  }
-  if (residual > 0) {
-    svg += `<path id="residual-filament" d="M${E} ${residualTop} L${E} ${nozzleZero}" fill="none" stroke="#${retainedColor}" stroke-width="7"/><text id="residual-dimension" ${dimensionLink('Residual')} x="${E+19}" y="452" text-anchor="start" font-size="9" fill="var(--scene-muted, #6e8190)">Residual · ${residual}mm</text>`;
   }
   // Show the incoming front inside the residual instead of hiding it under a uniform color.
   if (residual > 0 && tip > end-residual) {
