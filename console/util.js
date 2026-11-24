@@ -61,3 +61,8 @@ export const dimensionArrow=(x,y1,y2,wing=4)=>{
 };
 // The same between two reference lines given in either order: it stops just short of each, pointing at it
 export const spanArrow=(x,a,b)=>dimensionArrow(x,Math.min(a,b)+2,Math.max(a,b)-2);
+
+// The Spool spacing setting runs 10 to 60; the scene lays spools out 45 to 75 pixels apart
+export function spoolSpacingPixels(setting) {
+  return 45+(Math.max(10,Math.min(60,setting))-10)*.6;
+}
