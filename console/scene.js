@@ -581,7 +581,9 @@ function tips(c) {
 // The MMU-side fade, and the synced and grip indicators
 function syncIndicators(c) {
   let {live, paused, playing, e, s, entry, end, mmuOffset, hardwareOffset, virtual, lane, mmuColumn, svg, tube, length, progress, endReach}=c;
-  svg += `<defs><linearGradient id="bowden-fade-gradient" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${470+mmuOffset}" y2="${484+mmuOffset}"><stop stop-color="rgb(${Math.round(128*endReach())},${Math.round(128*endReach())},${Math.round(128*endReach())})"/><stop offset="1" stop-color="black"/></linearGradient><mask id="bowden-end-fade" maskUnits="userSpaceOnUse" x="0" y="0" width="${SCENE_WIDTH}" height="${MASK_HEIGHT}"><rect width="${SCENE_WIDTH}" height="${MASK_HEIGHT}" fill="white"/><rect x="${mmuColumn.left}" y="${470+mmuOffset}" width="${mmuColumn.right-mmuColumn.left}" height="230" fill="${virtual ? 'black' : 'url(#bowden-fade-gradient)'}"/></mask></defs>`;
+  // Fades out at the selected spool's winding, as a virtual selector's feed does
+  const fadeEnd=549.6+mmuOffset-spoolWindingRadius(spoolFill(s,c.gate))*3.3;
+  svg += `<defs><linearGradient id="bowden-fade-gradient" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${470+mmuOffset}" y2="${fadeEnd}"><stop stop-color="rgb(${Math.round(128*endReach())},${Math.round(128*endReach())},${Math.round(128*endReach())})"/><stop offset="1" stop-color="black"/></linearGradient><mask id="bowden-end-fade" maskUnits="userSpaceOnUse" x="0" y="0" width="${SCENE_WIDTH}" height="${MASK_HEIGHT}"><rect width="${SCENE_WIDTH}" height="${MASK_HEIGHT}" fill="white"/><rect x="${mmuColumn.left}" y="${470+mmuOffset}" width="${mmuColumn.right-mmuColumn.left}" height="230" fill="${virtual ? 'black' : 'url(#bowden-fade-gradient)'}"/></mask></defs>`;
   const extruderGearY=tube.getPointAtLength(progress(s.layout.extruder_gears ?? entry) * length).y;
   if (syncForDisplay(e, s, Boolean(playing) || !live || paused)) {
     const syncY=435+hardwareOffset;
