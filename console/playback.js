@@ -774,7 +774,7 @@ export function meltColor(state) {
 // The park retraction Happy Hare recorded for the extruder, or nothing when there is none
 export function retractionLabel(state) {
   const retracted=Number(state.filament?.retracted_length);
-  return retracted > 0 ? `Retraction · ${Math.round(retracted*10)/10}mm` : '';
+  return retracted > 0 ? `(Retraction · ${Math.round(retracted*10)/10}mm)` : '';
 }
 
 // Deposited strand color depends only on extrusion, never the timed nozzle fill.

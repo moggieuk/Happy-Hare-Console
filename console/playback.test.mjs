@@ -1019,7 +1019,7 @@ test('the melt at the nozzle keeps its colour until all of it is pushed out',asy
 });
 test('the recorded park retraction is labelled only when there is one',async()=>{
  const {retractionLabel}=await import('./playback.js');
- assert.equal(retractionLabel({filament:{retracted_length:2}}),'Retraction · 2mm');
+ assert.equal(retractionLabel({filament:{retracted_length:2}}),'(Retraction · 2mm)');
  assert.equal(retractionLabel({filament:{retracted_length:0}}),'');
  assert.equal(retractionLabel({filament:{}}),'');
 });
