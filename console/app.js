@@ -534,7 +534,6 @@ function sendScript(script) {
   // Not under the busy lock: a second command (a pause, an emergency stop) must go through while the first runs.
   rpc("printer.gcode.script", { script }).catch((e) => { if (!consoleEndsWith(e.message)) consoleLine(e.message, 'error'); });
   if (store.socket.readyState === WebSocket.OPEN) commandHistory.add(script);
-  lastActivity = performance.now();
   draw();
 }
 $("command-form").onsubmit = (event) => {
