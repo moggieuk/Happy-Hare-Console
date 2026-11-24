@@ -258,7 +258,7 @@ async function subscribeLive() {
   wanted.mmu.push('drying_state','enabled');
   const initial=await rpc('printer.objects.subscribe',{objects:wanted});
   acceptUnitObjects(initial.status);
-  store.liveState.accept({configfile:startup.configfile},initial.eventtime-1);
+  store.liveState.seed({configfile:startup.configfile});
   if (store.viewMode==='live' && generation===store.subscriptionGeneration) acceptLive(initial.status,initial.eventtime);
 }
 function acceptLive(delta,time) {
