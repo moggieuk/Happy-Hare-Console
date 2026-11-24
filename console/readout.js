@@ -12,9 +12,14 @@ export function renderMacros(state, linkable) {
   }).join('');
 }
 
+// Along the filament path from the gate to the nozzle; an unknown sensor comes last
+const SENSOR_PATH = [/^mmu_entry/, /^mmu_gear_touch/, /^mmu_exit/, /^mmu_shared_exit/, /^encoder/, /^filament_tension/, /^filament_compression/, /^extruder/, /^toolhead/];
+const sensorRank = name => { const rank = SENSOR_PATH.findIndex(pattern => pattern.test(sensorName(name))); return rank < 0 ? SENSOR_PATH.length : rank; };
+export const sensorOrder = (a, b) => sensorRank(a)-sensorRank(b) || a.localeCompare(b, undefined, {numeric: true});
+
 export function renderSensors(unitSensors, {offline, atLatest, editable, onToggle}) {
   $("sensors").replaceChildren(
-    ...unitSensors.map(([name, d]) => {
+    ...[...unitSensors].sort(([a], [b]) => sensorOrder(a, b)).map(([name, d]) => {
       const el = document.createElement("button");
       el.type = "button";
       el.className = "chip sensor-chip" + (d.state === true ? " on" : d.state === null ? " disabled" : " off");
@@ -30,13 +35,18 @@ export function renderSensors(unitSensors, {offline, atLatest, editable, onToggl
   );
 }
 
+// One row per Klipper object: its name, then its status
+export const deviceRows = state => Object.entries(state.object_status || {}).map(([name, d]) => [name, statusText(d)]);
+
 export function renderDevices(state) {
   $("devices").replaceChildren(
-    ...Object.entries(state.object_status || {}).map(([name, d]) => {
-      const el = document.createElement("span");
+    ...deviceRows(state).flatMap(([name, status]) => {
+      const label = document.createElement("span"), el = document.createElement("span");
+      label.className = "device-name";
+      label.textContent = name;
       el.className = "chip";
-      el.textContent = name + " · " + statusText(d);
-      return el;
+      el.textContent = status;
+      return [label, el];
     }),
   );
 }

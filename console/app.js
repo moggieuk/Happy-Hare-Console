@@ -1,5 +1,5 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
-import {LiveState, liveFrame} from './live-state.js';
+import {LiveState, liveFrame, liveDuration, liveProgress, gateChanged} from './live-state.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
@@ -164,8 +164,8 @@ function connect() {
       if (store.viewMode==='live') acceptLive(data.params[0],data.params[1]);
       else {
         const mmu=data.params[0].mmu;
-        if (mmu?.sensors) { store.statusSensors=mmu.sensors; draw(); }
-        if (Object.keys(data.params[0]).some(name=>/^extruder\d*$/.test(name))) draw();
+        if (mmu?.sensors) store.statusSensors=mmu.sensors;
+        draw();
         if (mmu && 'telemetry_mode' in mmu) { store.statusRecordMode=mmu.telemetry_mode; renderRecordControl(); }
       }
     } else if (['notify_klippy_ready','notify_klippy_shutdown','notify_klippy_disconnected'].includes(data.method)) {
@@ -270,12 +270,15 @@ function acceptLive(delta,time) {
     const name=previous.homing.endstops.find(n=>next.sensors[n]?.state===previous.homing.triggered);
     if (name) store.sensorPulse={sensor:name,reverse:!previous.homing.triggered,start:animationNow()};
   }
-  store.liveFrom=store.displayed;
+  // Updates that arrive while the rack is sliding to this gate must not restart the slide
+  const sliding=Boolean(previous) && !store.liveSettled && gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit;
+  if (!sliding) store.liveFrom=store.displayed;
   const sameGate=store.liveFrom?.unit===next.unit && store.liveFrom?.gate===next.gate && next.gate>=0;
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
   next.motors={gear:(store.liveFrom?.motors.gear || 0)+(next.mmu_gripped ? distance : 0),
     extruder:(store.liveFrom?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)};
-  store.liveTarget=next; store.liveStart=animationNow();
+  store.liveTarget=next;
+  if (!sliding) { store.liveStart=animationNow(); store.liveDuration=liveDuration(store.liveFrom,next); store.liveSettled=false; }
   if (isSimulator() && previous?.unit!==next.unit) {
     const unit=next.units.indexOf(next.unit);
     if (unit>=0 && $('unit').value!==String(unit)) {
@@ -944,9 +947,10 @@ function drawFrame() {
   const spoolMoving=scene.advanceSpools(now, {espoolers:store.displayed?.espoolers, running:spoolRunning, session:store.session,
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
   if (store.viewMode==='live' && store.liveTarget) {
-    const fraction=Math.min(1,(now-store.liveStart)/350);
-    store.displayed=liveFrame(store.liveFrom,store.liveTarget,fraction);
-    if (fraction<1 || store.sceneDirty || store.liveTarget.homing) draw();
+    const progress=liveProgress(now-store.liveStart,store.liveDuration,store.liveSettled);
+    store.displayed=liveFrame(store.liveFrom,store.liveTarget,progress.fraction);
+    if (progress.draw || store.sceneDirty || store.liveTarget.homing) draw();
+    store.liveSettled=progress.settled;
   }
   if (store.viewMode==='playback' && store.live && !store.paused && store.events.length) {
     if (!store.playing && now>=store.nextStepAt) {
@@ -954,7 +958,7 @@ function drawFrame() {
       if (event) { store.playing={event,start:now,selectionGrip:store.displayed?.mmu_gripped ?? event.before?.mmu_gripped}; followTrace(); }
     }
     if (store.playing) {
-      const ms=duration(store.playing.event, $("compress-bowden").checked);
+      const ms=duration(store.playing.event, $("compress-bowden").checked, $("compress-purge").checked);
       const arrival=nozzleArrivalTime(store.playing.event,ms);
       const total=Math.max(ms,arrival === null ? 0 : arrival+500), elapsed=Math.min(total,now-store.playing.start);
       const f=total ? elapsed/total : 1;

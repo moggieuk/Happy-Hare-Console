@@ -454,16 +454,16 @@ function rack(c) {
     svg += `<defs><linearGradient id="spool-shelf-fade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="color-mix(in srgb, var(--scene-body, #edf2f6), white 18%)"/><stop offset=".12" stop-color="var(--scene-body, #edf2f6)"/><stop offset=".65" stop-color="var(--scene-body, #edf2f6)"/><stop offset="1" stop-color="var(--scene-body, #edf2f6)" stop-opacity="0"/></linearGradient><linearGradient id="spool-glass" x1="0" y1="0" x2=".3" y2="1"><stop stop-color="white" stop-opacity=".22"/><stop offset=".12" stop-color="white" stop-opacity=".07"/><stop offset=".3" stop-color="white" stop-opacity=".02"/><stop offset="1" stop-color="black" stop-opacity=".1"/></linearGradient><linearGradient id="spool-cabinet" x1="0" y1="0" x2="0" y2="1"><stop stop-color="color-mix(in srgb, var(--scene-body, #edf2f6), white 18%)"/><stop offset=".055" stop-color="var(--scene-body, #edf2f6)"/><stop offset="1" stop-color="color-mix(in srgb, var(--scene-body, #edf2f6), black 18%)"/></linearGradient><mask id="outside-mmu" maskUnits="userSpaceOnUse" x="0" y="0" width="1200" height="2000"><rect width="1200" height="2000" fill="white"/><path d="${enclosurePath}" fill="black"/></mask><clipPath id="spool-cover-clip"><path d="${enclosurePath}"/></clipPath></defs>`;
     // Put the enclosure behind the short filament fade; the glass stays above it.
     svg = `<path data-part="spool-enclosure" d="${enclosurePath}" fill="color-mix(in srgb, var(--scene-body, #edf2f6), black 12%)"/>` + svg;
-    if (settings.heatingPreview || (viewMode==='live' && s.heaters?.some(h=>h.target>0))) {
+    if (settings.heatingPreview || view.unitInfo?.some(info=>info.heating)) {
       svg += `<defs><radialGradient id="mmu-heating-glow" cx=".5" cy=".9" r=".85"><stop stop-color="#ffbd59" stop-opacity=".65"/><stop offset=".45" stop-color="#ef8d27" stop-opacity=".3"/><stop offset="1" stop-color="#e87516" stop-opacity="0"/></radialGradient></defs><g data-part="heating-preview" clip-path="url(#spool-cover-clip)" pointer-events="none">`;
       for (const {unit,glassLeft,glassRight} of shells) for (let row=0; row<unit.rows; row++) {
         const lanes=grid.lanes.filter(lane=>lane.unit===unit.name && lane.row===row).sort((a,b)=>a.x-b.x);
-        const current=unit.name===s.unit;
-        const regions=current && s.has_per_gate_heaters ? lanes.map((lane,i)=>({
-          heating:s.heaters?.[unitGates.indexOf(lane.index)]?.target>0,
+        const heat=view.unitInfo?.find(info=>info.name===unit.name);
+        const regions=heat?.heatingGates ? lanes.map((lane,i)=>({
+          heating:heat.heatingGates.includes(lane.index),
           left:i ? (lanes[i-1].x+lane.x)/2 : glassLeft,
           right:i<lanes.length-1 ? (lane.x+lanes[i+1].x)/2 : glassRight,
-        })) : [{left:glassLeft,right:glassRight,heating:current && s.heaters?.some(h=>h.target>0)}];
+        })) : [{left:glassLeft,right:glassRight,heating:Boolean(heat?.heating)}];
         for (const region of regions.filter(r=>settings.heatingPreview || r.heating))
           svg += `<rect data-part="heating-glow" x="${region.left}" y="${470+mmuOffset+row*rowSpacing}" width="${region.right-region.left}" height="105" fill="url(#mmu-heating-glow)"/>`;
       }

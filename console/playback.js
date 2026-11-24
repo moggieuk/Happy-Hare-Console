@@ -356,7 +356,7 @@ export function motionFraction(event, timeFraction) {
 const gripChanges = event => event.kind === 'selector_move' && event.before
   && (event.settled_state || event.state).mmu_gripped !== event.before.mmu_gripped;
 
-export function duration(event, compressBowden = false) {
+export function duration(event, compressBowden = false, compressPurge = false) {
   if (event.kind === 'gate_changed') return gateDuration;
   if (event.kind === 'cut' || event.kind === 'release') return 650;
   if (gripChanges(event)) return 650; // Long enough to see the gears grip or release
@@ -366,20 +366,15 @@ export function duration(event, compressBowden = false) {
   let seconds = motionProfile(event)?.seconds
     ?? (event.speed > 0 && travel > 0 ? travel/event.speed : event.duration || travel/100);
   if (compressBowden && event.fast_bowden && !event.homing && event.before && travel > 0) {
+    // Only travel inside the Bowden runs four times faster; any end sections keep their pace.
     const a=event.before, b=event.state, entry=a.layout.extruder_entry ?? 700;
-    const extruderSpan=(a.layout.toolhead ?? 760)+30-entry;
-    // Match the diagram's 56% transport / 27% extruder path proportions.
-    // Only compress travel in the Bowden section; preserve any end sections.
-    if (entry > 0 && extruderSpan > 0) {
-      const ratio=Math.min(1,(0.56/entry)/(0.27/extruderSpan));
-      const start=a.tips[a.gate], end=b.tips[a.gate];
-      const overlap=Math.max(0,Math.min(entry,Math.max(start,end))-Math.max(0,Math.min(start,end)));
-      seconds *= (travel-Math.min(travel,overlap)*(1-ratio))/travel;
-    }
+    const start=a.tips[a.gate], end=b.tips[a.gate];
+    const overlap=Math.max(0,Math.min(entry,Math.max(start,end))-Math.max(0,Math.min(start,end)));
+    seconds *= (travel-Math.min(travel,overlap)*.75)/travel;
   }
-  // Half-speed visual playback for moves that deposit filament at the nozzle.
+  // Half-speed visual playback for moves that deposit filament at the nozzle, or four times that when compressed.
   // Recorded feed rates and the running simulator remain unchanged.
-  if ((event.state?.extruded_mm || 0) > (event.before?.extruded_mm || 0)) seconds *= 2;
+  if ((event.state?.extruded_mm || 0) > (event.before?.extruded_mm || 0)) seconds *= compressPurge ? .5 : 2;
   // Let the detached purge fall visibly even when the releasing retract is brief.
   const releasingPurge = (event.state?.purge_base_mm || 0) > (event.before?.purge_base_mm || 0);
   return Math.max(releasingPurge ? 0.65 : 0.12,seconds)*1000;
