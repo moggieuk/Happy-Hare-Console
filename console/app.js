@@ -3,7 +3,7 @@ import {LiveState, liveFrame} from './live-state.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
-import {unitInfo, unitObjectFields} from './unit-info.js';
+import {unitInfo, unitObjectFields, savedUnits, recordedUnitInfo} from './unit-info.js';
 import {gateMenu, GATE_MENU_OBJECTS, GATE_MENU_MMU_FIELDS} from './gate-menu.js';
 import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
@@ -655,7 +655,7 @@ function currentView() {
   const moveReason = annotatedEvent.label || annotatedEvent.telemetry?.start?.label;
   const connected = store.socket?.readyState===1;
   return {viewMode:store.viewMode, offline:store.offline, live:store.live, paused:store.paused, playing:store.playing, played:store.played, events:store.events, sensorPulse:store.sensorPulse, event:e, state:s,
-    unitInfo:store.offline ? null : unitInfo(store.unitObjects,s.gate),
+    unitInfo:store.offline ? recordedUnitInfo(store.sourceRecords[0],s.gate) : unitInfo(store.unitObjects,s.gate),
     homing:store.liveTarget?.homing, simulator:isSimulator(), running, index, count:store.events.length, pauseAfterStep:store.pauseAfterStep,
     previousToolchange:toolchangeIndex(store.events, index, -1) >= 0, nextToolchange:toolchangeIndex(store.events, index, 1) >= 0,
     modeText: store.viewMode==='live' ? `Live view · ${connected ? s.action || s.filament_pos_name : 'Disconnected'}`
@@ -848,7 +848,8 @@ $("nozzle-diameter").onchange = () => draw();
 function downloadTelemetry() {
   const records = store.sourceRecords;
   if (!records.length) return message('No telemetry captured yet', true);
-  const text = records.map(r=>JSON.stringify(r)).join('\n')+'\n';
+  const units = records[0].console_units || savedUnits(store.unitObjects.mmu_machine);
+  const text = records.map((r,i)=>JSON.stringify(i === 0 && units ? {...r,console_units:units} : r)).join('\n')+'\n';
   const url = URL.createObjectURL(new Blob([text],{type:'application/x-ndjson'}));
   const link = document.createElement('a');
   link.href=url; link.download='happy-hare-motion.jsonl'; link.click();

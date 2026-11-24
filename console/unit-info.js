@@ -83,3 +83,29 @@ export function unitInfo(objects, selectedGate) {
     };
   });
 }
+
+// A recording carries no vendor or display name, so a saved file is given the units the Console knew
+export function savedUnits(machine) {
+  if (!machine) return null;
+  const saved = {num_units: machine.num_units ?? 1};
+  for (let i = 0; i < saved.num_units; i++) {
+    const unit = machine[`unit_${i}`];
+    if (unit) saved[`unit_${i}`] = {name: unit.name, display_name: unit.display_name, vendor: unit.vendor,
+      first_gate: unit.first_gate, num_gates: unit.num_gates};
+  }
+  return saved;
+}
+
+// Unit footers for a loaded recording: the saved units, else the recording's own unit names under the default logo
+export function recordedUnitInfo(session, selectedGate) {
+  let machine = session?.console_units;
+  if (!machine) {
+    const units = Object.entries(session?.state?.printer?.mmu_machine?.units || {});
+    if (!units.length) return null;
+    machine = {num_units: units.length};
+    units.forEach(([name, unit], i) => {
+      machine[`unit_${i}`] = {name, first_gate: unit.gates?.[0] ?? 0, num_gates: unit.gates?.length ?? 0};
+    });
+  }
+  return unitInfo({mmu_machine: machine}, selectedGate);
+}

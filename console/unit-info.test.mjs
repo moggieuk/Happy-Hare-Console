@@ -73,3 +73,14 @@ test('the subscription names the machine and each unit\'s heaters and sensors th
   assert.deepEqual(wanted,{mmu_machine:null,'heater_generic dry':['target'],'aht2x box':['temperature','humidity'],
     'heater_generic h0':['target'],'bme280 s0':['temperature','humidity']});
 });
+
+test('a loaded recording shows the units saved with it, or its own unit names under the default logo',async()=>{
+ const {savedUnits, recordedUnitInfo}=await import('./unit-info.js');
+ const machine={num_units:1,unit_0:{name:'unit0',display_name:'Box Turtle',vendor:'BoxTurtle',first_gate:0,num_gates:4,filament_heater:'heater_generic dryer'}};
+ const saved=savedUnits(machine);
+ assert.deepEqual(saved,{num_units:1,unit_0:{name:'unit0',display_name:'Box Turtle',vendor:'BoxTurtle',first_gate:0,num_gates:4}});
+ const [info]=recordedUnitInfo({console_units:saved},0);
+ assert.deepEqual([info.name,info.display_name,info.vendor,info.gates],['unit0','Box Turtle','BoxTurtle',[0,1,2,3]]);
+ const plain=recordedUnitInfo({state:{printer:{mmu_machine:{units:{unit0:{gates:[0,1]},unit1:{gates:[2,3,4]}}}}}},0);
+ assert.deepEqual(plain.map(u=>[u.name,u.vendor,u.gates]),[['unit0','Unknown',[0,1]],['unit1','Unknown',[2,3,4]]]);
+});
