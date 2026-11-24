@@ -129,6 +129,9 @@ svg {
   flex-wrap: wrap;
   margin-top: 12px;
 }
+#devices { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: 6px 8px; }
+.device-name { font-size: 11px; color: #67788b; }
+[data-theme="dark"] .device-name { color: #a5b5c5; }
 .chip {
   font-size: 11px;
   border: 1px solid #cad5df;

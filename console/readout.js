@@ -30,13 +30,18 @@ export function renderSensors(unitSensors, {offline, atLatest, editable, onToggl
   );
 }
 
+// One row per Klipper object: its name, then its status
+export const deviceRows = state => Object.entries(state.object_status || {}).map(([name, d]) => [name, statusText(d)]);
+
 export function renderDevices(state) {
   $("devices").replaceChildren(
-    ...Object.entries(state.object_status || {}).map(([name, d]) => {
-      const el = document.createElement("span");
+    ...deviceRows(state).flatMap(([name, status]) => {
+      const label = document.createElement("span"), el = document.createElement("span");
+      label.className = "device-name";
+      label.textContent = name;
       el.className = "chip";
-      el.textContent = name + " · " + statusText(d);
-      return el;
+      el.textContent = status;
+      return [label, el];
     }),
   );
 }
