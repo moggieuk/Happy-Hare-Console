@@ -139,6 +139,10 @@
         <button id="save-motion" type="button" hidden>Save telemetry</button>
         </div>
         </div>
+        <div class="card collapsible" id="status-capture-card" hidden>
+          <div class="heading"><h2 tabindex="0" data-tooltip="Every change the status subscription reports for the mmu objects, as it arrives · latest 500 rows." aria-description="Every change the status subscription reports for the mmu objects, as it arrives · latest 500 rows.">Status capture</h2><button id="clear-status-capture" type="button">Clear</button></div>
+          <div id="status-capture" role="log" aria-label="Status capture"></div>
+        </div>
         <div class="card mini-console-card collapsible">
           <div class="heading"><h2 tabindex="0" data-tooltip="Live commands and responses · latest 500 lines. Independent of trace replay." aria-description="Live commands and responses · latest 500 lines. Independent of trace replay.">Console</h2><button id="clear-console" type="button">Clear</button></div>
           <div id="mini-console" role="log" aria-label="Simulator console" aria-live="polite"></div>
