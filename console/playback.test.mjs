@@ -997,3 +997,16 @@ test('the spool turns through the scan and the moves that park the filament stra
   assert.equal(scanMove(events,events[4]),null);
   assert.equal(scanMove(events,events[5]),null);
 });
+
+test('the encoder wheel turns only while the filament is over the encoder',async()=>{
+ const {encoderTurnFraction}=await import('./playback.js');
+ assert.equal(encoderTurnFraction(-3,97,10,20,.13),0);
+ assert.equal(encoderTurnFraction(-3,97,58.5,20,.615),.5);
+ assert.equal(encoderTurnFraction(43,8,14,20,.8),1);
+ assert.equal(encoderTurnFraction(800,800,800,20,.4),.4);
+});
+test('a cut fragment pressed into the melt loses its formed tip',async()=>{
+ const {fragmentTipShape}=await import('./playback.js');
+ assert.equal(fragmentTipShape({tip_shape:'cone',end:790},803.1),'cone');
+ assert.equal(fragmentTipShape({tip_shape:'cone',end:805.1},803.1),'square');
+});

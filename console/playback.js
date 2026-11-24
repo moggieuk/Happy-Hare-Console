@@ -223,6 +223,11 @@ export function interpolate(event, fraction) {
   for (const [name,device] of Object.entries(a.devices)) {
     for (const [key,value] of Object.entries(device)) s.devices[name][key]=(name.endsWith(':buffer') ? bufferMix : mix)(value,b.devices[name]?.[key]);
   }
+  const wheel=s.devices[`${b.unit}:encoder`], turned=b.devices[`${b.unit}:encoder`]?.rotation;
+  if (wheel && typeof turned === 'number' && typeof a.devices[`${b.unit}:encoder`]?.rotation === 'number') {
+    const from=a.devices[`${b.unit}:encoder`].rotation;
+    wheel.rotation=from+(turned-from)*encoderTurnFraction(a.tips[gate],b.tips[gate],s.tips[gate],b.layout?.mmu_encoder,fraction);
+  }
   s.bowden_unabsorbed_mm = mix(a.bowden_unabsorbed_mm || 0,b.bowden_unabsorbed_mm || 0);
   for (const [name, device] of Object.entries(s.devices)) {
     if (!name.endsWith(':buffer') || !Number.isFinite(device.displacement) || !(device.maximum > 0)) continue;
@@ -746,6 +751,17 @@ export function purgeColor(state, deposited) {
   fraction = fraction*fraction*(3-2*fraction);
   return [0,2,4].map(i=>Math.round(parseInt(plan.old_color.slice(i,i+2),16)*(1-fraction)
     +parseInt(plan.new_color.slice(i,i+2),16)*fraction).toString(16).padStart(2,'0')).join('');
+}
+
+// The encoder wheel turns only for the part of a move with filament over it.
+export function encoderTurnFraction(from, to, now, encoder, fallback) {
+  const past=tip=>Math.max(0,tip-encoder), whole=past(to)-past(from);
+  return Number.isFinite(whole) && Math.abs(whole) > 1e-9 ? Math.max(0,Math.min(1,(past(now)-past(from))/whole)) : fallback;
+}
+
+// Pressed into the melt, a cut fragment's formed tip is gone and it fills the bore.
+export function fragmentTipShape(segment, melt) {
+  return segment.tip_shape === 'cone' && segment.end < melt-.001 ? 'cone' : 'square';
 }
 
 // Deposited strand color depends only on extrusion, never the timed nozzle fill.
