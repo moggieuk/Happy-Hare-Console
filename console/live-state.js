@@ -16,6 +16,8 @@ export class LiveState {
     for (const [name,fields] of Object.entries(delta)) this.objects[name]={...this.objects[name],...clone(fields)};
     return this.snapshot();
   }
+  // Startup facts carry no time of their own, so they must not be ordered against status updates
+  seed(objects) { Object.assign(this.objects,clone(objects)); }
   snapshot() {
     const status=this.objects.mmu, machine=liveMachine(this.objects);
     if (!status || !machine) return null;

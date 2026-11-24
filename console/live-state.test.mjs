@@ -93,3 +93,9 @@ test('a gate change slides to the new gate as the telemetry view does, and a lat
  assert.deepEqual(liveProgress(1000,350,false),{fraction:1,draw:true,settled:true});
  assert.equal(liveProgress(1000,350,true).draw,false);
 });
+test('configuration read at startup is kept when a status update arrived first',()=>{
+ const {configfile,...objects}=status(), r=new LiveState();
+ assert.equal(r.accept(objects,5),null);
+ r.seed({configfile});
+ assert.equal(r.accept({mmu:{gate:1}},5).gate,1);
+});
