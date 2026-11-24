@@ -258,12 +258,9 @@ async function subscribeLive() {
     /^mmu_(encoder|buffer|extruder|toolhead|espooler) /.test(n) || /:filament_proportional$/.test(n) ||
     /^(extruder\d*|heater_generic .+|gcode_macro .+)$/.test(n)).map(n=>[n,n.startsWith('gcode_macro ') ? ['blade_pos','cutter_before_extruder','cooling_tube_position','cooling_tube_length']
       : /^(extruder\d*|heater_generic .+)$/.test(n) ? ['target'] : null]));
-  wanted.mmu=['unit','gate','tool','filament_pos','bowden_progress','homing','selector','sync_drive','sensors','config_changes',
-    'gate_color_rgb','gate_status','gate_initial_weight','gate_remaining_weight','espooler','action',
-    'filament_cut_fragment','filament_remaining_color','ttg_map','endless_spool_groups'];
   wanted.save_variables=['variables'];
   Object.assign(wanted,await unitObjectsWanted(objects));
-  wanted.mmu.push('drying_state','enabled');
+  wanted.mmu=null; // Everything, as Mainsail and Fluidd subscribe, so Status capture shows every change
   const initial=await rpc('printer.objects.subscribe',{objects:wanted});
   if (generation===store.subscriptionGeneration) store.liveSubscribed=true;
   acceptUnitObjects(initial.status);
