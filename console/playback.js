@@ -764,6 +764,13 @@ export function fragmentTipShape(segment, melt) {
   return segment.tip_shape === 'cone' && segment.end < melt-.001 ? 'cone' : 'square';
 }
 
+// The melt left at the nozzle keeps its colour until the incoming filament has pushed all of it out.
+export function meltColor(state) {
+  const plan=state.purge_transition;
+  return plan && (state.extruded_mm || 0) < plan.start_mm+plan.retained_mm-1e-6 ? plan.old_color
+    : state.nozzle_color || state.filament?.retained_color || DEFAULT_COLOR;
+}
+
 // Deposited strand color depends only on extrusion, never the timed nozzle fill.
 export function purgeOutletColor(state, deposited) {
   const plan=state.purge_transition;
