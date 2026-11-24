@@ -59,3 +59,35 @@ $('theme-toggle').onclick = () => {
   setTheme(theme);
   try { localStorage.setItem('hh-console-theme', theme); } catch {}
 };
+
+// Collapsible panels remember their state in this browser
+export function makeCollapsible(card) {
+  const title = card.querySelector(':scope > h2, :scope > .heading > h2');
+  if (!title || card.querySelector('.collapse-toggle')) return;
+  const name = title.textContent.trim(), key = 'hh-console-collapsed-' + name;
+  if (title.parentNode === card) {
+    const heading = document.createElement('div');
+    heading.className = 'heading panel-heading';
+    card.insertBefore(heading, title);
+    heading.append(title);
+  }
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'collapse-toggle';
+  toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg>';
+  title.before(toggle);
+  const set = collapsed => {
+    card.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', (collapsed ? 'Expand ' : 'Collapse ') + name);
+  };
+  let saved;
+  try { saved = localStorage.getItem(key); } catch {}
+  set(saved === '1');
+  toggle.onclick = () => {
+    const collapsed = !card.classList.contains('collapsed');
+    set(collapsed);
+    try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch {}
+  };
+}
+document.querySelectorAll('.left-column > .card, .left-column > aside, .collapsible').forEach(makeCollapsible);

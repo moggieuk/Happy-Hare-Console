@@ -2,6 +2,7 @@
 // Toolhead Config panel: values are set with MMU_TEST_CONFIG, so it works on a printer and the simulator.
 import {$, options} from './util.js';
 import {parameterCommand} from './editor.js';
+import {makeCollapsible} from './chrome.js';
 
 export function createToolheadPanel({rpc, action, refresh, changed}) {
   const configColumn=document.querySelector('.left-column');
@@ -9,6 +10,7 @@ export function createToolheadPanel({rpc, action, refresh, changed}) {
   toolheadPanel.hidden=true;
   toolheadPanel.innerHTML=`<h2>Toolhead config</h2><label>Toolhead object<select class="object-choice"></select></label><label>Parameter<select class="object-parameter"></select></label><label>Value<input class="object-value" type="number" step="any"></label><button class="object-apply">Apply</button><p class="note">Applied with MMU_TEST_CONFIG. Shared toolheads affect every listed unit.</p><p class="note object-status" role="status"></p>`;
   configColumn.insertBefore(toolheadPanel,$('console-settings'));
+  makeCollapsible(toolheadPanel);
   const toolheadField=name=>toolheadPanel.querySelector('.object-'+name);
   let toolheads=[], toolheadFingerprint='';
   function selectedToolhead() { return toolheads.find(item=>item.name===toolheadField('choice').value); }
