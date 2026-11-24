@@ -248,7 +248,7 @@ function acceptUnitObjects(status) {
 }
 async function subscribeLive() {
   const generation=++store.subscriptionGeneration;
-  store.liveSubscribed=false; // Status capture starts from the subscription's first status, which is not itself a change
+  store.liveSubscribed=false; // Status capture starts from the subscription's first status
   const {objects}=await rpc('printer.objects.list');
   // Startup configuration and calibration come from Klipper itself; later edits arrive in mmu.config_changes.
   const startup=(await rpc('printer.objects.query',{objects:{configfile:['settings'],save_variables:['variables']}})).status;
@@ -263,7 +263,7 @@ async function subscribeLive() {
   // Everything else in mmu, so Status capture shows every change
   wanted.mmu=liveMmuFields((await rpc('printer.objects.query',{objects:{mmu:null}})).status.mmu);
   const initial=await rpc('printer.objects.subscribe',{objects:wanted});
-  if (generation===store.subscriptionGeneration) store.liveSubscribed=true;
+  if (generation===store.subscriptionGeneration) { store.liveSubscribed=true; if (store.viewMode==='live') captureStatus(initial.status,initial.eventtime,true); }
   acceptUnitObjects(initial.status);
   store.liveState.seed({configfile:startup.configfile});
   if (store.viewMode==='live' && generation===store.subscriptionGeneration) acceptLive(initial.status,initial.eventtime);
