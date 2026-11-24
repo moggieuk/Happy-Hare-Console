@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {LiveState,liveFrame} from './live-state.js';
+import {LiveState,liveFrame,liveMmuFields} from './live-state.js';
 import {liveObjects as status} from './live-fixture.mjs';
 import {qualifySensors} from './live-config.js';
 test('live status needs no telemetry session or movement records',()=>{
@@ -98,4 +98,7 @@ test('configuration read at startup is kept when a status update arrived first',
  assert.equal(r.accept(objects,5),null);
  r.seed({configfile});
  assert.equal(r.accept({mmu:{gate:1}},5).gate,1);
+});
+test('the mmu subscription asks for every field except the encoder, which has its own object',()=>{
+ assert.deepEqual(liveMmuFields({gate:1,encoder:{encoder_pos:1},operation:''}),['gate','operation']);
 });

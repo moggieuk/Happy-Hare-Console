@@ -1,5 +1,5 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
-import {LiveState, liveFrame, liveDuration, liveProgress, gateChanged} from './live-state.js';
+import {LiveState, liveFrame, liveDuration, liveProgress, gateChanged, liveMmuFields} from './live-state.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
@@ -258,12 +258,10 @@ async function subscribeLive() {
     /^mmu_(encoder|buffer|extruder|toolhead|espooler) /.test(n) || /:filament_proportional$/.test(n) ||
     /^(extruder\d*|heater_generic .+|gcode_macro .+)$/.test(n)).map(n=>[n,n.startsWith('gcode_macro ') ? ['blade_pos','cutter_before_extruder','cooling_tube_position','cooling_tube_length']
       : /^(extruder\d*|heater_generic .+)$/.test(n) ? ['target'] : null]));
-  wanted.mmu=['unit','gate','tool','filament_pos','bowden_progress','homing','selector','sync_drive','sensors','config_changes',
-    'gate_color_rgb','gate_status','gate_initial_weight','gate_remaining_weight','espooler','action',
-    'filament_cut_fragment','filament_remaining_color','ttg_map','endless_spool_groups'];
   wanted.save_variables=['variables'];
   Object.assign(wanted,await unitObjectsWanted(objects));
-  wanted.mmu.push('drying_state','enabled');
+  // Everything else in mmu, so Status capture shows every change
+  wanted.mmu=liveMmuFields((await rpc('printer.objects.query',{objects:{mmu:null}})).status.mmu);
   const initial=await rpc('printer.objects.subscribe',{objects:wanted});
   if (generation===store.subscriptionGeneration) store.liveSubscribed=true;
   acceptUnitObjects(initial.status);
