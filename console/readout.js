@@ -12,9 +12,14 @@ export function renderMacros(state, linkable) {
   }).join('');
 }
 
+// Along the filament path from the gate to the nozzle; an unknown sensor comes last
+const SENSOR_PATH = [/^mmu_entry/, /^mmu_gear_touch/, /^mmu_exit/, /^mmu_shared_exit/, /^encoder/, /^filament_tension/, /^filament_compression/, /^extruder/, /^toolhead/];
+const sensorRank = name => { const rank = SENSOR_PATH.findIndex(pattern => pattern.test(sensorName(name))); return rank < 0 ? SENSOR_PATH.length : rank; };
+export const sensorOrder = (a, b) => sensorRank(a)-sensorRank(b) || a.localeCompare(b, undefined, {numeric: true});
+
 export function renderSensors(unitSensors, {offline, atLatest, editable, onToggle}) {
   $("sensors").replaceChildren(
-    ...unitSensors.map(([name, d]) => {
+    ...[...unitSensors].sort(([a], [b]) => sensorOrder(a, b)).map(([name, d]) => {
       const el = document.createElement("button");
       el.type = "button";
       el.className = "chip sensor-chip" + (d.state === true ? " on" : d.state === null ? " disabled" : " off");

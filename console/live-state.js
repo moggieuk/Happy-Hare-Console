@@ -77,7 +77,6 @@ export class LiveState {
     if (touch && s.homing) s.homing.endstops=s.homing.endstops.map(n=>sensorName(n).startsWith('mmu_gear_touch') ? touch : n);
     s.bowden_progress=status.bowden_progress;
     s.action=status.action;
-    s.object_status=Object.fromEntries(Object.entries(this.objects).filter(([n])=>/^mmu_(encoder|buffer|toolhead|espooler) /.test(n)));
     return s;
   }
 }

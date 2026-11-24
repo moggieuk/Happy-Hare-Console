@@ -64,3 +64,16 @@ test('a gate sensor the unit neither homes nor preloads on has only an assumed p
  Object.assign(unit.parameters,{gate_homing_endstop:'encoder',gate_preload_endstop:'mmu_shared_exit'});
  assert.equal(r.snapshot().sensors[`${mmu.unit}:mmu_shared_exit`].assumed,false);
 });
+
+test('the device readout lists only the selected unit\'s objects',()=>{
+ const r=new TelemetryReplay();
+ r.accept(JSON.parse(fs.readFileSync(new URL('./fixtures/ercf-vvd.json',import.meta.url))));
+ const mmu=r.facts.printer.mmu, units=r.facts.printer.mmu_machine.units;
+ for (const [name,unit] of Object.entries(units)) {
+  mmu.unit=name; mmu.gate=unit.gates[0];
+  const names=Object.keys(r.snapshot().object_status);
+  assert.equal(names.some(n=>n.startsWith('mmu_encoder ')),Boolean(unit.encoder),name);
+  assert.equal(names.some(n=>n.startsWith('mmu_buffer ')),Boolean(unit.buffer),name);
+  assert.equal(names.filter(n=>n.startsWith('mmu_extruder ')).length,1,name);
+ }
+});

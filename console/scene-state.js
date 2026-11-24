@@ -99,7 +99,7 @@ export class SceneModel {
     const devices={}, buffers={}, object_status={};
     for (const name of units) {
       const u=machine.units[name];
-      if (u.encoder) { devices[`${name}:encoder`]={encoder_pos:u.encoder.distance,...(this.encoderTurns && {rotation:this.encoderTurns[name] || 0}),resolution:u.encoder.parameters?.resolution}; object_status[`mmu_encoder ${u.encoder.name}`]=u.encoder.status || {encoder_pos:u.encoder.distance}; }
+      if (u.encoder) { devices[`${name}:encoder`]={encoder_pos:u.encoder.distance,...(this.encoderTurns && {rotation:this.encoderTurns[name] || 0}),resolution:u.encoder.parameters?.resolution}; if (name === m.unit) object_status[`mmu_encoder ${u.encoder.name}`]=u.encoder.status || {encoder_pos:u.encoder.distance}; }
       if (u.buffer) {
         const b=u.buffer, maximum=Math.max(0,number(b.buffer_maxrange)), range=clamp(number(b.buffer_range),0,maximum);
         const rest=b.buffer_spring_state === 'tension' ? 0 : b.buffer_spring_state === 'compression' ? maximum : maximum/2;
@@ -121,11 +121,11 @@ export class SceneModel {
         devices[`${name}:buffer`]={maximum,range,rest,spring:b.buffer_spring_state,occupied,proportional:b.proportional,
           value:b.value,travel,displacement,modeled_displacement:modeled,excess:modeled-clamp(modeled,0,maximum)};
         buffers[b.name]={gates:u.gates,maxrange:maximum,range,spring:b.buffer_spring_state,travel:{[m.gate]:travel},excess:{[m.gate]:displacement-travel},tension_travel:(maximum-range)/2,compression_travel:(maximum+range)/2};
-        object_status[`mmu_buffer ${b.name}`]=null;
+        if (name === m.unit) object_status[`mmu_buffer ${b.name}`]=null;
       }
       const extruderStatus=Object.fromEntries(['extruder_name','extruder_filament_remaining','filament_cut_fragment','filament_remaining_color',
         'filament_remaining_material','filament_remaining_temp'].filter(key=>u.extruder[key] !== undefined).map(key=>[key,u.extruder[key]]));
-      object_status[`mmu_extruder ${u.extruder.name}`]=Object.keys(extruderStatus).length ? extruderStatus : null;
+      if (name === m.unit) object_status[`mmu_extruder ${u.extruder.name}`]=Object.keys(extruderStatus).length ? extruderStatus : null;
     }
     const vars=f.macros?.[machine.form_tip_macro+'_VARS'] || f.macros?.[machine.form_tip_macro] || {};
     const cutters=finite(vars.blade_pos) ? [{kind:'toolhead',position:nozzle-vars.blade_pos,before_extruder:vars.cutter_before_extruder}] : [];
