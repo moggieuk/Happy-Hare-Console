@@ -63,6 +63,7 @@ export function parseTelemetry(text) {
 export class TelemetryReplay extends SceneModel {
   constructor() {
     super();
+    this.encoderTurns={};
     this.session = null;
     this.sequence = -1;
     this.facts = null;
@@ -247,6 +248,9 @@ export class TelemetryReplay extends SceneModel {
     if (gearing) for (const name of before.drive_motors.gear) motors.add(name);
     if (extruding) for (const name of before.drive_motors.extruder) motors.add(name);
     for (const name of motors) this.motors[name]=number(this.motors[name])+d;
+    // The encoder only counts, so the direction of its wheel comes from the move
+    const counted=state.devices[`${state.unit}:encoder`]?.encoder_pos-before.devices[`${state.unit}:encoder`]?.encoder_pos;
+    if (counted > 0) this.encoderTurns[state.unit]=(this.encoderTurns[state.unit] || 0)+Math.sign(d)*counted;
     const details={before,telemetry:{start:{...start,motor_mode:start.source === 'mmu_gcode' && before.synced ? 'synced' : mode},outcome},source:start.source,requested:start.requested_mm,distance:outcome.actual_mm,
       duration:outcome.elapsed_s,speed:outcome.extrusion_speed_mm_s ?? start.speed_mm_s,acceleration:start.acceleration_mm_s2,
       homing:start.homing,endstop:start.endstop,homed:outcome.homed,error:outcome.error,outcome:outcome.status,
@@ -348,8 +352,8 @@ export class TelemetryReplay extends SceneModel {
           if (segment.tip_shape === 'cone') segment.hair_length=shortenedHair(segment.hair_length ?? 15,segment.end+push,melt);
           segment.start=Math.min(nozzle,segment.start+push); segment.end=Math.min(nozzle,segment.end+push);
           if (segment.start>=segment.end) delete this.fragments[state.filament.extruder];
-          else if (segment.end >= melt-.001 && next >= segment.start-.001) {
-            // Pressed between the filament and the melt, the fragment fuses to the filament
+          else if (segment.color === state.filament.incoming_color && segment.end >= melt-.001 && next >= segment.start-.001) {
+            // Pressed between the same filament and the melt, the fragment fuses to it
             fused=segment.end;
             delete this.fragments[state.filament.extruder];
           }
