@@ -45,3 +45,11 @@ test('an arrow between two lines points up at the upper one and down at the lowe
   assert.equal(spanArrow(10,100,200),expected);
   assert.equal(spanArrow(10,200,100),expected);
 });
+
+test('the spool spacing setting of 10 to 60 scales to 45 to 75 pixels',async()=>{
+ const {spoolSpacingPixels}=await import('./util.js');
+ assert.equal(spoolSpacingPixels(10),45);
+ assert.equal(spoolSpacingPixels(25),54);
+ assert.equal(spoolSpacingPixels(60),75);
+ assert.equal(spoolSpacingPixels(99),75);
+});

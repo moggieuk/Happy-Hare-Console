@@ -11,7 +11,7 @@ import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMa
 import {TelemetryReplay, parseTelemetry} from './telemetry.js';
 import {timelineMarkers, scanMove} from './playback.js';
 import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeLines, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
-import {$, options, syncChildren} from './util.js';
+import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
 import {createToolheadPanel} from './toolhead-panel.js';
 import {initSpoolPicker} from './spool-picker.js';
@@ -634,7 +634,7 @@ function idleOverlay() {
   return store.overlayCache.state;
 }
 function sceneSettings() {
-  return {spoolSpacing:Number($('spool-spacing').value), spoolAngle:Number($('spool-angle').value),
+  return {spoolSpacing:spoolSpacingPixels(Number($('spool-spacing').value)), spoolAngle:Number($('spool-angle').value),
     spoolRealism:$('spool-realism').checked, heatingPreview:$('heating-preview').checked, unitLogos:$('unit-logos').checked, unitNames:$('unit-names').checked,
     previewGateCount:Number($('preview-gate-count').value), nozzleDiameter:Number($("nozzle-diameter").value)};
 }

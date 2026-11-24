@@ -1017,3 +1017,9 @@ test('the melt at the nozzle keeps its colour until all of it is pushed out',asy
  assert.equal(meltColor({purge_transition:plan,extruded_mm:2,nozzle_color:'8c42af'}),'8c42af');
  assert.equal(meltColor({nozzle_color:'123456'}),'123456');
 });
+test('the recorded park retraction is labelled only when there is one',async()=>{
+ const {retractionLabel}=await import('./playback.js');
+ assert.equal(retractionLabel({filament:{retracted_length:2}}),'(Retraction · 2mm)');
+ assert.equal(retractionLabel({filament:{retracted_length:0}}),'');
+ assert.equal(retractionLabel({filament:{}}),'');
+});
