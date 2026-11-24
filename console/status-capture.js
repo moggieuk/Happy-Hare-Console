@@ -13,11 +13,16 @@ export function captureStatus(delta,eventtime,initial=false) {
   const log=$('status-capture');
   const follow=log.scrollHeight-log.scrollTop-log.clientHeight < 32;
   for (const [name,fields] of captureRows(delta)) {
-    const row=document.createElement('div'), time=document.createElement('span'), object=document.createElement('span');
+    const row=document.createElement(initial ? 'details' : 'div'), time=document.createElement('span'), object=document.createElement('span');
     row.className=initial ? 'capture-row capture-initial' : 'capture-row';
     time.className='console-time'; time.textContent=Number(eventtime).toFixed(2)+' ';
     object.className='capture-object'; object.textContent=name;
-    row.append(time,object);
+    if (initial) {
+      const summary=document.createElement('summary'), note=document.createElement('span');
+      note.className='capture-note'; note.textContent=` initial status · ${fields.length} fields`;
+      summary.append(time,object,note);
+      row.append(summary);
+    } else row.append(time,object);
     for (const [field,value] of fields) {
       const item=document.createElement('span'), key=document.createElement('span');
       item.className='capture-field'; key.className='capture-key'; key.textContent=field+': ';

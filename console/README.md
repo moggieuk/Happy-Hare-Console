@@ -232,7 +232,8 @@ playback and use **Load telemetry**:
   proportional buffer values and sensor states update directly from subscriptions.
   **Status capture** takes the place of Movement trace and lists every change the
   subscription reports for the `mmu` objects as it arrives (latest 500 rows),
-  starting with the full status the subscription begins from; it
+  starting with the full status the subscription begins from (one collapsed,
+  expandable entry per object); it
   is emptied when Klipper or the simulator profile restarts. The
   two Compress playback settings are hidden, since live status is always real time.
 - **Telemetry playback** uses only the loaded JSON/JSONL recording, or the
