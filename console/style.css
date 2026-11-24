@@ -212,6 +212,11 @@ select, input { max-width: 100%; }
 [data-theme="dark"] .error { color: #ff92ac; }
 
 main > section { display: flex; flex-direction: column; gap: 16px; align-self: start; }
+#status-capture { height: 450px; overflow: auto; font: 12px/1.6 ui-monospace, monospace; overflow-wrap: anywhere; }
+.capture-row { padding: 1px 0; }
+.capture-object { font-weight: 700; }
+.capture-key { color: #67788b; }
+[data-theme="dark"] .capture-key { color: #a5b5c5; }
 #mini-console { height: 315px; overflow: auto; font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .console-error { color: #b0294b; font-weight: 600; }
 [data-theme="dark"] .console-error { color: #ff92ac; }

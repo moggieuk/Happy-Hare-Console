@@ -230,6 +230,10 @@ playback and use **Load telemetry**:
   follows `mmu.filament_pos` and `mmu.bowden_progress`; transitions are cosmetic,
   not a reconstruction of motor travel. Heater targets, encoder readings,
   proportional buffer values and sensor states update directly from subscriptions.
+  **Status capture** takes the place of Movement trace and lists every change the
+  subscription reports for the `mmu` objects as it arrives (latest 500 rows); it
+  is emptied when Klipper or the simulator profile restarts. The
+  two Compress playback settings are hidden, since live status is always real time.
 - **Telemetry playback** uses only the loaded JSON/JSONL recording, or the
   simulator's piped telemetry stream. Current printer status never changes an
   old recording. Playback controls and the movement trace appear in this mode.

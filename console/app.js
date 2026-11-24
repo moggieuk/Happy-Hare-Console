@@ -13,6 +13,7 @@ import {timelineMarkers, scanMove} from './playback.js';
 import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeLines, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
+import {captureStatus, clearStatusCapture} from './status-capture.js';
 import {createToolheadPanel} from './toolhead-panel.js';
 import {initSpoolPicker} from './spool-picker.js';
 import {createScene} from './scene.js';
@@ -73,6 +74,9 @@ function sourceMode() {
   renderConnectionControls();
   $('sidebar-playback').hidden=store.viewMode==='live';
   $('trace').closest('.card').hidden=store.viewMode==='live';
+  $('status-capture-card').hidden=store.viewMode!=='live' || store.offline;
+  // Live status is always real time
+  for (const id of ['compress-bowden','compress-purge']) $(id).closest('label').hidden=store.viewMode==='live';
   $('recording-name').hidden = !store.offline;
   $('connect-printer').textContent = store.offline ? 'Reconnect' : 'Connect';
   $('runtime-parameters').hidden = store.offline;
@@ -161,7 +165,10 @@ function connect() {
       telemetryStream.receive(data.params[0]);
     } else if (data.method === 'notify_status_update') {
       acceptUnitObjects(data.params[0]);
-      if (store.viewMode==='live') acceptLive(data.params[0],data.params[1]);
+      if (store.viewMode==='live') {
+        if (store.liveSubscribed) captureStatus(data.params[0],data.params[1]);
+        acceptLive(data.params[0],data.params[1]);
+      }
       else {
         const mmu=data.params[0].mmu;
         if (mmu?.sensors) store.statusSensors=mmu.sensors;
@@ -170,7 +177,7 @@ function connect() {
       }
     } else if (['notify_klippy_ready','notify_klippy_shutdown','notify_klippy_disconnected'].includes(data.method)) {
       if (store.offline) return;
-      if (data.method==='notify_klippy_ready') reloadEditor();
+      if (data.method==='notify_klippy_ready') { reloadEditor(); clearStatusCapture(); }
       if (store.viewMode!=='live') {
         telemetryStream.stop(false);
         if (data.method==='notify_klippy_ready') startStream().catch(e=>message(e.message,true));
@@ -241,6 +248,7 @@ function acceptUnitObjects(status) {
 }
 async function subscribeLive() {
   const generation=++store.subscriptionGeneration;
+  store.liveSubscribed=false; // Status capture starts from the subscription's first status, which is not itself a change
   const {objects}=await rpc('printer.objects.list');
   // Startup configuration and calibration come from Klipper itself; later edits arrive in mmu.config_changes.
   const startup=(await rpc('printer.objects.query',{objects:{configfile:['settings'],save_variables:['variables']}})).status;
@@ -257,6 +265,7 @@ async function subscribeLive() {
   Object.assign(wanted,await unitObjectsWanted(objects));
   wanted.mmu.push('drying_state','enabled');
   const initial=await rpc('printer.objects.subscribe',{objects:wanted});
+  if (generation===store.subscriptionGeneration) store.liveSubscribed=true;
   acceptUnitObjects(initial.status);
   store.liveState.seed({configfile:startup.configfile});
   if (store.viewMode==='live' && generation===store.subscriptionGeneration) acceptLive(initial.status,initial.eventtime);
@@ -572,6 +581,7 @@ $("restart").onclick = () =>
     await refresh();
     simulatorMessage("Fresh profile session started.");
   });
+$('clear-status-capture').onclick=clearStatusCapture;
 $("load-config").onclick = () => $("files").click();
 $("files").onchange = () =>
   simulatorAction(async () => {
