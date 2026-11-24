@@ -63,6 +63,7 @@ export function parseTelemetry(text) {
 export class TelemetryReplay extends SceneModel {
   constructor() {
     super();
+    this.encoderTurns={};
     this.session = null;
     this.sequence = -1;
     this.facts = null;
@@ -220,7 +221,7 @@ export class TelemetryReplay extends SceneModel {
       const gate = mmu.gate, nozzle = before.layout.nozzle;
       const blade = finite(record.blade_pos) ? nozzle-record.blade_pos : before.cutters.find(c=>c.kind === 'toolhead')?.position;
       this.cutter = record.phase === 'CUT';
-      if (gate >= 0 && finite(blade) && this.tips[gate] > blade) {
+      if (gate >= 0 && finite(blade) && this.tips[gate] > blade+.001) {
         this.fragments[before.filament.extruder] = {start:blade,end:this.tips[gate],
           tip_shape:this.shapes[gate],hair_length:this.hairLengths[gate],color:before.filament.incoming_color};
         this.tips[gate] = blade;
@@ -247,6 +248,9 @@ export class TelemetryReplay extends SceneModel {
     if (gearing) for (const name of before.drive_motors.gear) motors.add(name);
     if (extruding) for (const name of before.drive_motors.extruder) motors.add(name);
     for (const name of motors) this.motors[name]=number(this.motors[name])+d;
+    // The encoder only counts, so the direction of its wheel comes from the move
+    const counted=state.devices[`${state.unit}:encoder`]?.encoder_pos-before.devices[`${state.unit}:encoder`]?.encoder_pos;
+    if (counted > 0) this.encoderTurns[state.unit]=(this.encoderTurns[state.unit] || 0)+Math.sign(d)*counted;
     const details={before,telemetry:{start:{...start,motor_mode:start.source === 'mmu_gcode' && before.synced ? 'synced' : mode},outcome},source:start.source,requested:start.requested_mm,distance:outcome.actual_mm,
       duration:outcome.elapsed_s,speed:outcome.extrusion_speed_mm_s ?? start.speed_mm_s,acceleration:start.acceleration_mm_s2,
       homing:start.homing,endstop:start.endstop,homed:outcome.homed,error:outcome.error,outcome:outcome.status,
@@ -337,6 +341,7 @@ export class TelemetryReplay extends SceneModel {
       if (travel > 0 && next >= gears && this.shapes[gate] === 'cone')
         this.hairLengths[gate]=shortenedHair(this.hairLengths[gate],next,nozzle-state.filament.residual_mm);
       if (extruding && travel > 0) {
+        let fused=null;
         let amount=segment ? Math.max(0,next-nozzle)
           : Math.max(0,next-Math.max(tip,hotend.front));
         if (segment) {
@@ -347,6 +352,11 @@ export class TelemetryReplay extends SceneModel {
           if (segment.tip_shape === 'cone') segment.hair_length=shortenedHair(segment.hair_length ?? 15,segment.end+push,melt);
           segment.start=Math.min(nozzle,segment.start+push); segment.end=Math.min(nozzle,segment.end+push);
           if (segment.start>=segment.end) delete this.fragments[state.filament.extruder];
+          else if (segment.color === state.filament.incoming_color && segment.end >= melt-.001 && next >= segment.start-.001) {
+            // Pressed between the same filament and the melt, the fragment fuses to it
+            fused=segment.end;
+            delete this.fragments[state.filament.extruder];
+          }
         }
         details.purge_approach_mm=Math.max(0,travel-amount);
         hotend.extruded+=amount;
@@ -358,7 +368,7 @@ export class TelemetryReplay extends SceneModel {
             && state.filament.retained_color === state.filament.incoming_color) {
           hotend.outlet=state.filament.retained_color;
         }
-        next=Math.min(next,nozzle);
+        next=fused ?? Math.min(next,nozzle);
         if (next >= nozzle-.001) this.shapes[gate]='square';
       }
       if (buffered && d < 0 && (details.buffer_takeup_mm > 0 || next < gears || (!gripped && next <= gears+.001))) {

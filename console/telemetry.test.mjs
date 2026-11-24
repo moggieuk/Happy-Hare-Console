@@ -682,6 +682,53 @@ test('move outcome sensor correction is animated without changing modeled travel
 });
 
 
+test('a cut fragment pressed into the melt by the next load joins the filament, so the cycle repeats',()=>{
+ const r=stream(),nozzle=r.snapshot().layout.nozzle;
+ const unload=()=>{ move(r,-2,{source:'mmu_gcode'}); move(r,-28.5,{source:'mmu_gcode'}); event(r,'cut',{blade_pos:37.5}); };
+ r.tips[0]=nozzle;
+ unload();
+ move(r,30.5,{source:'mmu_gcode'});                    // The fragment's far end reaches the residual melt
+ assert.equal(r.snapshot().retained_segment,null);
+ assert.ok(Math.abs(r.tips[0]-(nozzle-2))<1e-9);
+ move(r,-2,{source:'mmu_gcode'});
+ assert.equal(r.snapshot().tip_shapes[0],'cone');
+ assert.equal(r.snapshot().hair_lengths[0],15);
+ move(r,-28.5,{source:'mmu_gcode'});
+ event(r,'cut',{blade_pos:37.5});
+ const fragment=r.snapshot().retained_segment;
+ assert.ok(Math.abs(fragment.end-fragment.start-5)<1e-9);
+ assert.equal(fragment.tip_shape,'cone');
+});
+test('a cut fragment of another colour stays its own piece until it is purged',()=>{
+ const r=stream(),nozzle=r.snapshot().layout.nozzle;
+ r.tips[0]=nozzle;
+ move(r,-2,{source:'mmu_gcode'}); move(r,-28.5,{source:'mmu_gcode'}); event(r,'cut',{blade_pos:37.5});
+ r.facts.printer.mmu.gate_color[0]='00ff00';
+ move(r,30.5,{source:'mmu_gcode'});
+ const fragment=r.snapshot().retained_segment;
+ assert.equal(fragment.color,'ff0000');
+ assert.ok(Math.abs(fragment.end-fragment.start-5)<1e-9);
+});
+test('the encoder wheel turns back when the filament retracts, although its count only rises',()=>{
+ const r=stream(),unit=r.facts.printer.mmu.unit,key=`${unit}:encoder`;
+ const counted=(d,mm)=>{
+  event(r,'movement_start',{move_id:1,label:'Test move',source:'move_filament',unit,gate:0,motor_mode:'gear',motors:['gear'],requested_mm:d,speed_mm_s:10,homing:false});
+  r.facts.printer.mmu_machine.units[unit].encoder.distance+=mm;
+  event(r,'movement_outcome',{move_id:1,actual_mm:d,elapsed_s:0,status:'submitted'});
+  return r.events.at(-1).state.devices[key].rotation;
+ };
+ assert.equal(counted(20,19),19);
+ assert.equal(counted(-15,14),5);
+});
+test('a cut with nothing beyond the blade leaves the fragment already there alone',()=>{
+ const r=stream(),nozzle=r.snapshot().layout.nozzle;
+ r.tips[0]=nozzle;
+ move(r,-2,{source:'mmu_gcode'}); move(r,-28.5,{source:'mmu_gcode'}); event(r,'cut',{blade_pos:37.5});
+ const fragment=r.snapshot().retained_segment;
+ event(r,'cut',{blade_pos:37.5+1e-9});
+ assert.deepEqual(r.snapshot().retained_segment,fragment);
+});
+
 for (const fragmentField of ['filament_cut_fragment','filament_remaining'])
 test(`initial cut length matches later ${fragmentField} report`,()=>{
  const r=stream(),nozzle=r.snapshot().layout.nozzle;
