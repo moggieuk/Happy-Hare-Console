@@ -732,7 +732,7 @@ function nozzle(c) {
   if (residual > 0) {
     svg += `<path id="residual-filament" d="M${E} ${residualTop} L${E} ${nozzleZero}" fill="none" stroke="#${retainedColor}" stroke-width="7"/><text id="residual-dimension" ${dimensionLink('Residual')} x="${E+19}" y="452" text-anchor="start" font-size="9" fill="var(--scene-muted, #6e8190)">Residual · ${residual}mm</text>`;
   }
-  if (retractionLabel(s)) svg += `<text id="retraction-dimension" x="${E+19}" y="463" text-anchor="start" font-size="9" fill="var(--scene-muted, #6e8190)">${retractionLabel(s)}</text>`;
+  if (retractionLabel(s)) svg += `<text id="retraction-dimension" x="${E+19}" y="462.5" text-anchor="start" font-size="8" fill="var(--scene-muted, #6e8190)">${retractionLabel(s)}</text>`;
   if (s.retained_segment && !s.retained_segment.residual_only) {
     const segment = s.retained_segment;
     const top = tube.getPointAtLength(progress(segment.start)*length).y;
