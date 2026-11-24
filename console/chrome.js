@@ -59,3 +59,21 @@ $('theme-toggle').onclick = () => {
   setTheme(theme);
   try { localStorage.setItem('hh-console-theme', theme); } catch {}
 };
+
+// Collapsible panels remember their state in this browser
+for (const toggle of document.querySelectorAll('.collapse-toggle')) {
+  const card = toggle.closest('.collapsible'), name = toggle.dataset.panel, key = 'hh-console-collapsed-' + name;
+  const set = collapsed => {
+    card.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', (collapsed ? 'Expand ' : 'Collapse ') + name);
+  };
+  let saved;
+  try { saved = localStorage.getItem(key); } catch {}
+  set(saved === '1');
+  toggle.onclick = () => {
+    const collapsed = !card.classList.contains('collapsed');
+    set(collapsed);
+    try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch {}
+  };
+}

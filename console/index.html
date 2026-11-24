@@ -117,16 +117,9 @@
           </details>
           </div>
         </div>
-        <div class="card mini-console-card">
-          <div class="heading"><h2 tabindex="0" data-tooltip="Live commands and responses · latest 500 lines. Independent of trace replay." aria-description="Live commands and responses · latest 500 lines. Independent of trace replay.">Console</h2><button id="clear-console" type="button">Clear</button></div>
-          <div id="mini-console" role="log" aria-label="Simulator console" aria-live="polite"></div>
-          <form id="command-form" class="command-row">
-            <label for="command">Console command</label>
-            <div class="command-input"><input id="command" value="MMU_LOAD" autocomplete="off" spellcheck="false" /><button id="send" type="submit">Run</button></div>
-          </form>
-        </div>
-        <div class="card">
+        <div class="card collapsible">
           <div class="heading trace-heading">
+          <button class="collapse-toggle" type="button" aria-expanded="true" aria-label="Collapse Movement trace" data-panel="Movement trace"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></button>
           <h2 tabindex="0" data-tooltip="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture." aria-description="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture.">Movement trace</h2>
           <label class="trace-options"><input id="show-internal" type="checkbox" data-tooltip="Show diagnostic updates; playback skips these rows">Show internal updates</label>
           </div>
@@ -145,6 +138,14 @@
         </div>
         <button id="save-motion" type="button" hidden>Save telemetry</button>
         </div>
+        </div>
+        <div class="card mini-console-card collapsible">
+          <div class="heading"><button class="collapse-toggle" type="button" aria-expanded="true" aria-label="Collapse Console" data-panel="Console"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></button><h2 tabindex="0" data-tooltip="Live commands and responses · latest 500 lines. Independent of trace replay." aria-description="Live commands and responses · latest 500 lines. Independent of trace replay.">Console</h2><button id="clear-console" type="button">Clear</button></div>
+          <div id="mini-console" role="log" aria-label="Simulator console" aria-live="polite"></div>
+          <form id="command-form" class="command-row">
+            <label for="command">Console command</label>
+            <div class="command-input"><input id="command" value="MMU_LOAD" autocomplete="off" spellcheck="false" /><button id="send" type="submit">Run</button></div>
+          </form>
         </div>
 
       </section>

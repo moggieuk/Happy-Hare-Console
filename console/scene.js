@@ -841,7 +841,7 @@ function cutters(c) {
     }
     // The triangle tip rests at the 20px tube's outer wall, then crosses it.
     const x = pt.x - direction * 10 + direction * 20 * pressed;
-    svg += `<g class="cutter-blade" aria-label="${onMmu ? 'MMU servo cutter' : cutter.before_extruder ? 'Cutter before extruder' : 'Cutter inside extruder'}"><path data-part="blade" data-pressed="${pressed}" d="M${x} ${pt.y} l${-direction*42} -5 v10 Z" fill="var(--scene-nozzle, #9cafbe)" stroke="var(--scene-spoke, #526f86)"/></g>`;
+    svg += `<g class="cutter-blade" aria-label="${onMmu ? 'MMU servo cutter' : cutter.before_extruder ? 'Cutter before extruder' : 'Cutter inside extruder'}"><path data-part="blade" data-pressed="${pressed}" d="M${x} ${pt.y} l${-direction*42} -5 v10 Z" fill="var(--scene-nozzle, #9cafbe)" stroke="var(--scene-spoke, #526f86)"/><g data-part="cutter-icon" transform="translate(${x-direction*53} ${pt.y}) scale(${direction} 1)" fill="none" stroke="#53b9b0" stroke-width="1.6" stroke-linecap="round"><circle cx="-5" cy="-3.6" r="2.4"/><circle cx="-5" cy="3.6" r="2.4"/><path d="M-3 -2.2 L8 3.6 M-3 2.2 L8 -3.6"/></g></g>`;
   }
   Object.assign(c, {svg});
 }
