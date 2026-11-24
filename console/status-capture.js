@@ -8,12 +8,13 @@ export function captureRows(delta) {
   return Object.entries(delta || {}).filter(([name])=>/^mmu(_\w+)?( |$)/.test(name))
     .map(([name,fields])=>[name,Object.entries(fields).map(([field,value])=>[field,JSON.stringify(value)])]);
 }
-export function captureStatus(delta,eventtime) {
+// `initial` marks the full status a subscription starts from, as opposed to a later change
+export function captureStatus(delta,eventtime,initial=false) {
   const log=$('status-capture');
   const follow=log.scrollHeight-log.scrollTop-log.clientHeight < 32;
   for (const [name,fields] of captureRows(delta)) {
     const row=document.createElement('div'), time=document.createElement('span'), object=document.createElement('span');
-    row.className='capture-row';
+    row.className=initial ? 'capture-row capture-initial' : 'capture-row';
     time.className='console-time'; time.textContent=Number(eventtime).toFixed(2)+' ';
     object.className='capture-object'; object.textContent=name;
     row.append(time,object);
