@@ -82,6 +82,7 @@ function sourceMode() {
     $('show-dimensions').checked=store.viewMode!=='live';
     $('scene').classList.toggle('hide-dimensions',store.viewMode==='live');
   }
+  $('debug-settings').hidden=store.viewMode==='live';
   // Live status is always real time
   for (const id of ['compress-bowden','compress-purge']) $(id).closest('label').hidden=store.viewMode==='live';
   $('recording-name').hidden = !store.offline;
