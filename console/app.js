@@ -112,7 +112,7 @@ function renderPause() {
     store.liveState.eventtime+now-store.liveReceived) : {memory:null,text:''};
   store.pauseMemory=result.memory;
   store.pauseShown=Boolean(result.text);
-  showAlert('filament-error',result.text);
+  showAlert('filament-error',result.text,{linger:false});   // Dealt with: it must not go on saying the MMU is paused
   if (result.text) $('pause-unlock').hidden=!result.locked;   // RESUME unlocks too, so it is always offered
 }
 const showAlert=createAlerts($);
@@ -126,15 +126,16 @@ function renderWarning(warnings=[], notice=null) {
   const playback=store.viewMode==='playback';
   const warning=!warnings.length ? '' : subscribed ? 'Status is ambiguous: '+warnings.join('; ')
     : playback ? 'Displayed tip adjusted to sensor readings: '+warnings.join('; ') : '';
-  // The subscription note is a reminder on connecting: it goes after a while, or as soon as something else needs the space
+  // The subscription note is a reminder on connecting: it goes after a while, or sooner if two other boxes need the space
   store.alertArguments=[warnings,notice];
   if (!subscribed) store.noteSince=null;
   else if (store.noteSince==null) store.noteSince=performance.now();
-  else if (warning || store.pauseShown) store.noteSince=-Infinity;
-  const note=subscribed && performance.now()-store.noteSince<NOTE_MS && !warning && !store.pauseShown;
+  else if (warning && store.pauseShown) store.noteSince=-Infinity;
+  const note=subscribed && performance.now()-store.noteSince<NOTE_MS;
   const info=note ? 'Status subscriptions may skip movement updates. Select Telemetry stream for complete movement animation.'
     : playback && notice ? notice : '';
-  for (const [id,text] of [['filament-notice',info],['filament-warning',warning]]) showAlert(id,text);
+  // A recording is stepped through: its boxes belong to the step shown, so they do not stay behind
+  for (const [id,text] of [['filament-notice',info],['filament-warning',warning]]) showAlert(id,text,{linger:subscribed});
 }
 
 const RPC_TIMEOUT_MS = 15000;
