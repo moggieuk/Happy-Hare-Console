@@ -1051,3 +1051,16 @@ test('a recording with too many records is refused before it is replayed',()=>{
  const line=JSON.stringify({event:'x'});
  assert.throws(()=>parseTelemetry(Array(20001).fill(line).join('\n')),/Expected a telemetry/);
 });
+test('an unload seen in the recording parks at the unloaded park before Happy Hare marks the gate buffered',()=>{
+ const r=new TelemetryReplay(),start=header();
+ r.accept([start]);
+ r.facts.printer.mmu.gate_status=r.tips.map(()=>1);
+ const gate=r.facts.printer.mmu.gate, change=(sequence,value)=>({event:'state_delta',sequence,timestamp:start.timestamp+sequence,
+  changes:[{path:['printer','mmu','filament_pos'],value}]});
+ r.accept([change(start.sequence+1,3)]);
+ assert.deepEqual(r.snapshot().unloaded_gates,[]);
+ r.accept([change(start.sequence+2,0)]);
+ assert.deepEqual(r.snapshot().unloaded_gates,[gate]);
+ r.facts.printer.mmu.gate_status[gate]=0;
+ assert.deepEqual(r.snapshot().unloaded_gates,[]);   // An emptied gate starts again
+});

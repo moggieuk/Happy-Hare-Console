@@ -681,8 +681,13 @@ function sensors(c) {
     // A branch's sensors brighten with its gear as the selection arrives, rather than switching at once.
     const sensorClass=branchGate!==undefined ? ' virtual-gate-sensor' : '';
     const sensorLit=branchGate!==undefined ? selectionLit(branchGate) : 1;
-    const showLabel=!virtual || !['entry','exit'].includes(sensorLabel) || pt.x===virtual.branches[0].x;
-    svg += `<g class="sensor-marker${sensorClass}${d.state === null ? ' sensor-disabled' : ''}" data-sensor="${escape(name)}"${sensorClass ? ` style="--sensor-lit:${sensorLit}"` : ''}>${showLabel ? `<text x="${sensorLabel === 'shared exit' ? pt.x + 16 : mmuSide ? pt.x - 29 : pt.x + 29}" y="${sensorLabel === 'entry' ? pt.y : pt.y + 4}" dominant-baseline="${sensorLabel === 'entry' ? 'central' : 'auto'}" text-anchor="${mmuSide && sensorLabel !== 'shared exit' ? "end" : "start"}" font-size="10" fill="var(--scene-text, #456078)">${escape(sensorLabel)}</text>` : ''}<circle cx="${sensorX}" cy="${pt.y}" r="5" fill="${d.state === true ? "#399b64" : d.state === false ? "#fff" : "#9ba5ae"}" stroke="#698394"/></g>`;
+    // The gates' own sensors share one label, outside the gates on the side of the unit the selection is in
+    const branchLabel=Boolean(virtual) && ['entry','exit'].includes(sensorLabel);
+    const labelLeft=branchLabel ? syncIndicatorSide(virtual) < 0 : mmuSide && sensorLabel !== 'shared exit';
+    const labelX=branchLabel ? (labelLeft ? virtual.branches[0].x - 29 : virtual.branches.at(-1).x + 13)
+      : sensorLabel === 'shared exit' ? pt.x + 16 : mmuSide ? pt.x - 29 : pt.x + 29;
+    const showLabel=!branchLabel || pt.x===virtual.active.x;
+    svg += `<g class="sensor-marker${sensorClass}${d.state === null ? ' sensor-disabled' : ''}" data-sensor="${escape(name)}"${sensorClass ? ` style="--sensor-lit:${sensorLit}"` : ''}>${showLabel ? `<text x="${labelX}" y="${sensorLabel === 'entry' ? pt.y : pt.y + 4}" dominant-baseline="${sensorLabel === 'entry' ? 'central' : 'auto'}" text-anchor="${labelLeft ? "end" : "start"}" font-size="10" fill="var(--scene-text, #456078)">${escape(sensorLabel)}</text>` : ''}<circle cx="${sensorX}" cy="${pt.y}" r="5" fill="${d.state === true ? "#399b64" : d.state === false ? "#fff" : "#9ba5ae"}" stroke="#698394"/></g>`;
     svg += homingRing(name,sensorX,pt.y);
     if (sensorPulse?.sensor === name) {
       const elapsed = (animationNow() - sensorPulse.start) / 650;
@@ -852,7 +857,8 @@ function cutters(c) {
     const pt = tube.getPointAtLength(onMmu ? schematicDistance(cutter.position) : progress(cutter.position) * length);
     const direction = onMmu ? 1 : -1;
     const bladeEvent = live ? playing?.event : null;
-    const pressed = bladeEvent && ['cut','release'].includes(bladeEvent.kind)
+    // A status subscription carries its own stroke: it has no cut and release events to time one from
+    const pressed = s.cutter_stroke ? s.cutter_stroke[cutter.kind] || 0 : bladeEvent && ['cut','release'].includes(bladeEvent.kind)
       ? bladeStroke(bladeEvent, playing?.fraction || 0, cutter.kind)
       : (onMmu ? s.mmu_cutter_pressed : s.cutter_pressed) ? 1 : 0;
     if (onMmu && pressed > 0) {

@@ -85,6 +85,7 @@ test('an unloaded gate is at the preload park only when Happy Hare has it as pre
  assert.deepEqual([0,1,2,3].map(gate=>parkedAt(s,gate)),['gate','preload','gate','gate']);
  assert.equal(parkedAt({...s,preload_reference:{endstop:'unit0:mmu_shared_exit',parking:-100}},1),'gate');
  assert.equal(parkedAt({...s,preload_reference:undefined},1),'gate');
+ assert.equal(parkedAt({...s,unloaded_gates:[1]},1),'gate');   // Seen unloading, before Happy Hare has marked it buffered
  // Before the unloaded park (-90), whatever the nominal place of the exit sensor
  assert.equal(preloadPark(s,10,0),-100);
  assert.equal(preloadPark({...s,preload_reference:{endstop:'mmu_shared_exit',parking:-40}},10,10),-30);

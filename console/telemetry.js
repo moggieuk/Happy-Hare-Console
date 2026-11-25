@@ -104,6 +104,8 @@ export class TelemetryReplay extends SceneModel {
       if (record.changes.some(c=>c.path.join('.') === 'printer.mmu.gate')) this.selectionBefore=before;
       applyDelta(this.facts, record.changes);
       validateFacts(this.facts);
+      const unloaded=this.facts.printer.mmu;
+      if (before.filament_pos > 0 && unloaded.filament_pos === 0 && unloaded.gate >= 0) this.unloaded.add(unloaded.gate);
       // Positive reports refine the cut length; zero during loading does not erase an unpurged fragment.
       for (const {path,value} of record.changes) {
         if (path.length !== 6 || path.slice(0,3).join('.') !== 'printer.mmu_machine.units' ||
@@ -163,6 +165,7 @@ export class TelemetryReplay extends SceneModel {
       mmu.filament_pos = record.filament_pos;
       if (finite(record.homing_overshoot_mm)) this.overshoot[mmu.gate] = record.homing_overshoot_mm;
       else if (record.filament_pos === 0) delete this.overshoot[mmu.gate];
+      if (record.filament_pos === 0 && before.filament_pos > 0 && mmu.gate >= 0) this.unloaded.add(mmu.gate);
       const state = this.snapshot();
       if (mmu.gate >= 0 && (record.filament_pos === 0 || !this.fragments[state.filament.extruder] || record.source === '_MMU_TEST'))
         this.tips[mmu.gate] = this.logicalTip(state, record.filament_pos, record.source === '_MMU_TEST');

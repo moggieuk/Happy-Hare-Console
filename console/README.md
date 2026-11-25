@@ -98,7 +98,7 @@ for inspection without applying them to the preceding step.
 
 Playback uses the resolved feed speed in the source telemetry, independently of
 console pacing. Bowden time compression is off by default: the path is drawn
-shorter but takes distance/speed time. The optional compression checkbox shortens
+shorter but takes distance/speed time. The optional "Speed up" checkbox shortens
 fast transfers in proportion to the drawing. The trace shows feed speed and marks
 compressed transfers. Very short moves have a 120 ms visibility minimum;
 retractions that release purge have a 650 ms minimum so the drop remains visible.
@@ -235,7 +235,7 @@ playback and use **Load telemetry**:
   starting with the full status the subscription begins from (one collapsed,
   expandable entry per object); it
   is emptied when Klipper or the simulator profile restarts. The
-  two Compress playback settings are hidden, since live status is always real time.
+  two Speed up playback settings are hidden, since live status is always real time.
 - **Telemetry playback** uses only the loaded JSON/JSONL recording, or the
   simulator's piped telemetry stream. Current printer status never changes an
   old recording. Playback controls and the movement trace appear in this mode.
