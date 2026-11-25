@@ -215,8 +215,7 @@ main > section { display: flex; flex-direction: column; gap: 16px; align-self: s
 #status-capture { height: 450px; overflow: auto; font: 12px Arial, sans-serif; color: #263a50; overflow-wrap: anywhere; }
 [data-theme="dark"] #status-capture { color: #dce5ef; }
 .capture-group { background: #f1f5f8; border-radius: 6px; margin: 2px 0; padding: 9px 13px; display: flex; align-items: center; gap: 13px; }
-.capture-time { flex: none; font-variant-numeric: tabular-nums; }
-.capture-seq { display: inline-block; min-width: 4ch; text-align: right; }
+.capture-time { flex: none; min-width: 14ch; font-variant-numeric: tabular-nums; }
 .capture-body { flex: 1; min-width: 0; }
 [data-theme="dark"] .capture-group { background: #223240; }
 .capture-row + .capture-row { margin-top: 4px; }
