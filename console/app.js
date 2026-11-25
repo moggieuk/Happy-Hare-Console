@@ -350,13 +350,13 @@ function acceptLive(delta,time) {
 }
 const liveMotors=(from,next,distance)=>({gear:(from?.motors.gear || 0)+(next.mmu_gripped || next.synced ? distance : 0),
   extruder:(from?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)});
-// Each update the capture panel lists is a step the playback controls can return to
+// Each update the capture panel lists is a step the playback controls can return to, kept after its rows have gone
 function recordStatus(delta,time,state,initial=false,memory=store.liveState.memory()) {
   const listed=captureRows(delta).length>0, seq=listed && state ? store.replay.record(state,time).seq : null;
   store.statusLog.add(delta,time,seq,memory);
   if (!listed) return;
-  const oldest=captureStatus(delta,time,initial,seq);
-  if (Number.isFinite(oldest)) { store.replay.trim(oldest); store.statusLog.trim(oldest); }
+  captureStatus(delta,time,initial,seq);
+  if (store.replay.count) store.statusLog.trim(store.replay.entries[0].seq);
   renderStatusTimeline();
 }
 function clearCapture() {

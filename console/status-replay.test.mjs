@@ -49,3 +49,8 @@ test('a step lasts as long as its updates were apart, within limits',()=>{
  const at=(time,tip=0)=>({time,state:state(tip)});
  assert.deepEqual([stepDuration(at(1),at(1.01)),stepDuration(at(1),at(1.5)),stepDuration(at(1),at(60))],[150,500,1500]);
 });
+test('only the latest updates are kept, however many rows the capture panel still lists',()=>{
+ const r=new StatusReplay(3);
+ for (let i=0;i<5;i++) r.record(state(i),i);
+ assert.deepEqual(r.entries.map(e=>e.seq),[3,4,5]);
+});

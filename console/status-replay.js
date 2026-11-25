@@ -1,6 +1,6 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
-// Replay of the status updates a subscription has delivered: the same steps the Status capture panel lists, each
-// kept with the scene it produced. Nothing is recorded by the printer; this is only what this page has seen.
+// Replay of the status updates a subscription has delivered: the steps the Status capture panel lists, and those
+// it has since let go, each kept with the scene it produced. Nothing is recorded by the printer; this is only what this page has seen.
 import {liveDuration, liveFrame, gateChanged} from './live-state.js';
 import {clamp} from './util.js';
 
@@ -9,15 +9,15 @@ const toolchanged=(before,after)=>Boolean(before) && (after.num_toolchanges > be
   (after.tool !== before.tool && before.tool >= 0 && after.tool >= 0));
 
 export class StatusReplay {
-  constructor() { this.entries=[]; this.sequence=0; this.following=true; this.cursor=0; this.playing=null; }
+  constructor(limit=5000) { this.limit=limit; this.entries=[]; this.sequence=0; this.following=true; this.cursor=0; this.playing=null; }
   get count() { return this.entries.length; }
   get index() { return this.following ? Math.max(0,this.count-1) : this.playing ? this.playing.from : this.cursor; }
   record(state, time) {
     const entry={seq:++this.sequence,time,state,toolchange:toolchanged(this.entries.at(-1)?.state,state)};
     this.entries.push(entry);
+    if (this.count>this.limit) this.trim(this.entries.at(-this.limit).seq);
     return entry;
   }
-  // The capture panel keeps only its latest rows: steps whose rows have gone are no longer on offer
   trim(oldest) {
     const dropped=this.entries.findIndex(entry=>entry.seq>=oldest);
     if (dropped<=0) return;
