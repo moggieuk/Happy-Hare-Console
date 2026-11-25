@@ -21,7 +21,7 @@ export function captureStatus(delta,eventtime,initial=false,seq=null) {
   group.className=initial ? 'capture-group capture-initial' : 'capture-group';
   if (seq!==null) group.dataset.seq=seq;
   // Numbered and timed as a Movement trace entry is: the number is the update's, which playback also counts by
-  time.className='console-time';
+  time.className='capture-time';
   if (seq!==null) {
     const number=document.createElement('span');
     number.className='capture-seq'; number.textContent=seq;
