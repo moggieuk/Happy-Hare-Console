@@ -12,6 +12,10 @@ export function tipRange(pos,at) {
     7:[gears,toolhead,at(7)],9:[toolhead,nozzle,at(9)]}[pos] || null;
 }
 
+// A state that says the filament has homed to a place still sees it fed on from there before the next state is
+// reported: the place it may reach by then. Only the live position can show that travel.
+const FED_ON={5:6,6:8,8:10};
+
 // The selected gate's tip from status alone. filament_position is the commanded position: it steps to a move's
 // target and restarts from a different zero on unload, so it only moves the tip within a state.
 // filament_position_live, where Happy Hare reports it, is where the stepper has got to: it is used in its place,
@@ -32,12 +36,13 @@ export function resolveTip(memory,status,s,at,bowdenStart) {
     return {tip:at(pos),warnings,memory:{unit:s.unit,gate:s.gate,pos,filamentPosition,tip:at(pos)}};
   }
   const [lo,hi,reference]=range;
+  const fed=live && FED_ON[pos]!==undefined, reach=fed ? Math.max(hi,at(FED_ON[pos])) : hi;
   let tip;
   if (progress!==null && lo<hi) tip=clamp(bowdenStart+(at(6)-bowdenStart)*progress/100,lo,hi);
   else if (same && memory.pos===pos) {
     const moved=!held && finite(reported) && finite(last) ? reported-last : 0;
-    tip=clamp(memory.tip+moved,lo,hi);
-  } else tip=same && memory.tip>lo && memory.tip<hi ? memory.tip : reference;
+    tip=clamp(memory.tip+moved,lo,reach);
+  } else tip=!fed && same && memory.tip>lo && memory.tip<hi ? memory.tip : reference;
 
   const kept=s.retained_segment, endstop=short(s.encoder_reference?.endstop || '').replace(/_\d+$/,'');
   let lower=-Infinity, upper=Infinity;

@@ -38,6 +38,16 @@ test('the live position is used in place of the commanded one, and through a hom
   {filament_pos:9,filament_position:10,filament_position_live:10}]).map(r=>r.tip);
  assert.deepEqual(tips,[740,744,747,750]);
 });
+test('a filament homed to a sensor in the extruder is followed on towards the next place by the live position',()=>{
+ const tips=run([{filament_pos:8,filament_position:700,filament_position_live:700},
+  {filament_pos:8,filament_position:700,filament_position_live:712},
+  {filament_pos:8,filament_position:700,filament_position_live:740},
+  {filament_pos:8,filament_position:700,filament_position_live:735},
+  {filament_pos:10,filament_position:720,filament_position_live:720}]).map(r=>r.tip);
+ assert.deepEqual(tips,[730,742,750,745,750]);
+ // Without the live position the state stays where it homed
+ assert.deepEqual(run([{filament_pos:8,filament_position:700},{filament_pos:8,filament_position:712}]).map(r=>r.tip),[730,730]);
+});
 test('an unload driven by Bowden progress never moves the tip forward',()=>{
  const tips=run([{filament_pos:10},{filament_pos:9},{filament_pos:5},{filament_pos:3,bowden_progress:100},
   {filament_pos:3,bowden_progress:50},{filament_pos:3,bowden_progress:6},{filament_pos:3},{filament_pos:1},{filament_pos:0}]).map(r=>r.tip);
