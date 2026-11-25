@@ -219,6 +219,7 @@ main > section { display: flex; flex-direction: column; gap: 16px; align-self: s
 [data-theme="dark"] .capture-group { background: #223240; }
 .capture-row { padding: 1px 0; }
 .capture-object { font-weight: 700; }
+.capture-field { display: block; }
 .capture-initial summary { cursor: pointer; }
 .capture-note { font-style: italic; color: #67788b; }
 [data-theme="dark"] .capture-note { color: #a5b5c5; }

@@ -27,7 +27,7 @@ export function captureStatus(delta,eventtime,initial=false,seq=null) {
     const row=document.createElement(initial ? 'details' : 'div'), object=document.createElement('span');
     const head=initial ? document.createElement('summary') : row;
     row.className='capture-row';
-    object.className='capture-object'; object.textContent=name;
+    object.className='capture-object'; object.textContent=`printer['${name}']`;
     head.append(object);
     if (initial) {
       const note=document.createElement('span');
@@ -39,7 +39,7 @@ export function captureStatus(delta,eventtime,initial=false,seq=null) {
       const item=document.createElement('span'), key=document.createElement('span');
       item.className='capture-field'; key.className='capture-key'; key.textContent=field+': ';
       item.append(key,value);
-      row.append(' ',item);
+      row.append(item);
     }
     body.append(row);
   }
