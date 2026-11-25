@@ -2,6 +2,7 @@ import {TelemetryStream, recordControl, connectionControls} from './telemetry-st
 import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, gateChanged, liveMmuFields} from './live-state.js';
 import {lastingWarnings} from './live-tip.js';
 import {pauseStatus} from './pause-status.js';
+import {createAlerts} from './alerts.js';
 import {actionMotion, settleMotion, withMotion, motionActive} from './live-action.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
@@ -104,23 +105,29 @@ function renderPause() {
   const result=live ? pauseStatus(store.liveState.objects,store.liveTarget.filament?.extruder,store.pauseMemory,now,
     store.liveState.eventtime+now-store.liveReceived) : {memory:null,text:''};
   store.pauseMemory=result.memory;
-  $('filament-error').hidden=!result.text;
-  $('filament-error-message').textContent=result.text;
+  store.pauseShown=Boolean(result.text);
+  showAlert('filament-error',result.text);
 }
-setInterval(renderPause,1000);
+const showAlert=createAlerts($);
+// The countdowns tick, and the subscription note runs out
+setInterval(()=>{ renderPause(); renderWarning(...(store.alertArguments || [])); },1000);
 
+const NOTE_MS=10000;
 // A notice (blue, "i") and a warning (amber, "!") each have their own box, stacked
 function renderWarning(warnings=[], notice=null) {
   const subscribed=store.viewMode==='live' && !store.offline && store.socket?.readyState===1;
   const playback=store.viewMode==='playback';
   const warning=!warnings.length ? '' : subscribed ? 'Status is ambiguous: '+warnings.join('; ')
     : playback ? 'Displayed tip adjusted to sensor readings: '+warnings.join('; ') : '';
-  const info=subscribed ? 'Status subscriptions may skip movement updates. Select Telemetry stream for complete movement animation.'
+  // The subscription note is a reminder on connecting: it goes after a while, or as soon as something else needs the space
+  store.alertArguments=[warnings,notice];
+  if (!subscribed) store.noteSince=null;
+  else if (store.noteSince==null) store.noteSince=performance.now();
+  else if (warning || store.pauseShown) store.noteSince=-Infinity;
+  const note=subscribed && performance.now()-store.noteSince<NOTE_MS && !warning && !store.pauseShown;
+  const info=note ? 'Status subscriptions may skip movement updates. Select Telemetry stream for complete movement animation.'
     : playback && notice ? notice : '';
-  for (const [id,text] of [['filament-notice',info],['filament-warning',warning]]) {
-    $(id).hidden=!text;
-    $(`${id}-message`).textContent=text;
-  }
+  for (const [id,text] of [['filament-notice',info],['filament-warning',warning]]) showAlert(id,text);
 }
 
 const RPC_TIMEOUT_MS = 15000;

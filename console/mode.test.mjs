@@ -45,9 +45,11 @@ test('reconnect preserves explicitly selected live or playback mode',async()=>{
 });
 
 const warning=app.slice(app.indexOf('function renderWarning('),app.indexOf('const RPC_TIMEOUT_MS'));
-test('the subscription note is information, the amber box is for ambiguous status, and both clear on mode and connection changes',()=>{
+test('the subscription note is information that gives way, the amber box is for ambiguous status, and both clear on mode and connection changes',()=>{
  const nodes={'filament-warning':{},'filament-warning-message':{},'filament-notice':{},'filament-notice-message':{}};
- const c=vm.createContext({store:{viewMode:'live',offline:false,socket:{readyState:1},setup:{connection_kind:'simulator'}},$:id=>nodes[id]});
+ let clock=1000;
+ const c=vm.createContext({store:{viewMode:'live',offline:false,socket:{readyState:1},setup:{connection_kind:'simulator'}},$:id=>nodes[id],
+  NOTE_MS:10000,performance:{now:()=>clock},showAlert:(id,text)=>{ nodes[id].hidden=!text; nodes[`${id}-message`].textContent=text; }});
  vm.runInContext(isSimulator+warning,c);
  const draw=()=>vm.runInContext('renderWarning()',c);
  draw();assert.equal(nodes['filament-warning'].hidden,true);
@@ -56,6 +58,8 @@ test('the subscription note is information, the amber box is for ambiguous statu
  vm.runInContext("renderWarning(['IN BOWDEN but the toolhead sensor is triggered'])",c);
  assert.equal(nodes['filament-warning-message'].textContent,'Status is ambiguous: IN BOWDEN but the toolhead sensor is triggered');
  assert.equal(nodes['filament-warning'].hidden,false);
+ assert.equal(nodes['filament-notice'].hidden,true);   // Pushed out by the warning, and it stays out
+ draw();assert.equal(nodes['filament-notice'].hidden,true);
  c.store.viewMode='playback';draw();assert.equal(nodes['filament-warning'].hidden,true);assert.equal(nodes['filament-notice'].hidden,true);
  vm.runInContext("renderWarning(['sensor conflict'])",c);
  assert.match(nodes['filament-warning-message'].textContent,/sensor conflict/);
@@ -69,6 +73,9 @@ test('the subscription note is information, the amber box is for ambiguous statu
  assert.equal(nodes['filament-notice'].hidden,false);assert.equal(nodes['filament-warning'].hidden,false);
  c.store.viewMode='live';c.store.setup.connection_kind='live_machine';draw();assert.equal(nodes['filament-notice'].hidden,false);
  assert.match(nodes['filament-notice-message'].textContent,/^Status subscriptions may skip/);
+ clock+=9000;draw();assert.equal(nodes['filament-notice'].hidden,false);
+ clock+=2000;draw();assert.equal(nodes['filament-notice'].hidden,true);   // A reminder, not a fixture
+ c.store.socket.readyState=3;draw();c.store.socket.readyState=1;draw();assert.equal(nodes['filament-notice'].hidden,false);
  c.store.setup.connection_kind='simulator';c.store.socket.readyState=3;draw();
  assert.equal(nodes['filament-notice'].hidden,true);assert.equal(nodes['filament-warning'].hidden,true);
 });
