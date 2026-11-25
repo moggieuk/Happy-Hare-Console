@@ -399,7 +399,7 @@ select option:disabled, [data-theme="dark"] select option:disabled { color: #8a9
 .connection-status[data-state="pending"], .connection-status[data-state="warning"] { --dot: #e6a23c; }
 .connection-status[data-state="offline"] { --dot: #4f86c6; }
 .connection-status[data-state="disconnected"] { --dot: #e5677b; }
-#scene-macros { display: flex; flex-wrap: wrap; gap: 0 18px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+#scene-macros { display: flex; flex-wrap: wrap; gap: 0 34px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 #scene-macros .macro-label { opacity: .65; }
 #scene-macros .macro-name { display: block; }
 #scene-macros [data-parameter] { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
@@ -493,6 +493,10 @@ select option:disabled, [data-theme="dark"] select option:disabled { color: #8a9
 .scene-alert[data-kind="notice"] .warning-bang { background: #4f86c6; color: #fff; font-family: Georgia, serif; font-style: italic; }
 [data-theme="dark"] .scene-alert[data-kind="notice"] { border-color: #3f78b8; background: #1c2b3d; color: #b9d7f5; }
 [data-theme="dark"] .scene-alert[data-kind="notice"] .warning-bang { background: #3f78b8; color: #fff; }
+/* The message is the last span: the actions sit under it */
+.scene-alert > span:nth-last-child(2) { white-space: pre-line; }
+.alert-actions { display: flex; gap: 8px; margin-top: 8px; }
+.alert-actions button { padding: 3px 10px; font-size: 11px; }
 /* An MMU pause is red: the print has stopped and is waiting for someone */
 .scene-alert[data-kind="error"] { border-color: #c0392b; background: #fbe6e3; color: #6d1a12; }
 .scene-alert[data-kind="error"] .warning-bang { background: #c0392b; color: #fff; }

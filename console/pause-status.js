@@ -38,5 +38,5 @@ export function pauseStatus(objects, extruder, memory, now, klipperNow=null) {
   else if (idle.state==='Idle') { if (next.active) lines.push('Idle timeout has expired'); }
   else if (Number.isFinite(next.timeout)) lines.push(next.observed || next.timeoutSince>next.since
     ? `Idle timeout in about ${clock(next.timeout-(now-next.timeoutSince))}` : `Idle timeout within ${clock(next.timeout)}`);
-  return {memory:next,text:lines.join('\n')};
+  return {memory:next,text:lines.join('\n'),locked};
 }

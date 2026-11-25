@@ -86,6 +86,12 @@ function sourceMode() {
     $('scene').classList.toggle('hide-dimensions',store.viewMode==='live');
   }
   $('debug-settings').hidden=store.viewMode==='live';
+  // Live status is watched as it happens, so the simulator runs as a printer does; telemetry replays at its own pace
+  const pace=isSimulator() && !store.offline && store.socket?.readyState===1 ? store.viewMode : null;
+  if (pace!==store.simulatorPace) {
+    store.simulatorPace=pace;
+    if (pace) sim.pace(pace==='live').catch(()=>{});   // An older simulator has no such request
+  }
   // Live status is always real time
   for (const id of ['compress-bowden','compress-purge']) $(id).closest('label').hidden=store.viewMode==='live';
   $('recording-name').hidden = !store.offline;
@@ -107,6 +113,7 @@ function renderPause() {
   store.pauseMemory=result.memory;
   store.pauseShown=Boolean(result.text);
   showAlert('filament-error',result.text);
+  if (result.text) $('pause-unlock').hidden=!result.locked;   // RESUME unlocks too, so it is always offered
 }
 const showAlert=createAlerts($);
 // The countdowns tick, and the subscription note runs out
@@ -584,6 +591,8 @@ function sendScript(script) {
   if (store.socket.readyState === WebSocket.OPEN) commandHistory.add(script);
   draw();
 }
+$('pause-unlock').onclick=()=>sendScript('MMU_UNLOCK');
+$('pause-resume').onclick=()=>sendScript('RESUME');
 $("command-form").onsubmit = (event) => {
   event.preventDefault();
   const script = $("command").value.trim();
