@@ -30,6 +30,24 @@ test('filament_position moves the tip only within a state, never while homing, a
   {filament_pos:9,filament_position:-500},{filament_pos:3,filament_position:-900}]).map(r=>r.tip);
  assert.deepEqual(tips,[740,735,735,732,730,350]);
 });
+test('the live position is used in place of the commanded one, and through a homing move',()=>{
+ const homing={endstops:[],triggered:false};
+ const tips=run([{filament_pos:9,filament_position:10,filament_position_live:0},
+  {filament_pos:9,filament_position:10,filament_position_live:4},
+  {filament_pos:9,filament_position:200,filament_position_live:7,homing},
+  {filament_pos:9,filament_position:10,filament_position_live:10}]).map(r=>r.tip);
+ assert.deepEqual(tips,[740,744,747,750]);
+});
+test('a filament homed to a sensor in the extruder is followed on towards the next place by the live position',()=>{
+ const tips=run([{filament_pos:8,filament_position:700,filament_position_live:700},
+  {filament_pos:8,filament_position:700,filament_position_live:712},
+  {filament_pos:8,filament_position:700,filament_position_live:740},
+  {filament_pos:8,filament_position:700,filament_position_live:735},
+  {filament_pos:10,filament_position:720,filament_position_live:720}]).map(r=>r.tip);
+ assert.deepEqual(tips,[730,742,750,745,750]);
+ // Without the live position the state stays where it homed
+ assert.deepEqual(run([{filament_pos:8,filament_position:700},{filament_pos:8,filament_position:712}]).map(r=>r.tip),[730,730]);
+});
 test('an unload driven by Bowden progress never moves the tip forward',()=>{
  const tips=run([{filament_pos:10},{filament_pos:9},{filament_pos:5},{filament_pos:3,bowden_progress:100},
   {filament_pos:3,bowden_progress:50},{filament_pos:3,bowden_progress:6},{filament_pos:3},{filament_pos:1},{filament_pos:0}]).map(r=>r.tip);

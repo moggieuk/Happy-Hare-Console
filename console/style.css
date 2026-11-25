@@ -212,9 +212,14 @@ select, input { max-width: 100%; }
 [data-theme="dark"] .error { color: #ff92ac; }
 
 main > section { display: flex; flex-direction: column; gap: 16px; align-self: start; }
-#status-capture { height: 450px; overflow: auto; font: 12px/1.6 ui-monospace, monospace; overflow-wrap: anywhere; }
-.capture-row { padding: 1px 0; }
+#status-capture { height: 450px; overflow: auto; font: 12px ui-monospace, monospace; overflow-wrap: anywhere; }
+.capture-group { background: #f1f5f8; border-radius: 6px; margin: 2px 0; padding: 9px 13px; display: flex; align-items: center; gap: 13px; }
+.capture-group > .console-time { flex: none; }
+.capture-body { flex: 1; min-width: 0; }
+[data-theme="dark"] .capture-group { background: #223240; }
+.capture-row + .capture-row { margin-top: 4px; }
 .capture-object { font-weight: 700; }
+.capture-field { display: block; }
 .capture-initial summary { cursor: pointer; }
 .capture-note { font-style: italic; color: #67788b; }
 [data-theme="dark"] .capture-note { color: #a5b5c5; }
@@ -440,9 +445,9 @@ select option:disabled, [data-theme="dark"] select option:disabled { color: #8a9
 #trace .trace-event { background: #f1f5f8; border-radius: 6px; margin: 2px 0; }
 #trace .trace-event > button { margin: 0; background: transparent; }
 #trace .trace-event.selected { background: #d5e8ec; }
-#status-capture .capture-row { cursor: pointer; }
-#status-capture .capture-row.selected { background: #d5e8ec; }
-[data-theme="dark"] #status-capture .capture-row.selected { background: #365b6a; }
+#status-capture .capture-group { cursor: pointer; }
+#status-capture .capture-group.selected { background: #d5e8ec; }
+[data-theme="dark"] #status-capture .capture-group.selected { background: #365b6a; }
 .trace-footer #status-timeline { margin: 0; display: block; width: 100%; }
 #status-ticks small { position: absolute; top: 12px; left: 50%; font-size: 9px; line-height: 12px; white-space: nowrap; transform: translateX(-50%); color: var(--scene-muted, #6e8190); }
 [data-theme="dark"] #trace .trace-event { background: #223240; }

@@ -995,7 +995,7 @@ for (const [id,act] of Object.entries({
 }
 $('status-timeline').oninput=()=>{ store.replay.seek(Number($('status-timeline').value)); draw(); };
 $('status-capture').onclick=event=>{
-  const seq=Number(event.target.closest('.capture-row')?.dataset.seq);
+  const seq=Number(event.target.closest('.capture-group')?.dataset.seq);
   const index=store.replay.entries.findIndex(entry=>entry.seq===seq);
   if (index>=0 && !event.target.closest('summary')) { store.replay.seek(index); draw(); }
 };

@@ -746,7 +746,9 @@ export function gateDevicePositions(state, sensors) {
   }));
 }
 
-export function lastEncoderReading(events, current, unit) {
+// A status subscription has no events to look back through: `live` is its current state, which holds the reading
+export function lastEncoderReading(events, current, unit, live=null) {
+  if (live) { const value=live.devices?.[`${unit}:encoder`]?.encoder_pos; return Number.isFinite(value) ? value : null; }
   const index = events.findIndex(event => event === current || (current?.seq != null && event.seq === current.seq));
   for (let i = index; i >= 0; --i) {
     const event = events[i];
