@@ -1,5 +1,6 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
-import {LiveState, liveFrame, liveDuration, liveProgress, gateChanged, liveMmuFields} from './live-state.js';
+import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, gateChanged, liveMmuFields} from './live-state.js';
+import {lastingWarnings} from './live-tip.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
@@ -30,7 +31,7 @@ const store = {
   // Which source is shown
   viewMode: 'live', modeChosen: false, viewGeneration: 0, offline: false,
   // Live status subscription
-  liveState: new LiveState(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
+  liveState: new LiveState(), liveWarnings: new Map(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
   statusSensors: null, statusRecordMode: null, unitObjects: {}, overlayCache: {key: '', state: null},
   // Telemetry: the records, their replay and the steps made from them
   sourceRecords: [], sourceReplay: new TelemetryReplay(), rawEvents: [], events: [], session: null, parameterGate: null,
@@ -91,10 +92,10 @@ function sourceMode() {
 function renderWarning(warnings=[], notice=null) {
   const subscribed=store.viewMode==='live' && !store.offline && store.socket?.readyState===1;
   const playback=store.viewMode==='playback';
-  const warning=subscribed
-    ? 'Status subscriptions may skip movement updates. Select Telemetry stream for complete movement animation.'
-    : playback && warnings.length ? 'Displayed tip adjusted to sensor readings: '+warnings.join('; ') : '';
-  const info=playback && !subscribed && notice ? notice : '';
+  const warning=!warnings.length ? '' : subscribed ? 'Status is ambiguous: '+warnings.join('; ')
+    : playback ? 'Displayed tip adjusted to sensor readings: '+warnings.join('; ') : '';
+  const info=subscribed ? 'Status subscriptions may skip movement updates. Select Telemetry stream for complete movement animation.'
+    : playback && notice ? notice : '';
   for (const [id,text] of [['filament-notice',info],['filament-warning',warning]]) {
     $(id).hidden=!text;
     $(`${id}-message`).textContent=text;
@@ -278,14 +279,20 @@ function acceptLive(delta,time) {
     if (name) store.sensorPulse={sensor:name,reverse:!previous.homing.triggered,start:animationNow()};
   }
   // Updates that arrive while the rack is sliding to this gate must not restart the slide
-  const sliding=Boolean(previous) && !store.liveSettled && gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit;
+  const sliding=Boolean(previous) && !store.liveSettled && (liveSteady(previous,next) ||
+    gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit);
   if (!sliding) store.liveFrom=store.displayed;
   const sameGate=store.liveFrom?.unit===next.unit && store.liveFrom?.gate===next.gate && next.gate>=0;
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
   next.motors={gear:(store.liveFrom?.motors.gear || 0)+(next.mmu_gripped ? distance : 0),
     extruder:(store.liveFrom?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)};
   store.liveTarget=next;
-  if (!sliding) { store.liveStart=animationNow(); store.liveDuration=liveDuration(store.liveFrom,next); store.liveSettled=false; }
+  if (!sliding) {
+    const now=animationNow();
+    store.liveDuration=liveDuration(store.liveFrom,next,now-(store.liveMoved ?? now));
+    store.liveStart=store.liveMoved=now; store.liveSettled=false;
+  }
+  if (next.live_warnings.length) setTimeout(draw,1050);
   if (isSimulator() && previous?.unit!==next.unit) {
     const unit=next.units.indexOf(next.unit);
     if (unit>=0 && $('unit').value!==String(unit)) {
@@ -685,7 +692,8 @@ function renderScene() {
   renderToolMapping(view.state);
   const {warnings, unitSensors}=scene.render(view, sceneSettings());
   renderMacros(view.state, !store.offline && isSimulator());
-  renderWarning(warnings, store.viewMode==='playback' ? selectorNotice(store.events, view.event, Boolean(store.playing), store.live && !store.paused) : null);
+  const live=store.viewMode==='live';
+  renderWarning(live ? lastingWarnings(store.liveWarnings,store.liveTarget?.live_warnings || [],performance.now(),view.state.action==='Idle') : warnings, store.viewMode==='playback' ? selectorNotice(store.events, view.event, Boolean(store.playing), store.live && !store.paused) : null);
   renderSensors(unitSensors, {offline:store.offline, atLatest:view.atLatest, editable:!store.busy && isSimulator(),
     onToggle:(name, enable)=>action(async () => {
       await sim.sensor(name, enable);

@@ -569,6 +569,9 @@ export function bowdenLengthLabel(state) {
   return state.gate >= 0 && Number.isFinite(length) && length > 0
     ? `Bowden · ${round1(length)}mm` : 'Bowden · Uncalibrated length';
 }
+// Only a status subscription reports how far a Bowden move has got
+export const bowdenProgressLabel=state=>Number.isFinite(state.bowden_progress) && state.bowden_progress>=0
+  ? `${Math.round(state.bowden_progress)}% travelled` : '';
 
 export function toolheadReferences(state) {
   const {nozzle, extruder_gears: gears} = state.layout || {};
@@ -650,7 +653,7 @@ export function encoderFilamentDistance(events, event, state, tip, pathDistance,
 }
 
 // Keep schematic parking and switch homing on the same continuous path.
-export function switchFilamentDistance(tip, home, parking, entry, sensorDistance, pathDistance, encoder = null, parkedDistance = null) {
+export function switchFilamentDistance(tip, home, parking, entry, sensorDistance, pathDistance, encoder = null, parkedDistance = null, preload = null) {
   const knots = [[home,sensorDistance],[entry,pathDistance(entry)]];
   if (encoder && encoder.position !== home && encoder.position < entry) knots.push([encoder.position,encoder.distance]);
   if (parking && home+parking < entry) {
@@ -663,6 +666,8 @@ export function switchFilamentDistance(tip, home, parking, entry, sensorDistance
     }
     knots.push([parked,distance]);
   }
+  // A preload on another sensor: known only to lie before every other place
+  if (preload && knots.every(([position,landmark])=>preload.position < position && preload.distance < landmark)) knots.push([preload.position,preload.distance]);
   // A parked tip can coincide with the encoder.
   for (let i=knots.length-1;i>0;i--) if (knots.slice(0,i).some(k=>k[0]===knots[i][0])) knots.splice(i,1);
   knots.sort((a,b)=>a[0]-b[0]);

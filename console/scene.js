@@ -2,10 +2,11 @@
 // The main view: draws one scene state into the host <svg>. It reads nothing from the page outside the host and
 // changes nothing outside it; the caller passes what to draw (view) and how (settings).
 import { SpoolRenderer, renderSpool, spoolWindingRadius, espoolerActive } from './spool.js';
-import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, meltColor, retractionLabel, movingTip, visualTip, withdrawTip} from './playback.js';
+import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, bowdenProgressLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, meltColor, retractionLabel, movingTip, visualTip, withdrawTip} from './playback.js';
 import {$, escape, short as sensorName, DEFAULT_COLOR, round1, clamp01, dimensionArrow, spanArrow} from './util.js';
 import {renderBuffer} from './buffer-view.js';
 import {measurePath} from './path-measure.js';
+import {parkedAt, preloadPark} from './scene-state.js';
 import {unitLogo, ICONS} from './unit-icons.js';
 
 export function spoolFill(state, gate) {
@@ -185,7 +186,7 @@ function measure(c) {
   const selectionLit=branchGate=>gateSelectionLit(s,branchGate);
   const branchMask=virtual ? `<defs><mask id="virtual-selection-fade" maskUnits="userSpaceOnUse" x="0" y="0" width="${SCENE_WIDTH}" height="${MASK_HEIGHT}"><rect width="${SCENE_WIDTH}" height="${MASK_HEIGHT}" fill="white"/><rect x="0" y="${virtual.hub}" width="${BUFFER_CENTER_X}" height="${MASK_HEIGHT-virtual.hub}" fill="rgb(${branchShade},${branchShade},${branchShade})"/></mask></defs>` : '';
 
-  let svg = `${branchMask}<path id="extruder-body" d="M${E-10} ${bodyTop} H${E-18} Q${E-20} ${bodyTop} ${E-20} ${bodyTop+2} V435 H${E+20} V${bodyTop+2} Q${E+20} ${bodyTop} ${E+18} ${bodyTop} H${E+10}" fill="var(--scene-body, #edf2f6)" stroke="var(--scene-border, #96abba)"/><rect x="${E-47}" y="375" width="94" height="58" rx="5" fill="var(--scene-heater, #c4d3df)"/><rect id="nozzle-collar" x="${E-20}" y="433" width="40" height="2" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-body" d="${nozzleBody}" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-bore" d="${nozzleFunnel}" fill="var(--scene-tube, #edf4f8)"/><g><g${virtual ? ' mask="url(#virtual-selection-fade)"' : ''}><path id="tube" d="${path}" fill="none" stroke="none"/><g><g${s.devices[`${s.unit}:buffer`] ? ' mask="url(#buffer-tube-gap)"' : ''}><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube-border, #b1c4d2)" stroke-width="19.25"/><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube, #edf4f8)" stroke-width="14.75"/></g></g><path id="nozzle-entrance" d="${nozzleEntrance}" fill="var(--scene-tube, #edf4f8)"/><path id="filament" mask="url(#bowden-end-fade)" d="${path}" fill="none" stroke="#${s.filament?.incoming_color || DEFAULT_COLOR}" stroke-width="7"/></g></g><text ${dimensionLink('Bowden')} id="bowden-length" x="${EXIT}" y="60" text-anchor="end" fill="var(--scene-muted, #6e8190)" font-size="13">${bowdenLengthLabel(s).includes('Uncalibrated') ? `<tspan x="${EXIT}">Bowden</tspan><tspan x="${EXIT}" dy="16">Uncalibrated length</tspan>` : bowdenLengthLabel(s)}</text>`;
+  let svg = `${branchMask}<path id="extruder-body" d="M${E-10} ${bodyTop} H${E-18} Q${E-20} ${bodyTop} ${E-20} ${bodyTop+2} V435 H${E+20} V${bodyTop+2} Q${E+20} ${bodyTop} ${E+18} ${bodyTop} H${E+10}" fill="var(--scene-body, #edf2f6)" stroke="var(--scene-border, #96abba)"/><rect x="${E-47}" y="375" width="94" height="58" rx="5" fill="var(--scene-heater, #c4d3df)"/><rect id="nozzle-collar" x="${E-20}" y="433" width="40" height="2" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-body" d="${nozzleBody}" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-bore" d="${nozzleFunnel}" fill="var(--scene-tube, #edf4f8)"/><g><g${virtual ? ' mask="url(#virtual-selection-fade)"' : ''}><path id="tube" d="${path}" fill="none" stroke="none"/><g><g${s.devices[`${s.unit}:buffer`] ? ' mask="url(#buffer-tube-gap)"' : ''}><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube-border, #b1c4d2)" stroke-width="19.25"/><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube, #edf4f8)" stroke-width="14.75"/></g></g><path id="nozzle-entrance" d="${nozzleEntrance}" fill="var(--scene-tube, #edf4f8)"/><path id="filament" mask="url(#bowden-end-fade)" d="${path}" fill="none" stroke="#${s.filament?.incoming_color || DEFAULT_COLOR}" stroke-width="7"/></g></g><text ${dimensionLink('Bowden')} id="bowden-length" x="${EXIT}" y="60" text-anchor="end" fill="var(--scene-muted, #6e8190)" font-size="13">${bowdenLengthLabel(s).includes('Uncalibrated') ? `<tspan x="${EXIT}">Bowden</tspan><tspan x="${EXIT}" dy="16">Uncalibrated length</tspan>` : bowdenLengthLabel(s)}${bowdenProgressLabel(s) ? `<tspan id="bowden-progress" x="${EXIT}" dy="16">${bowdenProgressLabel(s)}</tspan>` : ''}</text>`;
   const parkedTips=[];
   // Virtual feeds rise from the spool to the parked position; `feed` (cross-unit changes only) is the progress.
   const feedFront=virtual ? gateIndex => {
@@ -202,7 +203,7 @@ function measure(c) {
       if (s.gate_status?.[branch.gate]!==0 && spoolFill(s,branch.gate)>0) {
         const cone=s.tip_shapes?.[branch.gate] === 'cone';
         const front=feedFront(branch.gate);
-        if (front<484+mmuOffset) branches+=`<path data-part="virtual-parked-filament" data-gate="${branch.gate}" mask="url(#bowden-end-fade)" d="M${branch.x} ${484+mmuOffset} V${Math.max(front,virtual.bottom-virtual.parkDistance+(cone ? toolheadHeight/(end-entry) : 0))}" fill="none" stroke="#${s.gate_colors[branch.gate] || DEFAULT_COLOR}" stroke-width="7"/>`;
+        if (front<484+mmuOffset) branches+=`<path data-part="virtual-parked-filament" data-gate="${branch.gate}" mask="url(#bowden-end-fade)" d="M${branch.x} ${484+mmuOffset} V${Math.max(front,virtual.bottom-virtual.parkDistance+(cone ? toolheadHeight/(end-entry) : 0))}" fill="none" stroke="#${s.gate_colors[branch.gate] || DEFAULT_COLOR}" stroke-width="7"/><!--parked-reach-${branch.gate}-->`;
         if (cone && branch.gate !== gate && front<484+mmuOffset) {
           parkedTips.push(branch);
           branches+=`<!--parked-tip-${branch.gate}-->`;
@@ -266,6 +267,19 @@ function measure(c) {
     if (short === 'mmu_shared_exit') { point.y = gateSlots.sharedExit; point.x = descentX(point.y); }
     return point;
   };
+  // A gate that homes on the shared exit parks an unloaded filament between its own exit sensor and the shared one
+  const exitSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && ['mmu_exit',`mmu_exit_${gate}`].includes(sensorName(name)));
+  const sharedSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && sensorName(name) === 'mmu_shared_exit');
+  const unloadedParkY = virtual && exitSensor && sharedSensor && s.encoder_reference?.endstop?.split(':').at(-1) === 'mmu_shared_exit' &&
+    s.encoder_reference.parking < 0 ? (sensorPoint(...exitSensor).y+sensorPoint(...sharedSensor).y)/2 : null;
+  const routeDistanceAtY = (route, y) => {
+    let low=0, high=route.getTotalLength();
+    for (let i=0;i<24;i++) { const middle=(low+high)/2; if (route.getPointAtLength(middle).y>y) low=middle; else high=middle; }
+    return low;
+  };
+  // How far along its own branch an unselected gate's parked filament reaches
+  const parkReach = (gateIndex, route) => unloadedParkY !== null && s.gate_feed === undefined && parkedAt(s,gateIndex) === 'gate'
+    ? routeDistanceAtY(route,unloadedParkY) : virtual.parkDistance;
   const isBufferSensor = name => /(?:^|:)filament_(compression|tension)$/.test(name);
   const sensorFill = state => state === true ? '#399b64' : state === false ? '#fff' : '#9ba5ae';
   const encoderPoint = () => { const y=gateSlots.encoder ?? 360+hardwareOffset; return {x:descentX(y), y}; };
@@ -306,7 +320,11 @@ function measure(c) {
         s.encoder_reference?.parking || 0,sensorEntry,mmuDistanceAtY(sensorPoint(...sensor).y),pathDistance,
         encoderAnchor?.name === sensor[0] && s.devices?.[`${s.unit}:encoder`]
           ? {position:sensor[1].position+encoderAnchor.offset,distance:mmuDistanceAtY(encoderPoint().y)} : null,
-        virtual && endstop==='mmu_shared_exit' && s.encoder_reference.parking<0 ? virtual.parkDistance : null);
+        unloadedParkY !== null ? mmuDistanceAtY(unloadedParkY)
+          : virtual && endstop==='mmu_shared_exit' && s.encoder_reference.parking<0 ? virtual.parkDistance : null,
+        exitSensor && exitSensor !== sensor && s.preload_reference?.endstop?.split(':').at(-1).replace(/_\d+$/,'') === 'mmu_exit'
+          ? {position:preloadPark(s,sensor[1].position,exitSensor[1].position),distance:virtual ? virtual.parkDistance
+            : mmuDistanceAtY(sensorPoint(...exitSensor).y)+Math.sign(s.preload_reference.parking)*8} : null);
       schematicTip = schematicDistance(tip);
       tip = tipAtPathDistance(schematicTip);
       drawnAt = schematicDistance;
@@ -336,7 +354,9 @@ function measure(c) {
     });
   const fragments = s.retained_segment ? [{start:pathDistance(s.retained_segment.start),end:pathDistance(s.retained_segment.end)}] : [];
   const tail = s.tails[gate] === null ? null : pathDistance(s.tails[gate]);
-  const constrained = constrainFilament(schematicTip ?? pathDistance(tip), tail, presenceSensors, fragments, s.sensor_conflicts || []);
+  // A tip resolved from status has already been held to the sensors; holding it again here would make it jump
+  const constrained = s.tip_resolved ? {tip:Math.max(0,schematicTip ?? pathDistance(tip)),warnings:[]}
+    : constrainFilament(schematicTip ?? pathDistance(tip), tail, presenceSensors, fragments, s.sensor_conflicts || []);
   // The animated tip runs between the two states as the toolhead sensors allow them to be shown;
   // the frame after the move shows the settled state
   const after = e.settled_state || e.state, moving = playing && e.kind === 'movement' && e.before?.gate === s.gate && e.state;
@@ -373,7 +393,7 @@ function measure(c) {
   const macroUnit=s.units?.indexOf(s.unit) ?? 0;
   const macroParams=s.configuration?.parameters?.[macroUnit] || {};
   const filamentDash = `0 ${start} ${Math.max(0, stop - start)} ${length + 1}`;
-  Object.assign(c, {filamentDash, spoolRequests, gate, tip, entry, end, toolheadHeight, sensorEntry, sensorGap, unitGates, previewCount, displayGates, mmuOffset, hardwareOffset, virtual, lane, guide, mmuColumn, mmuDistanceAtY, path, dimensionLink, nozzleDiameter, nozzleWidth, funnelShoulder, nozzleExit, shadowEndX, shadowEndY, nozzleFunnel, nozzleBody, nozzleEntrance, bodyTop, bowdenPath, branchOpacity, branchShade, selectionLit, branchMask, svg, parkedTips, feedFront, tube, length, mmuExitFraction, toolheadFraction, progress, pathDistance, unitSensors, isTouchSensor, encoderAnchor, gateSlots, descentX, sensorPoint, isBufferSensor, sensorFill, encoderPoint, tipAtPathDistance, schematicDistance, schematicTip, tipScale, coneOffset, displayedSensors, presenceSensors, fragments, constrained, focus, fullTipOpacity, slidingRack, spoolTip, selectedTip, shapedTipOpacity, start, macroUnit, macroParams});
+  Object.assign(c, {filamentDash, spoolRequests, gate, tip, entry, end, toolheadHeight, sensorEntry, sensorGap, unitGates, previewCount, displayGates, mmuOffset, hardwareOffset, virtual, lane, guide, mmuColumn, mmuDistanceAtY, path, dimensionLink, nozzleDiameter, nozzleWidth, funnelShoulder, nozzleExit, shadowEndX, shadowEndY, nozzleFunnel, nozzleBody, nozzleEntrance, bodyTop, bowdenPath, branchOpacity, branchShade, selectionLit, branchMask, svg, parkedTips, feedFront, tube, length, mmuExitFraction, toolheadFraction, progress, pathDistance, unitSensors, parkReach, isTouchSensor, encoderAnchor, gateSlots, descentX, sensorPoint, isBufferSensor, sensorFill, encoderPoint, tipAtPathDistance, schematicDistance, schematicTip, tipScale, coneOffset, displayedSensors, presenceSensors, fragments, constrained, focus, fullTipOpacity, slidingRack, spoolTip, selectedTip, shapedTipOpacity, start, macroUnit, macroParams});
 }
 
 // The rack of units: enclosures, spools, gate pills and the scroll arrows
@@ -571,9 +591,16 @@ function tips(c) {
     if (part === 'attached-tip') c.attachedTipEdge=edge;
     return `<g data-part="${part}">${hairStart < hairLimit ? `<path data-part="filament-hair" d="${outline.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' ')} Z" fill="#${color}"/>` : ''}<path d="M${base.x+dx} ${base.y+dy} L${nose.x} ${nose.y} L${base.x-dx} ${base.y-dy} Z" fill="#${color}"/>${part === 'attached-tip' ? '' : edge}</g>`;
   };
+  for (const branch of virtual?.branches || []) {
+    // Beyond the straight part of its branch a parked filament follows the bend
+    const route=measurePath(virtual.branchPath(branch.x)), reach=c.parkReach(branch.gate,route), from=virtual.parkDistance-8;
+    const cone=s.tip_shapes?.[branch.gate] === 'cone' ? tipScale : 0;
+    svg=svg.replace(`<!--parked-reach-${branch.gate}-->`,reach > virtual.parkDistance
+      ? `<path data-part="virtual-parked-filament" data-gate="${branch.gate}" d="${virtual.branchPath(branch.x)}" fill="none" stroke="#${s.gate_colors[branch.gate] || DEFAULT_COLOR}" stroke-width="7" stroke-dasharray="0 ${from} ${Math.max(0,reach-cone-from)} ${route.getTotalLength()}"/>` : '');
+  }
   for (const branch of parkedTips) {
-    const route=measurePath(virtual.branchPath(branch.x));
-    svg=svg.replace(`<!--parked-tip-${branch.gate}-->`,shapedTip(s.gate_feed===undefined ? virtual.parkDistance : Math.min(virtual.parkDistance,virtual.bottom-feedFront(branch.gate)),
+    const route=measurePath(virtual.branchPath(branch.x)), reach=c.parkReach(branch.gate,route);
+    svg=svg.replace(`<!--parked-tip-${branch.gate}-->`,shapedTip(s.gate_feed===undefined ? reach : Math.min(virtual.parkDistance,virtual.bottom-feedFront(branch.gate)),
       s.gate_colors[branch.gate] || DEFAULT_COLOR,'parked-tip',s.hair_lengths?.[branch.gate] ?? 15,route));
   }
   Object.assign(c, {shapedTip, svg});
@@ -723,7 +750,7 @@ function devices(c) {
 function nozzle(c) {
   let {s, gate, tip, end, mmuColumn, path, dimensionLink, nozzleExit, shadowEndX, shadowEndY, nozzleFunnel, svg, tube, length, progress, tipScale, coneOffset, shapedTipOpacity, start, shapedTip}=c;
   const excess = s.bowden_unabsorbed_mm || 0;
-  if (Number.isFinite(excess) && excess !== 0) svg += `<text id="bowden-excess" x="${EXIT-20}" y="${bowdenLengthLabel(s).includes('Uncalibrated') ? 94 : 78}" font-size="10" fill="var(--scene-text, #304c65)"><tspan x="${EXIT-20}">Excess filament</tspan><tspan x="${EXIT-20}" dy="14">${excessFilamentLabel(excess)}</tspan></text>`;
+  if (Number.isFinite(excess) && excess !== 0) svg += `<text id="bowden-excess" x="${EXIT-20}" y="${(bowdenLengthLabel(s).includes('Uncalibrated') ? 94 : 78)+(bowdenProgressLabel(s) ? 16 : 0)}" font-size="10" fill="var(--scene-text, #304c65)"><tspan x="${EXIT-20}">Excess filament</tspan><tspan x="${EXIT-20}" dy="14">${excessFilamentLabel(excess)}</tspan></text>`;
   const residual = s.filament?.residual_mm || 0;
   const fragment = s.filament?.fragment_mm || 0;
   const retainedColor = meltColor(s);

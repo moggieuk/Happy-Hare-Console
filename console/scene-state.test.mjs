@@ -77,3 +77,18 @@ test('the device readout lists only the selected unit\'s objects',()=>{
   assert.equal(names.filter(n=>n.startsWith('mmu_extruder ')).length,1,name);
  }
 });
+test('an unloaded gate is at the preload park only when Happy Hare has it as preloaded and the preload differs',async()=>{
+ const {parkedAt,preloadPark,SceneModel}=await import('./scene-state.js');
+ const s={gate:1,gate_status:[2,1,0,-1],tips:[],active_sensors:['u:mmu_exit_1','u:mmu_shared_exit'],
+  sensors:{'u:mmu_exit_1':{position:0},'u:mmu_shared_exit':{position:10}},layout:{extruder_entry:560,extruder_gears:560,nozzle:610},
+  encoder_reference:{endstop:'mmu_shared_exit',parking:-100},preload_reference:{endstop:'mmu_exit',parking:10}};
+ assert.deepEqual([0,1,2,3].map(gate=>parkedAt(s,gate)),['gate','preload','gate','gate']);
+ assert.equal(parkedAt({...s,preload_reference:{endstop:'unit0:mmu_shared_exit',parking:-100}},1),'gate');
+ assert.equal(parkedAt({...s,preload_reference:undefined},1),'gate');
+ // Before the unloaded park (-90), whatever the nominal place of the exit sensor
+ assert.equal(preloadPark(s,10,0),-100);
+ assert.equal(preloadPark({...s,preload_reference:{endstop:'mmu_shared_exit',parking:-40}},10,10),-30);
+ const model=new SceneModel();
+ assert.equal(model.logicalTip(s,0),-100);
+ assert.equal(model.logicalTip({...s,gate:0},0),-90);
+});

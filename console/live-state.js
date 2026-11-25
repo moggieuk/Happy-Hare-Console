@@ -1,15 +1,16 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
 import {SceneModel} from './scene-state.js';
 import {liveMachine,qualifySensors} from './live-config.js';
-import {short as sensorName, DEFAULT_COLOR} from './util.js';
+import {short as sensorName, DEFAULT_COLOR, clamp} from './util.js';
 import {interpolate, duration} from './playback.js';
+import {resolveTip} from './live-tip.js';
 const clone=value=>structuredClone(value);
 const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('') : String(value || DEFAULT_COLOR).replace(/^#/,'').slice(0,6);
 
 // Moonraker replaces individual status fields, including dictionary-valued fields.
 // Keep one current snapshot, never a history of subscription messages.
 export class LiveState {
-  constructor() { this.objects={}; this.eventtime=-Infinity; }
+  constructor() { this.objects={}; this.eventtime=-Infinity; this.tip=null; }
   accept(delta,eventtime=0) {
     if (eventtime<this.eventtime) return null;
     this.eventtime=eventtime;
@@ -50,13 +51,14 @@ export class LiveState {
     model.hairLengths=model.tips.map(()=>15);
     let s=model.snapshot();
     for (const g of s.unit_gates) model.tips[g]=model.logicalTip({...s,gate:g},0,true);
+    let warnings=[];
     if (m.gate>=0) {
-      model.tips[m.gate]=model.logicalTip(s,m.filament_pos,true);
-      if (Number.isFinite(status.bowden_progress) && status.bowden_progress>=0) {
-        const home=s.layout.extruder_gears-(machine.units[unitName].bowden_lengths[m.gate] || 700);
-        model.tips[m.gate]=home+(s.layout.extruder_gears-home)*Math.min(100,status.bowden_progress)/100;
-      }
-    }
+      const resolved=resolveTip(this.tip,status,s,pos=>model.logicalTip(s,pos,true),
+        s.layout.extruder_gears-(machine.units[unitName].bowden_lengths[m.gate] || 700));
+      this.tip=resolved.memory;
+      model.tips[m.gate]=resolved.tip;
+      warnings=resolved.warnings;
+    } else this.tip=null;
     // Buffer position is reported state, never a result of integrating motor travel.
     model.bufferPositions={};
     const buffer=machine.units[unitName].buffer;
@@ -80,6 +82,8 @@ export class LiveState {
     if (touch && s.homing) s.homing.endstops=s.homing.endstops.map(n=>sensorName(n).startsWith('mmu_gear_touch') ? touch : n);
     s.bowden_progress=status.bowden_progress;
     s.action=status.action;
+    s.tip_resolved=true;
+    s.live_warnings=warnings;
     return s;
   }
 }
@@ -87,7 +91,16 @@ export class LiveState {
 // Klipper resends a whole dictionary field when one value in it changes; the encoder's own object sends just that value
 export const liveMmuFields=mmu=>Object.keys(mmu || {}).filter(field=>field!=='encoder');
 export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 && from.gate!==to.gate;
-export const liveDuration=(from,to)=>gateChanged(from,to) ? duration({kind:'gate_changed'}) : 350;
+const sameGate=(from,to)=>Boolean(from) && from.unit===to.unit && from.gate===to.gate && to.gate>=0;
+// As long as the updates are apart, so a steady stream reads as one movement; a long step is a quick sweep
+export function liveDuration(from,to,interval=0) {
+  if (gateChanged(from,to)) return duration({kind:'gate_changed'});
+  const distance=sameGate(from,to) ? Math.abs(to.tips[to.gate]-from.tips[to.gate]) || 0 : 0;
+  return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3));
+}
+// An update that moves nothing must not restart the movement under way
+export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] &&
+  Object.entries(next.devices).every(([name,d])=>target.devices[name]?.travel===d.travel);
 // The frame that reaches the target is drawn once, however late it comes
 export function liveProgress(elapsed,total,settled) {
   const fraction=Math.min(1,elapsed/total);

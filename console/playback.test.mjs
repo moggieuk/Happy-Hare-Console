@@ -1030,3 +1030,13 @@ test('compressing purge playback runs a purging move four times faster',()=>{
  assert.equal(duration(purge,false,true),1000);
  assert.equal(duration({kind:'movement',duration:2},false,true),2000);
 });
+test('a preload park on another sensor is drawn at its own place, before the unloaded park',()=>{
+ const scale=position=>position;
+ const at=tip=>switchFilamentDistance(tip,10,-100,550,400,scale,null,300,{position:-100,distance:188});
+ assert.deepEqual([-100,-90,10].map(at),[188,300,400]);
+ assert.equal(at(-95),244);
+ // Not when it would not lie before every other place
+ assert.equal(switchFilamentDistance(-90,10,-100,550,400,scale,null,300,{position:-100,distance:350}),300);
+ assert.equal(switchFilamentDistance(-100,10,-100,550,400,scale,null,300,{position:-100,distance:350}),
+  switchFilamentDistance(-100,10,-100,550,400,scale,null,300));
+});

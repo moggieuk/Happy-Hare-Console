@@ -15,12 +15,12 @@ test('live spool fill follows subscribed gate weights',()=>{
   .spool_percentages.slice(0,3),[75,0,null]);
  assert.equal(r.accept({mmu:{gate_remaining_weight:[500,0,-1]}},3).spool_percentages[0],50);
 });
-test('Bowden progress sets the target independently of motor positions',()=>{
+test('Bowden progress sets the target, and a step of filament_position across a state change does not',()=>{
  const r=new LiveState();r.accept(status(),1);
  const s=r.accept({mmu:{filament_pos:3,bowden_progress:50,filament_position:99999}},2);
  const length=r.objects.save_variables.variables[`mmu_${s.unit}_bowden_lengths`][s.gate];
  assert.equal(s.tips[s.gate],s.layout.extruder_gears-length/2);
- const end=r.accept({mmu:{filament_pos:6,bowden_progress:-1}},3);
+ const end=r.accept({mmu:{filament_pos:6,bowden_progress:-1,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:false}}},3);
  assert.equal(end.tips[end.gate],end.layout.extruder_gears);
 });
 test('dictionary fields replace rather than retain removed sensors',()=>{
