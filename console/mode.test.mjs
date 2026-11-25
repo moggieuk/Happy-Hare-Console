@@ -45,7 +45,7 @@ test('reconnect preserves explicitly selected live or playback mode',async()=>{
 });
 
 const warning=app.slice(app.indexOf('function renderWarning('),app.indexOf('const RPC_TIMEOUT_MS'));
-test('simulator subscription warning clears on mode, source, and connection changes',()=>{
+test('the subscription warning shows for a printer or the simulator and clears on mode and connection changes',()=>{
  const nodes={'filament-warning':{},'filament-warning-message':{},'filament-notice':{},'filament-notice-message':{}};
  const c=vm.createContext({store:{viewMode:'live',offline:false,socket:{readyState:1},setup:{connection_kind:'simulator'}},$:id=>nodes[id]});
  vm.runInContext(isSimulator+warning,c);
@@ -64,7 +64,8 @@ test('simulator subscription warning clears on mode, source, and connection chan
  assert.equal(nodes['filament-notice-message'].textContent,'Selector: moved');
  assert.equal(nodes['filament-warning-message'].textContent,'Displayed tip adjusted to sensor readings: sensor conflict');
  assert.equal(nodes['filament-notice'].hidden,false);assert.equal(nodes['filament-warning'].hidden,false);
- c.store.viewMode='live';c.store.setup.connection_kind='live_machine';draw();assert.equal(nodes['filament-warning'].hidden,true);
+ c.store.viewMode='live';c.store.setup.connection_kind='live_machine';draw();assert.equal(nodes['filament-warning'].hidden,false);
+ assert.match(nodes['filament-warning-message'].textContent,/^Status subscriptions may skip/);
  c.store.setup.connection_kind='simulator';c.store.socket.readyState=3;draw();assert.equal(nodes['filament-warning'].hidden,true);
 });
 
