@@ -6,6 +6,7 @@ import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, g
 import {$, escape, short as sensorName, DEFAULT_COLOR, round1, clamp01, dimensionArrow, spanArrow} from './util.js';
 import {renderBuffer} from './buffer-view.js';
 import {measurePath} from './path-measure.js';
+import {parkedAt, preloadPark} from './scene-state.js';
 import {unitLogo, ICONS} from './unit-icons.js';
 
 export function spoolFill(state, gate) {
@@ -202,7 +203,7 @@ function measure(c) {
       if (s.gate_status?.[branch.gate]!==0 && spoolFill(s,branch.gate)>0) {
         const cone=s.tip_shapes?.[branch.gate] === 'cone';
         const front=feedFront(branch.gate);
-        if (front<484+mmuOffset) branches+=`<path data-part="virtual-parked-filament" data-gate="${branch.gate}" mask="url(#bowden-end-fade)" d="M${branch.x} ${484+mmuOffset} V${Math.max(front,virtual.bottom-virtual.parkDistance+(cone ? toolheadHeight/(end-entry) : 0))}" fill="none" stroke="#${s.gate_colors[branch.gate] || DEFAULT_COLOR}" stroke-width="7"/>`;
+        if (front<484+mmuOffset) branches+=`<path data-part="virtual-parked-filament" data-gate="${branch.gate}" mask="url(#bowden-end-fade)" d="M${branch.x} ${484+mmuOffset} V${Math.max(front,virtual.bottom-virtual.parkDistance+(cone ? toolheadHeight/(end-entry) : 0))}" fill="none" stroke="#${s.gate_colors[branch.gate] || DEFAULT_COLOR}" stroke-width="7"/><!--parked-reach-${branch.gate}-->`;
         if (cone && branch.gate !== gate && front<484+mmuOffset) {
           parkedTips.push(branch);
           branches+=`<!--parked-tip-${branch.gate}-->`;
@@ -266,6 +267,19 @@ function measure(c) {
     if (short === 'mmu_shared_exit') { point.y = gateSlots.sharedExit; point.x = descentX(point.y); }
     return point;
   };
+  // A gate that homes on the shared exit parks an unloaded filament between its own exit sensor and the shared one
+  const exitSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && ['mmu_exit',`mmu_exit_${gate}`].includes(sensorName(name)));
+  const sharedSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && sensorName(name) === 'mmu_shared_exit');
+  const unloadedParkY = virtual && exitSensor && sharedSensor && s.encoder_reference?.endstop?.split(':').at(-1) === 'mmu_shared_exit' &&
+    s.encoder_reference.parking < 0 ? (sensorPoint(...exitSensor).y+sensorPoint(...sharedSensor).y)/2 : null;
+  const routeDistanceAtY = (route, y) => {
+    let low=0, high=route.getTotalLength();
+    for (let i=0;i<24;i++) { const middle=(low+high)/2; if (route.getPointAtLength(middle).y>y) low=middle; else high=middle; }
+    return low;
+  };
+  // How far along its own branch an unselected gate's parked filament reaches
+  const parkReach = (gateIndex, route) => unloadedParkY !== null && s.gate_feed === undefined && parkedAt(s,gateIndex) === 'gate'
+    ? routeDistanceAtY(route,unloadedParkY) : virtual.parkDistance;
   const isBufferSensor = name => /(?:^|:)filament_(compression|tension)$/.test(name);
   const sensorFill = state => state === true ? '#399b64' : state === false ? '#fff' : '#9ba5ae';
   const encoderPoint = () => { const y=gateSlots.encoder ?? 360+hardwareOffset; return {x:descentX(y), y}; };
@@ -306,7 +320,11 @@ function measure(c) {
         s.encoder_reference?.parking || 0,sensorEntry,mmuDistanceAtY(sensorPoint(...sensor).y),pathDistance,
         encoderAnchor?.name === sensor[0] && s.devices?.[`${s.unit}:encoder`]
           ? {position:sensor[1].position+encoderAnchor.offset,distance:mmuDistanceAtY(encoderPoint().y)} : null,
-        virtual && endstop==='mmu_shared_exit' && s.encoder_reference.parking<0 ? virtual.parkDistance : null);
+        unloadedParkY !== null ? mmuDistanceAtY(unloadedParkY)
+          : virtual && endstop==='mmu_shared_exit' && s.encoder_reference.parking<0 ? virtual.parkDistance : null,
+        exitSensor && exitSensor !== sensor && s.preload_reference?.endstop?.split(':').at(-1).replace(/_\d+$/,'') === 'mmu_exit'
+          ? {position:preloadPark(s,sensor[1].position,exitSensor[1].position),distance:virtual ? virtual.parkDistance
+            : mmuDistanceAtY(sensorPoint(...exitSensor).y)+Math.sign(s.preload_reference.parking)*8} : null);
       schematicTip = schematicDistance(tip);
       tip = tipAtPathDistance(schematicTip);
       drawnAt = schematicDistance;
@@ -375,7 +393,7 @@ function measure(c) {
   const macroUnit=s.units?.indexOf(s.unit) ?? 0;
   const macroParams=s.configuration?.parameters?.[macroUnit] || {};
   const filamentDash = `0 ${start} ${Math.max(0, stop - start)} ${length + 1}`;
-  Object.assign(c, {filamentDash, spoolRequests, gate, tip, entry, end, toolheadHeight, sensorEntry, sensorGap, unitGates, previewCount, displayGates, mmuOffset, hardwareOffset, virtual, lane, guide, mmuColumn, mmuDistanceAtY, path, dimensionLink, nozzleDiameter, nozzleWidth, funnelShoulder, nozzleExit, shadowEndX, shadowEndY, nozzleFunnel, nozzleBody, nozzleEntrance, bodyTop, bowdenPath, branchOpacity, branchShade, selectionLit, branchMask, svg, parkedTips, feedFront, tube, length, mmuExitFraction, toolheadFraction, progress, pathDistance, unitSensors, isTouchSensor, encoderAnchor, gateSlots, descentX, sensorPoint, isBufferSensor, sensorFill, encoderPoint, tipAtPathDistance, schematicDistance, schematicTip, tipScale, coneOffset, displayedSensors, presenceSensors, fragments, constrained, focus, fullTipOpacity, slidingRack, spoolTip, selectedTip, shapedTipOpacity, start, macroUnit, macroParams});
+  Object.assign(c, {filamentDash, spoolRequests, gate, tip, entry, end, toolheadHeight, sensorEntry, sensorGap, unitGates, previewCount, displayGates, mmuOffset, hardwareOffset, virtual, lane, guide, mmuColumn, mmuDistanceAtY, path, dimensionLink, nozzleDiameter, nozzleWidth, funnelShoulder, nozzleExit, shadowEndX, shadowEndY, nozzleFunnel, nozzleBody, nozzleEntrance, bodyTop, bowdenPath, branchOpacity, branchShade, selectionLit, branchMask, svg, parkedTips, feedFront, tube, length, mmuExitFraction, toolheadFraction, progress, pathDistance, unitSensors, parkReach, isTouchSensor, encoderAnchor, gateSlots, descentX, sensorPoint, isBufferSensor, sensorFill, encoderPoint, tipAtPathDistance, schematicDistance, schematicTip, tipScale, coneOffset, displayedSensors, presenceSensors, fragments, constrained, focus, fullTipOpacity, slidingRack, spoolTip, selectedTip, shapedTipOpacity, start, macroUnit, macroParams});
 }
 
 // The rack of units: enclosures, spools, gate pills and the scroll arrows
@@ -573,9 +591,16 @@ function tips(c) {
     if (part === 'attached-tip') c.attachedTipEdge=edge;
     return `<g data-part="${part}">${hairStart < hairLimit ? `<path data-part="filament-hair" d="${outline.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' ')} Z" fill="#${color}"/>` : ''}<path d="M${base.x+dx} ${base.y+dy} L${nose.x} ${nose.y} L${base.x-dx} ${base.y-dy} Z" fill="#${color}"/>${part === 'attached-tip' ? '' : edge}</g>`;
   };
+  for (const branch of virtual?.branches || []) {
+    // Beyond the straight part of its branch a parked filament follows the bend
+    const route=measurePath(virtual.branchPath(branch.x)), reach=c.parkReach(branch.gate,route), from=virtual.parkDistance-8;
+    const cone=s.tip_shapes?.[branch.gate] === 'cone' ? tipScale : 0;
+    svg=svg.replace(`<!--parked-reach-${branch.gate}-->`,reach > virtual.parkDistance
+      ? `<path data-part="virtual-parked-filament" data-gate="${branch.gate}" d="${virtual.branchPath(branch.x)}" fill="none" stroke="#${s.gate_colors[branch.gate] || DEFAULT_COLOR}" stroke-width="7" stroke-dasharray="0 ${from} ${Math.max(0,reach-cone-from)} ${route.getTotalLength()}"/>` : '');
+  }
   for (const branch of parkedTips) {
-    const route=measurePath(virtual.branchPath(branch.x));
-    svg=svg.replace(`<!--parked-tip-${branch.gate}-->`,shapedTip(s.gate_feed===undefined ? virtual.parkDistance : Math.min(virtual.parkDistance,virtual.bottom-feedFront(branch.gate)),
+    const route=measurePath(virtual.branchPath(branch.x)), reach=c.parkReach(branch.gate,route);
+    svg=svg.replace(`<!--parked-tip-${branch.gate}-->`,shapedTip(s.gate_feed===undefined ? reach : Math.min(virtual.parkDistance,virtual.bottom-feedFront(branch.gate)),
       s.gate_colors[branch.gate] || DEFAULT_COLOR,'parked-tip',s.hair_lengths?.[branch.gate] ?? 15,route));
   }
   Object.assign(c, {shapedTip, svg});

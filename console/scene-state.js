@@ -9,6 +9,21 @@ export function spoolPercentage(initial, remaining) {
     ? clamp(remaining / initial * 100, 0, 100) : null;
 }
 
+const endstopName=name=>short(name || '').replace(/_\d+$/,'');
+// UNLOADED is two places: where an unload parks the filament, and where a preload left one that was never loaded.
+// Happy Hare marks a gate 'buffered' (2) once it has been unloaded from the toolhead; 'available' (1) is a preload.
+export function parkedAt(s, gate) {
+  const a=s.encoder_reference, b=s.preload_reference;
+  return b && s.gate_status?.[gate] === 1 && (endstopName(b.endstop) !== endstopName(a.endstop) || b.parking !== a.parking)
+    ? 'preload' : 'gate';
+}
+// Sensor positions at the gate are nominal, so a preload on another sensor is only known to lie before the unloaded park
+export function preloadPark(s, home, preloadSensor) {
+  const a=s.encoder_reference, b=s.preload_reference;
+  return endstopName(b.endstop) === endstopName(a.endstop) ? home+b.parking
+    : Math.min((preloadSensor ?? 0)+b.parking, home+Math.min(a.parking,0)-10);
+}
+
 export class SceneModel {
   constructor() {
     this.tips=[]; this.shapes=[]; this.hairLengths=[]; this.motors={};
@@ -25,7 +40,9 @@ export class SceneModel {
     const toolhead = sensor('toolhead') ?? (gears+nozzle)/2;
     // Keep physical distances here; schematic parking gaps belong to drawing.
     // UNLOADED is an authoritative parked location, including after recovery.
-    const exact = {0:home+s.encoder_reference.parking,5:sensor('extruder') ?? entry,6:gears,8:toolhead};
+    const parked = parkedAt(s,s.gate) === 'preload' ? preloadPark(s,home,sensor(endstopName(s.preload_reference.endstop)))
+      : home+s.encoder_reference.parking;
+    const exact = {0:parked,5:sensor('extruder') ?? entry,6:gears,8:toolhead};
     if (manual) Object.assign(exact, {'-1':-20,1:home,2:home,3:(home+entry)/2,4:entry,7:(gears+toolhead)/2,9:(toolhead+nozzle)/2,10:nozzle});
     return exact[pos] ?? this.tips[s.gate] ?? -20;
   }
@@ -142,6 +159,7 @@ export class SceneModel {
       extruder_target_temperature:finite(extruder.target_temperature) ? extruder.target_temperature : null,
       mmu_gripped:mmuGripped,synced:[1,3].includes(m.sync_mode),drive_motors:m.drive_motors,motors:this.motors,
       encoder_reference:{endstop:up.gate_homing_endstop,offset:up.gate_endstop_to_encoder,parking:number(up.gate_parking_distance),overshoot:this.overshoot[m.gate] || 0},
+      preload_reference:{endstop:up.gate_preload_endstop || up.gate_homing_endstop,parking:number(up.gate_preload_parking_distance,number(up.gate_parking_distance))},
       retained_segment:this.fragments[extruder.name] || null,extruded_mm:hotend.extruded,purge_base_mm:hotend.base,purge_transition:hotend.plan,
       nozzle_color:hotend.nozzle,nozzle_outlet_color:hotend.outlet ?? purgeOutletColor({purge_transition:hotend.plan},hotend.extruded),bowden_unabsorbed_mm:devices[`${m.unit}:buffer`]?.excess ?? (this.excess[m.gate] || 0),sensor_conflicts:[]});
   }
