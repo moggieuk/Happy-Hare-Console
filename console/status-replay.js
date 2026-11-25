@@ -15,8 +15,12 @@ export class StatusReplay {
   record(state, time) {
     const entry={seq:++this.sequence,time,state,toolchange:toolchanged(this.entries.at(-1)?.state,state)};
     this.entries.push(entry);
-    if (this.count>this.limit) this.trim(this.entries.at(-this.limit).seq);
+    this.resize(this.limit);
     return entry;
+  }
+  resize(limit) {
+    this.limit=limit;
+    if (this.count>limit) this.trim(this.entries.at(-limit).seq);
   }
   trim(oldest) {
     const dropped=this.entries.findIndex(entry=>entry.seq>=oldest);

@@ -28,6 +28,14 @@ import {renderMacros, renderSensors, renderDevices} from './readout.js';
 import './chrome.js';
 const sim = simulatorApi(rpc);
 // Everything the app knows: one object, so the views can be handed it (or watch it) instead of sharing module variables
+// How many status updates are kept for replay: the choice in Settings, remembered by the browser
+const HISTORY_KEY='hh-console-status-history';
+function historyLimit() { return Number($('status-history').value); }
+function newReplay() { return new StatusReplay(historyLimit()); }
+try {
+  const saved=localStorage.getItem(HISTORY_KEY);
+  if ([...$('status-history').options].some(option=>option.value===saved)) $('status-history').value=saved;
+} catch {}
 const store = {
   // Connection
   socket: null, reconnectTimer: null, connectionGeneration: 0, serial: 0, pending: new Map(), busy: false,
@@ -36,7 +44,7 @@ const store = {
   // Which source is shown
   viewMode: 'live', modeChosen: false, viewGeneration: 0, offline: false,
   // Live status subscription
-  liveState: new LiveState(), replay: new StatusReplay(), statusLog: new StatusLog(), liveWarnings: new Map(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
+  liveState: new LiveState(), replay: newReplay(), statusLog: new StatusLog(), liveWarnings: new Map(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
   statusSensors: null, statusRecordMode: null, unitObjects: {}, overlayCache: {key: '', state: null},
   // Telemetry: the records, their replay and the steps made from them
   sourceRecords: [], sourceReplay: new TelemetryReplay(), rawEvents: [], events: [], session: null, parameterGate: null,
@@ -361,7 +369,7 @@ function recordStatus(delta,time,state,initial=false,memory=store.liveState.memo
 }
 function clearCapture() {
   clearStatusCapture();
-  store.replay=new StatusReplay();
+  store.replay=newReplay();
   store.statusLog.clear();
   renderStatusTimeline();
   draw();
@@ -370,7 +378,7 @@ function clearCapture() {
 function dropLoadedCapture() {
   if (!store.offline || store.viewMode!=='live') return;
   clearStatusCapture();
-  store.replay=new StatusReplay(); store.statusLog=new StatusLog();
+  store.replay=newReplay(); store.statusLog=new StatusLog();
   renderStatusTimeline();
 }
 function renderStatusTimeline() {
@@ -1038,6 +1046,13 @@ function loadStatusCapture(log) {
   if (!previous) throw Error('This status capture holds no MMU status to show');
   return {liveState,objects,steps,last:previous,config:log.config,start:log.start};
 }
+$('status-history').onchange=()=>{
+  try { localStorage.setItem(HISTORY_KEY,$('status-history').value); } catch {}
+  store.replay.resize(historyLimit());
+  if (store.replay.count) store.statusLog.trim(store.replay.entries[0].seq);
+  renderStatusTimeline();
+  draw();
+};
 $('load-telemetry').onclick = () => $('telemetry-file').click();
 $('telemetry-file').onchange = async () => {
   const file = $('telemetry-file').files[0];
@@ -1057,7 +1072,7 @@ $('telemetry-file').onchange = async () => {
     store.live=Boolean(capture); store.paused=!capture; store.cursor=0; store.playing=null; store.sensorPulse=null; store.pauseAfterStep=false; store.displayed=null;
     if (capture) {
       clearStatusCapture(); scene.clear();
-      store.replay=new StatusReplay(); store.statusLog=new StatusLog(capture.config); store.statusLog.start=capture.start;
+      store.replay=newReplay(); store.statusLog=new StatusLog(capture.config); store.statusLog.start=capture.start;
       store.liveState=capture.liveState; store.unitObjects=capture.objects; store.unitObjectsChanged?.();
       capture.steps.forEach(({status,eventtime,state,memory},i)=>recordStatus(status,eventtime,state,i===0,memory));
       store.liveTarget=store.liveFrom=capture.last; store.liveStart=animationNow(); store.liveDuration=1; store.liveSettled=true;

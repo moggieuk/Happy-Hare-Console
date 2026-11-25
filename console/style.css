@@ -350,6 +350,8 @@ select option:disabled, [data-theme="dark"] select option:disabled { color: #8a9
 .scene-container { position: relative; }
 .nozzle-control { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .nozzle-control select { display: flex; align-items: center; justify-content: space-between; white-space: nowrap; width: 86px; padding: 4px; font-size: 12px; }
+.setting-select { margin-top: 8px; }
+.setting-select select { width: auto; }
 
 .trace-type[data-type="config"] { color: #12655f; background: #d5f1ec; }
 [data-theme="dark"] .trace-type[data-type="config"] { color: #cef5ef; background: #245e59; }

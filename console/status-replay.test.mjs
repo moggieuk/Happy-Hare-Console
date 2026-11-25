@@ -54,3 +54,13 @@ test('only the latest updates are kept, however many rows the capture panel stil
  for (let i=0;i<5;i++) r.record(state(i),i);
  assert.deepEqual(r.entries.map(e=>e.seq),[3,4,5]);
 });
+test('lowering the history limit lets the oldest updates go and keeps the one being shown',()=>{
+ const replay=new StatusReplay(10);
+ for (let i=1;i<=10;i++) replay.record({tool:0,num_toolchanges:0},i);
+ replay.seek(8);
+ replay.resize(4);
+ assert.deepEqual(replay.entries.map(e=>e.seq),[7,8,9,10]);
+ assert.equal(replay.index,2);
+ replay.record({tool:0,num_toolchanges:0},11);
+ assert.equal(replay.count,4);
+});
