@@ -17,16 +17,18 @@ function bowdenDescent(verticalOffset) {
     return y=>y>=shoulder ? bottom-y : y<=hub ? bottom-shoulder+diagonal+hub-y
       : bottom-shoulder+diagonal*(shoulder-y)/(shoulder-hub);
   };
+  const bend=20;
   const branchPath=(x,start=bottom)=>{
     // Each bend starts `bend` along the vertical, just above an exit sensor, and sweeps `sweep` along the
     // diagonal, which softens the radius.
-    const bend=20, sweep=46, diagonalLength=Math.hypot(BOWDEN_EXIT_X-x,hub-shoulder);
+    const sweep=46, diagonalLength=Math.hypot(BOWDEN_EXIT_X-x,hub-shoulder);
     const dx=(BOWDEN_EXIT_X-x)*sweep/diagonalLength, dy=(hub-shoulder)*sweep/diagonalLength;
     return `M${x} ${start} V${shoulder+bend} Q${x} ${shoulder} ${x+dx} ${shoulder+dy} L${BOWDEN_EXIT_X-dx} ${hub-dy} Q${BOWDEN_EXIT_X} ${hub} ${BOWDEN_EXIT_X} ${hub-bend}`;
   };
   const lane=x=>({distanceAtY:distanceAtY(x),
     pathFrom:(start=bottom,endY=449)=>`${branchPath(x,start)} ${bowdenToExtruder(endY)}`});
-  return {bottom,shoulder,hub,branchPath,lane};
+  // `joined` is where every gate's path has finished bending into the one Bowden
+  return {bottom,shoulder,hub,joined:hub-bend,branchPath,lane};
 }
 
 // A selector with one gate position (not virtual) uses the path of the right-most gate of a four gate virtual selector,
@@ -49,8 +51,8 @@ export function virtualSelectorLayout(state, spacing=54, verticalOffset=0) {
   const branches=rowGates.map((gate,column)=>({gate,x:BOWDEN_EXIT_X+(column-(columns-1)/2)*spacing}));
   const active=branches.find(branch=>branch.gate===state.gate) || branches[0];
   if (!active) return null;
-  const {bottom,shoulder,hub,branchPath,lane}=bowdenDescent(verticalOffset);
-  return {branches,active,bottom,shoulder,hub,branchPath,parkDistance:bottom-shoulder-12,...lane(active.x)};
+  const {bottom,shoulder,hub,joined,branchPath,lane}=bowdenDescent(verticalOffset);
+  return {branches,active,bottom,shoulder,hub,joined,branchPath,parkDistance:bottom-shoulder-12,...lane(active.x)};
 }
 
 // Every unit side by side as one scrollable rack. The rack slides so the focused gate (or, for a virtual

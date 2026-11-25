@@ -744,6 +744,7 @@ test('VirtualSelector branches cover only the active row and keep tips outside t
  assert.deepEqual(layout.branches.map(b=>b.gate),[10,11,12,13,14,15]);
  assert.equal(layout.active.gate,12);
  assert.ok(layout.parkDistance < layout.distanceAtY(layout.shoulder));
+ assert.equal(layout.joined,layout.hub-20);   // The selection fade has to cover the bend into the Bowden, which ends above the hub
  assert.ok(layout.distanceAtY(170)>layout.distanceAtY(layout.hub));
  assert.equal(virtualSelectorLayout({...state,selector_type:'LinearSelector'}),null);
 });
