@@ -1118,7 +1118,7 @@ const telemetryStream=new TelemetryStream(rpc, async data=>{
 let liveIndicator=null;
 function updateLiveIndicator() {
   const connected=!store.offline && store.socket?.readyState===1;
-  const active=Boolean(connected && (store.viewMode==='live' ? store.liveTarget
+  const active=Boolean(connected && (store.viewMode==='live' ? store.liveTarget && store.replay.following
     : telemetryStream.active && telemetryStream.ready && store.live && !store.paused
       && (store.playing?.event.seq ?? store.played) >= (store.events.at(-1)?.seq ?? 0)));
   if (active===liveIndicator) return;
