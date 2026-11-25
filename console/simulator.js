@@ -7,6 +7,8 @@ export const simulatorApi = rpc => ({
   setup: unit => rpc('sim.console.setup', {unit}),
   restart: options => rpc('sim.console.restart', options),
   sensor: (name, enabled) => rpc('sim.console.sensor', {name, enabled}),
+  // Real speed for watching live status; otherwise the pace the simulator was started with
+  pace: realtime => rpc('sim.console.pace', {realtime}),
 });
 
 // An uploaded folder is a configuration only if it holds mmu.cfg, at any depth
