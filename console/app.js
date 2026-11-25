@@ -107,6 +107,7 @@ function renderPause() {
   store.pauseMemory=result.memory;
   store.pauseShown=Boolean(result.text);
   showAlert('filament-error',result.text);
+  if (result.text) $('pause-unlock').hidden=!result.locked;   // RESUME unlocks too, so it is always offered
 }
 const showAlert=createAlerts($);
 // The countdowns tick, and the subscription note runs out
@@ -584,6 +585,8 @@ function sendScript(script) {
   if (store.socket.readyState === WebSocket.OPEN) commandHistory.add(script);
   draw();
 }
+$('pause-unlock').onclick=()=>sendScript('MMU_UNLOCK');
+$('pause-resume').onclick=()=>sendScript('RESUME');
 $("command-form").onsubmit = (event) => {
   event.preventDefault();
   const script = $("command").value.trim();
