@@ -45,15 +45,18 @@ test('reconnect preserves explicitly selected live or playback mode',async()=>{
 });
 
 const warning=app.slice(app.indexOf('function renderWarning('),app.indexOf('const RPC_TIMEOUT_MS'));
-test('the subscription warning shows for a printer or the simulator and clears on mode and connection changes',()=>{
+test('the subscription note is information, the amber box is for ambiguous status, and both clear on mode and connection changes',()=>{
  const nodes={'filament-warning':{},'filament-warning-message':{},'filament-notice':{},'filament-notice-message':{}};
  const c=vm.createContext({store:{viewMode:'live',offline:false,socket:{readyState:1},setup:{connection_kind:'simulator'}},$:id=>nodes[id]});
  vm.runInContext(isSimulator+warning,c);
  const draw=()=>vm.runInContext('renderWarning()',c);
- draw();assert.equal(nodes['filament-warning'].hidden,false);
- assert.match(nodes['filament-warning-message'].textContent,/subscriptions may skip/);
- assert.equal(nodes['filament-notice'].hidden,true);
- c.store.viewMode='playback';draw();assert.equal(nodes['filament-warning'].hidden,true);
+ draw();assert.equal(nodes['filament-warning'].hidden,true);
+ assert.match(nodes['filament-notice-message'].textContent,/subscriptions may skip/);
+ assert.equal(nodes['filament-notice'].hidden,false);
+ vm.runInContext("renderWarning(['IN BOWDEN but the toolhead sensor is triggered'])",c);
+ assert.equal(nodes['filament-warning-message'].textContent,'Status is ambiguous: IN BOWDEN but the toolhead sensor is triggered');
+ assert.equal(nodes['filament-warning'].hidden,false);
+ c.store.viewMode='playback';draw();assert.equal(nodes['filament-warning'].hidden,true);assert.equal(nodes['filament-notice'].hidden,true);
  vm.runInContext("renderWarning(['sensor conflict'])",c);
  assert.match(nodes['filament-warning-message'].textContent,/sensor conflict/);
  assert.equal(nodes['filament-notice'].hidden,true);
@@ -64,9 +67,10 @@ test('the subscription warning shows for a printer or the simulator and clears o
  assert.equal(nodes['filament-notice-message'].textContent,'Selector: moved');
  assert.equal(nodes['filament-warning-message'].textContent,'Displayed tip adjusted to sensor readings: sensor conflict');
  assert.equal(nodes['filament-notice'].hidden,false);assert.equal(nodes['filament-warning'].hidden,false);
- c.store.viewMode='live';c.store.setup.connection_kind='live_machine';draw();assert.equal(nodes['filament-warning'].hidden,false);
- assert.match(nodes['filament-warning-message'].textContent,/^Status subscriptions may skip/);
- c.store.setup.connection_kind='simulator';c.store.socket.readyState=3;draw();assert.equal(nodes['filament-warning'].hidden,true);
+ c.store.viewMode='live';c.store.setup.connection_kind='live_machine';draw();assert.equal(nodes['filament-notice'].hidden,false);
+ assert.match(nodes['filament-notice-message'].textContent,/^Status subscriptions may skip/);
+ c.store.setup.connection_kind='simulator';c.store.socket.readyState=3;draw();
+ assert.equal(nodes['filament-notice'].hidden,true);assert.equal(nodes['filament-warning'].hidden,true);
 });
 
 test('an uploaded folder is a configuration only when it holds mmu.cfg',()=>{

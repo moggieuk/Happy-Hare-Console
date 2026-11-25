@@ -569,6 +569,9 @@ export function bowdenLengthLabel(state) {
   return state.gate >= 0 && Number.isFinite(length) && length > 0
     ? `Bowden · ${round1(length)}mm` : 'Bowden · Uncalibrated length';
 }
+// Only a status subscription reports how far a Bowden move has got
+export const bowdenProgressLabel=state=>Number.isFinite(state.bowden_progress) && state.bowden_progress>=0
+  ? `${Math.round(state.bowden_progress)}% travelled` : '';
 
 export function toolheadReferences(state) {
   const {nozzle, extruder_gears: gears} = state.layout || {};
