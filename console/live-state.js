@@ -2,7 +2,7 @@
 import {SceneModel} from './scene-state.js';
 import {liveMachine,qualifySensors} from './live-config.js';
 import {short as sensorName, DEFAULT_COLOR, clamp} from './util.js';
-import {interpolate, duration, gateChangeFraction} from './playback.js';
+import {interpolate, duration, gateChangeFraction, purgeColor, purgeOutletColor} from './playback.js';
 import {resolveTip} from './live-tip.js';
 const clone=value=>structuredClone(value);
 const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('') : String(value || DEFAULT_COLOR).replace(/^#/,'').slice(0,6);
@@ -10,7 +10,7 @@ const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255
 // Moonraker replaces individual status fields, including dictionary-valued fields.
 // Keep one current snapshot, never a history of subscription messages.
 export class LiveState {
-  constructor() { this.objects={}; this.eventtime=-Infinity; this.tip=null; this.unloaded=new Set(); }
+  constructor() { this.objects={}; this.eventtime=-Infinity; this.tip=null; this.unloaded=new Set(); this.purge=newPurge(); }
   accept(delta,eventtime=0) {
     if (eventtime<this.eventtime) return null;
     this.eventtime=eventtime;
@@ -18,8 +18,8 @@ export class LiveState {
     return this.snapshot();
   }
   // What a tip is resolved against: where it was last put, and the gates seen unloading
-  memory() { return {tip:this.tip && {...this.tip},unloaded:[...this.unloaded]}; }
-  restore(memory) { this.tip=memory?.tip || null; this.unloaded=new Set(memory?.unloaded || []); }
+  memory() { return {tip:this.tip && {...this.tip},unloaded:[...this.unloaded],purge:{...this.purge}}; }
+  restore(memory) { this.tip=memory?.tip || null; this.unloaded=new Set(memory?.unloaded || []); this.purge={...newPurge(),...memory?.purge}; }
   // Startup facts carry no time of their own, so they must not be ordered against status updates
   seed(objects) { Object.assign(this.objects,clone(objects)); }
   snapshot() {
@@ -73,6 +73,10 @@ export class LiveState {
       this.tip=resolved.memory;
       model.tips[m.gate]=resolved.tip;
       warnings=resolved.warnings;
+      const hotend=model.hotends[s.filament.extruder];
+      this.purge=purged(this.purge,status);
+      hotend.extruded=this.purge.extruded; hotend.base=this.purge.base;
+      if (hotend.plan) hotend.plan.start_mm=this.purge.start;
     } else this.tip=null;
     // Buffer position is reported state, never a result of integrating motor travel.
     model.bufferPositions={};
@@ -104,18 +108,41 @@ export class LiveState {
   }
 }
 
+// What has come out of the nozzle, in mm of filament: Happy Hare reports that it is purging and the volume it
+// suggests, not the extrusion itself. The live position counts it where the extruder is the stepper being followed;
+// otherwise the suggested volume is taken to have gone once the purge is over. The pile falls when the filament leaves.
+const FILAMENT_AREA=Math.PI*(1.75/2)**2;
+const newPurge=()=>({extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null});
+export function purged(memory,status) {
+  const p={...memory}, purging=status.action==='Purging';
+  const position=Number.isFinite(status.filament_position_live) ? status.filament_position_live : null;
+  if (purging && !p.active) Object.assign(p,{active:true,from:p.extruded,start:p.extruded,base:p.extruded,amount:0});
+  if (purging) {
+    p.amount=Math.max(p.amount,(Number(status.toolchange_purge_volume) || 0)/FILAMENT_AREA);
+    if (position!==null && p.position!==null && position>p.position) p.extruded+=position-p.position;
+  } else if (p.active) Object.assign(p,{active:false,extruded:Math.max(p.extruded,p.from+p.amount)});
+  else if (status.filament_pos!==10) p.base=p.extruded;
+  p.position=position;
+  return p;
+}
+
 // Klipper resends a whole dictionary field when one value in it changes; the encoder's own object sends just that value
 export const liveMmuFields=mmu=>Object.keys(mmu || {}).filter(field=>field!=='encoder');
 export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 && from.gate!==to.gate;
+const emitted=(from,to)=>(to.extruded_mm || 0)-(from.extruded_mm || 0);
+const dropped=(from,to)=>(to.purge_base_mm || 0)>(from.purge_base_mm || 0);
 const sameGate=(from,to)=>Boolean(from) && from.unit===to.unit && from.gate===to.gate && to.gate>=0;
 // As long as the updates are apart, so a steady stream reads as one movement; a long step is a quick sweep
 export function liveDuration(from,to,interval=0) {
   if (gateChanged(from,to)) return duration({kind:'gate_changed',before:from,state:to});
   const distance=sameGate(from,to) ? Math.abs(to.tips[to.gate]-from.tips[to.gate]) || 0 : 0;
-  return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3));
+  // A purge reported only once it is over is drawn coming out, and a pile is given time to fall
+  const purge=sameGate(from,to) ? Math.min(4000,Math.max(0,emitted(from,to))*400)+(dropped(from,to) ? 650 : 0) : 0;
+  return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3),purge);
 }
 // An update that moves nothing must not restart the movement under way
 export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] &&
+  emitted(target,next)===0 && !dropped(target,next) &&
   Object.entries(next.devices).every(([name,d])=>target.devices[name]?.travel===d.travel);
 // The frame that reaches the target is drawn once, however late it comes
 export function liveProgress(elapsed,total,settled) {
@@ -134,6 +161,12 @@ export function liveFrame(from,to,fraction) {
   if (from.unit===to.unit && from.gate===to.gate && to.gate>=0) {
     s.tips[to.gate]=from.tips[to.gate]+(to.tips[to.gate]-from.tips[to.gate])*f;
     s.motors=Object.fromEntries(Object.entries(to.motors).map(([n,v])=>[n,(from.motors[n] || 0)+(v-(from.motors[n] || 0))*f]));
+    if (emitted(from,to) || dropped(from,to)) {
+      s.extruded_mm=(from.extruded_mm || 0)+emitted(from,to)*f;
+      if (dropped(from,to)) { s.purge_base_mm=from.purge_base_mm || 0; s.purge_drop=f; }
+      s.nozzle_color=purgeColor(s,s.extruded_mm);
+      s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm);
+    }
   }
   if (from.unit===to.unit) s.gate_focus=(from.gate_focus ?? from.gate)+(to.gate-(from.gate_focus ?? from.gate))*f;
   for (const [name,d] of Object.entries(s.devices)) {

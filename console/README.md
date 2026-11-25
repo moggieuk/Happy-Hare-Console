@@ -246,6 +246,11 @@ playback and use **Load telemetry**:
   latest 5,000 updates, which is more than the panel's 500 rows still list. **Status
   history** in Settings changes that to between 500 and 10,000; the browser remembers
   the choice, and lowering it lets the oldest updates go at once.
+  A purge is drawn while Happy Hare reports the Purging action. Status carries no
+  extrusion, so the amount comes from `filament_position_live` where the extruder is
+  the stepper it follows, and otherwise from the suggested `toolchange_purge_volume`
+  once the purge is over. The pile falls when the filament is no longer loaded.
+  Extrusion while printing is not drawn.
   **Save capture**, beside the slider, exports those updates as JSONL: the MMU's
   startup configuration, then each update, the first as a complete status. When earlier
   updates have been trimmed or cleared, it also carries where the tip had been put, so
