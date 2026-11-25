@@ -94,6 +94,7 @@ export class LiveState {
     if (touch && s.homing) s.homing.endstops=s.homing.endstops.map(n=>sensorName(n).startsWith('mmu_gear_touch') ? touch : n);
     s.bowden_progress=status.bowden_progress;
     s.action=status.action;
+    s.num_toolchanges=status.num_toolchanges;
     s.tip_resolved=true;
     s.live_warnings=warnings;
     return s;

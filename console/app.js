@@ -17,7 +17,8 @@ import {timelineMarkers, scanMove} from './playback.js';
 import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeLines, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
-import {captureStatus, clearStatusCapture} from './status-capture.js';
+import {captureStatus, captureRows, clearStatusCapture, highlightCapture} from './status-capture.js';
+import {StatusReplay} from './status-replay.js';
 import {createToolheadPanel} from './toolhead-panel.js';
 import {initSpoolPicker} from './spool-picker.js';
 import {createScene} from './scene.js';
@@ -34,7 +35,7 @@ const store = {
   // Which source is shown
   viewMode: 'live', modeChosen: false, viewGeneration: 0, offline: false,
   // Live status subscription
-  liveState: new LiveState(), liveWarnings: new Map(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
+  liveState: new LiveState(), replay: new StatusReplay(), liveWarnings: new Map(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
   statusSensors: null, statusRecordMode: null, unitObjects: {}, overlayCache: {key: '', state: null},
   // Telemetry: the records, their replay and the steps made from them
   sourceRecords: [], sourceReplay: new TelemetryReplay(), rawEvents: [], events: [], session: null, parameterGate: null,
@@ -76,7 +77,10 @@ function sourceMode() {
   toolheadPanel.element.hidden=store.offline || store.socket?.readyState !== 1 || toolheadPanel.element.dataset.available !== 'true';
   $('view-mode').value=store.viewMode;
   renderConnectionControls();
-  $('sidebar-playback').hidden=store.viewMode==='live';
+  // The same controls replay telemetry, or the status updates a subscription has delivered
+  $('sidebar-playback').hidden=false;
+  $('playback-title').textContent=store.viewMode==='live' ? 'Status playback' : 'Telemetry playback';
+  $('sidebar-playback').setAttribute('aria-label',$('playback-title').textContent);
   $('trace').closest('.card').hidden=store.viewMode==='live';
   $('status-capture-card').hidden=store.viewMode!=='live' || store.offline;
   // Dimensions come from configuration; a subscription view starts uncluttered
@@ -203,8 +207,8 @@ function connect() {
     } else if (data.method === 'notify_status_update') {
       acceptUnitObjects(data.params[0]);
       if (store.viewMode==='live') {
-        if (store.liveSubscribed) captureStatus(data.params[0],data.params[1]);
-        acceptLive(data.params[0],data.params[1]);
+        const state=acceptLive(data.params[0],data.params[1]);
+        if (store.liveSubscribed) recordStatus(data.params[0],data.params[1],state);
       }
       else {
         const mmu=data.params[0].mmu;
@@ -214,7 +218,7 @@ function connect() {
       }
     } else if (['notify_klippy_ready','notify_klippy_shutdown','notify_klippy_disconnected'].includes(data.method)) {
       if (store.offline) return;
-      if (data.method==='notify_klippy_ready') { reloadEditor(); clearStatusCapture(); }
+      if (data.method==='notify_klippy_ready') { reloadEditor(); clearCapture(); }
       if (store.viewMode!=='live') {
         telemetryStream.stop(false);
         if (data.method==='notify_klippy_ready') startStream().catch(e=>message(e.message,true));
@@ -300,10 +304,11 @@ async function subscribeLive() {
   // Everything else in mmu, so Status capture shows every change
   wanted.mmu=liveMmuFields((await rpc('printer.objects.query',{objects:{mmu:null}})).status.mmu);
   const initial=await rpc('printer.objects.subscribe',{objects:wanted});
-  if (generation===store.subscriptionGeneration) { store.liveSubscribed=true; if (store.viewMode==='live') captureStatus(initial.status,initial.eventtime,true); }
+  const subscribed=generation===store.subscriptionGeneration;
+  if (subscribed) store.liveSubscribed=true;
   acceptUnitObjects(initial.status);
   store.liveState.seed({configfile:startup.configfile});
-  if (store.viewMode==='live' && generation===store.subscriptionGeneration) acceptLive(initial.status,initial.eventtime);
+  if (store.viewMode==='live' && subscribed) recordStatus(initial.status,initial.eventtime,acceptLive(initial.status,initial.eventtime),true);
 }
 function acceptLive(delta,time) {
   const next=store.liveState.accept(delta,time);
@@ -337,6 +342,39 @@ function acceptLive(delta,time) {
     }
   }
   store.live=true; store.paused=false; store.playing=null; store.session='subscription';
+  draw();
+  return next;
+}
+// Each update the capture panel lists is a step the playback controls can return to
+function recordStatus(delta,time,state,initial=false) {
+  if (!captureRows(delta).length) return;
+  const oldest=captureStatus(delta,time,initial,state ? store.replay.record(state,time).seq : null);
+  if (Number.isFinite(oldest)) store.replay.trim(oldest);
+  renderStatusTimeline();
+}
+function clearCapture() {
+  clearStatusCapture();
+  store.replay=new StatusReplay();
+  renderStatusTimeline();
+  draw();
+}
+function renderStatusTimeline() {
+  const replay=store.replay, last=Math.max(0,replay.count-1), markers=replay.markers();
+  $('status-ticks').closest('.timeline-control').classList.toggle('has-labels',markers.some(marker=>marker.label));
+  $('status-ticks').replaceChildren(...markers.map(({index,label})=>{
+    const tick=document.createElement('span');
+    tick.style.left=`${last ? 100*index/last : 0}%`;
+    if (label) { const text=document.createElement('small'); text.textContent=label; tick.append(text); }
+    return tick;
+  }));
+  $('status-timeline').max=last;
+  $('status-timeline').value=replay.index;
+}
+// Back to the printer: carry on from what is on screen
+function followStatus() {
+  store.replay.follow();
+  store.liveFrom=store.displayed; store.liveStart=animationNow(); store.liveSettled=false;
+  if (store.liveTarget) store.liveDuration=liveDuration(store.liveFrom,store.liveTarget);
   draw();
 }
 // The near-live stream shows the printer's event stream; sensor readings are overlaid while it is idle, and the
@@ -625,7 +663,7 @@ $("restart").onclick = () =>
     await refresh();
     simulatorMessage("Fresh profile session started.");
   });
-$('clear-status-capture').onclick=clearStatusCapture;
+$('clear-status-capture').onclick=clearCapture;
 $("load-config").onclick = () => $("files").click();
 $("files").onchange = () =>
   simulatorAction(async () => {
@@ -722,18 +760,37 @@ function currentView() {
       : `Telemetry playback · ${modeLabel} · event ${annotatedEvent.seq}` + (moveReason ? ` · ${moveReason}` : ''),
     positionText: `Gate ${gate} · ${s.filament_pos_name || "Unknown state"} · tip ${tip.toFixed(2)} mm`,
     timelineValue: store.live ? eventIndex : store.cursor,
-    atLatest: store.viewMode==='live' || (store.live && !store.paused && !store.playing && store.played >= store.events.at(-1)?.seq)};
+    atLatest: store.viewMode==='live' || (store.live && !store.paused && !store.playing && store.played >= store.events.at(-1)?.seq),
+    ...(store.viewMode==='live' ? statusControls(s,connected) : {})};
+}
+// The same controls replay the status updates the capture panel lists
+function statusControls(s,connected) {
+  const replay=store.replay, what=connected ? s.action || s.filament_pos_name : 'Disconnected';
+  return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
+    previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
+    modeText:replay.following ? `Live view · ${what}`
+      : `Status playback · ${replay.playing ? 'Playing' : 'Paused'} · update ${replay.index+1} of ${replay.count} · ${what}`};
 }
 function renderScene() {
   if (store.viewMode==='live' ? !store.displayed : !store.events.length) return;
   const view=currentView();
   renderControls(view);
+  if (store.viewMode==='live') {
+    const replay=store.replay;
+    // Following, the play button pauses on the latest update; there is nothing after it to play
+    $('replay').disabled=!replay.count;
+    $('live').disabled=replay.following;
+    $('status-timeline').value=replay.index;
+    highlightCapture(replay.entries[replay.index]?.seq,!replay.following);
+  } else $('live').disabled=false;
   renderToolMapping(view.state);
   const {warnings, unitSensors}=scene.render(view, sceneSettings());
   renderMacros(view.state, !store.offline && isSimulator());
   const live=store.viewMode==='live';
   renderPause();
-  renderWarning(live ? lastingWarnings(store.liveWarnings,store.liveTarget?.live_warnings || [],performance.now(),view.state.action==='Idle') : warnings, store.viewMode==='playback' ? selectorNotice(store.events, view.event, Boolean(store.playing), store.live && !store.paused) : null);
+  // A replayed step carries its own warnings; the printer's current ones are held until they have lasted
+  renderWarning(live && !store.replay.following ? view.state.live_warnings || []
+    : live ? lastingWarnings(store.liveWarnings,store.liveTarget?.live_warnings || [],performance.now(),view.state.action==='Idle') : warnings, store.viewMode==='playback' ? selectorNotice(store.events, view.event, Boolean(store.playing), store.live && !store.paused) : null);
   renderSensors(unitSensors, {offline:store.offline, atLatest:view.atLatest, editable:!store.busy && isSimulator(),
     onToggle:(name, enable)=>action(async () => {
       await sim.sensor(name, enable);
@@ -837,7 +894,7 @@ for (const [id, direction] of [['previous-toolchange', -1], ['next-toolchange', 
 }
 $("next").onclick = () => seek(currentIndex() + 1);
 document.addEventListener('keydown', event => {
-  if (store.viewMode==='live' || (!store.paused && store.live) || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey
+  if ((store.viewMode==='live' ? store.replay.following : !store.paused && store.live) || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey
       || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
   if (event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="slider"]')) return;
   const button = $(event.shiftKey
@@ -892,6 +949,31 @@ function followLive() {
   draw(); followTrace();
 }
 $("live").onclick = followLive;
+// In the live view the same buttons work on the recorded status updates
+for (const [id,act] of Object.entries({
+  beginning:replay=>replay.seek(0),
+  previous:replay=>replay.seek(replay.index-1),
+  next:replay=>replay.seek(replay.index+1),
+  'previous-toolchange':replay=>{ const index=replay.toolchange(-1); if (index>=0) replay.seek(index); },
+  'next-toolchange':replay=>{ const index=replay.toolchange(1); if (index>=0) replay.seek(index); },
+  'play-previous':replay=>replay.play(animationNow(),{reverse:true}),
+  'play-step':replay=>replay.play(animationNow(),{once:true}),
+  replay:replay=>replay.following || (replay.playing && !replay.playing.once) ? replay.pause() : replay.play(animationNow()),
+  live:()=>followStatus()})) {
+  const telemetry=$(id).onclick;
+  $(id).onclick=event=>{
+    if (store.viewMode!=='live') return telemetry(event);
+    act(store.replay);   // Each is safe at either end of what has been recorded
+    if (store.replay.following && id!=='live') followStatus();   // Played off the end
+    draw();
+  };
+}
+$('status-timeline').oninput=()=>{ store.replay.seek(Number($('status-timeline').value)); draw(); };
+$('status-capture').onclick=event=>{
+  const seq=Number(event.target.closest('.capture-row')?.dataset.seq);
+  const index=store.replay.entries.findIndex(entry=>entry.seq===seq);
+  if (index>=0 && !event.target.closest('summary')) { store.replay.seek(index); draw(); }
+};
 $("timeline").oninput = () => seek(Number($("timeline").value));
 $("compress-bowden").onchange = () => renderTrace();
 initSpoolPicker(draw);
@@ -1002,7 +1084,12 @@ function drawFrame() {
   const spoolRunning=Boolean(store.playing) || (store.live && !store.paused);
   const spoolMoving=scene.advanceSpools(now, {espoolers:store.displayed?.espoolers, running:spoolRunning, session:store.session,
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
-  if (store.viewMode==='live' && store.liveTarget) {
+  const replayed=store.viewMode==='live' ? store.replay.frame(now) : null;
+  if (replayed) {
+    // A step of the recorded status, not the printer as it is now
+    if (replayed!==store.displayed) draw();
+    store.displayed=replayed;
+  } else if (store.viewMode==='live' && store.liveTarget) {
     const progress=liveProgress(now-store.liveStart,store.liveDuration,store.liveSettled);
     // The reported action plays for as long as it lasts
     if (store.liveAction?.name!==store.liveTarget.action) store.liveAction={name:store.liveTarget.action,start:now};

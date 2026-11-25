@@ -236,6 +236,12 @@ playback and use **Load telemetry**:
   expandable entry per object); it
   is emptied when Klipper or the simulator profile restarts. The
   two Speed up playback settings are hidden, since live status is always real time.
+  The playback controls, titled **Status playback** here, step back through those
+  updates: each one is kept with the scene it produced, the one being shown is
+  highlighted in Status capture, and clicking a row or dragging the slider under the
+  panel goes to it. Toolchanges are marked on the slider. Play replays the updates as
+  far apart as they arrived and returns to the printer when it reaches the latest;
+  Live returns at once. This is only what the page has seen since it subscribed.
 - **Telemetry playback** uses only the loaded JSON/JSONL recording, or the
   simulator's piped telemetry stream. Current printer status never changes an
   old recording. Playback controls and the movement trace appear in this mode.
