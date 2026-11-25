@@ -40,7 +40,8 @@ export function applyDelta(state, changes) {
   }
 }
 
-export function parseTelemetry(text) {
+// A recording file as its records: one JSON document, or one per line
+export function parseRecords(text) {
   if (text.length > 32*1024*1024) throw Error('Telemetry file exceeds 32 MB');
   let records;
   try {
@@ -53,10 +54,14 @@ export function parseTelemetry(text) {
   }
   if (!Array.isArray(records) || !records.length || records.length > 20000)
     throw Error('Expected a telemetry JSONL file or an array of telemetry records');
+  return records;
+}
+export function checkTelemetry(records) {
   if (records[0]?.event !== 'session') throw Error('This recording has no session snapshot. Save a new telemetry capture.');
   if (records.slice(1).some(r=>r.event === 'session')) throw Error('Load one telemetry session at a time');
   return records;
 }
+export const parseTelemetry=text=>checkTelemetry(parseRecords(text));
 
 // This reducer has no printer connection or simulator imports. All durable input
 // is the session baseline, state deltas and ordered Happy Hare source records.

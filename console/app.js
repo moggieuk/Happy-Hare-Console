@@ -12,13 +12,14 @@ import {gateMenu, GATE_MENU_OBJECTS, GATE_MENU_MMU_FIELDS} from './gate-menu.js'
 import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
-import {TelemetryReplay, parseTelemetry} from './telemetry.js';
+import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
 import {timelineMarkers, scanMove} from './playback.js';
 import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeLines, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
 import {captureStatus, captureRows, clearStatusCapture, highlightCapture} from './status-capture.js';
 import {StatusReplay} from './status-replay.js';
+import {StatusLog, captureConfig, isStatusCapture, mergeStatus} from './status-log.js';
 import {createToolheadPanel} from './toolhead-panel.js';
 import {initSpoolPicker} from './spool-picker.js';
 import {createScene} from './scene.js';
@@ -35,7 +36,7 @@ const store = {
   // Which source is shown
   viewMode: 'live', modeChosen: false, viewGeneration: 0, offline: false,
   // Live status subscription
-  liveState: new LiveState(), replay: new StatusReplay(), liveWarnings: new Map(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
+  liveState: new LiveState(), replay: new StatusReplay(), statusLog: new StatusLog(), liveWarnings: new Map(), liveTarget: null, liveFrom: null, liveStart: 0, subscriptionGeneration: 0,
   statusSensors: null, statusRecordMode: null, unitObjects: {}, overlayCache: {key: '', state: null},
   // Telemetry: the records, their replay and the steps made from them
   sourceRecords: [], sourceReplay: new TelemetryReplay(), rawEvents: [], events: [], session: null, parameterGate: null,
@@ -82,7 +83,7 @@ function sourceMode() {
   $('playback-title').textContent=store.viewMode==='live' ? 'Status playback' : 'Telemetry playback';
   $('sidebar-playback').setAttribute('aria-label',$('playback-title').textContent);
   $('trace').closest('.card').hidden=store.viewMode==='live';
-  $('status-capture-card').hidden=store.viewMode!=='live' || store.offline;
+  $('status-capture-card').hidden=store.viewMode!=='live';
   // Dimensions come from configuration; a subscription view starts uncluttered
   if (store.dimensionsFor!==store.viewMode) {
     store.dimensionsFor=store.viewMode;
@@ -128,7 +129,7 @@ const NOTE_MS=10000;
 function renderWarning(warnings=[], notice=null) {
   const subscribed=store.viewMode==='live' && !store.offline && store.socket?.readyState===1;
   const playback=store.viewMode==='playback';
-  const warning=!warnings.length ? '' : subscribed ? 'Status is ambiguous: '+warnings.join('; ')
+  const warning=!warnings.length ? '' : store.viewMode==='live' ? 'Status is ambiguous: '+warnings.join('; ')
     : playback ? 'Displayed tip adjusted to sensor readings: '+warnings.join('; ') : '';
   // The subscription note is a reminder on connecting: it goes after a while, or sooner if two other boxes need the space
   store.alertArguments=[warnings,notice];
@@ -308,7 +309,10 @@ async function subscribeLive() {
   if (subscribed) store.liveSubscribed=true;
   acceptUnitObjects(initial.status);
   store.liveState.seed({configfile:startup.configfile});
-  if (store.viewMode==='live' && subscribed) recordStatus(initial.status,initial.eventtime,acceptLive(initial.status,initial.eventtime),true);
+  if (store.viewMode==='live' && subscribed) {
+    store.statusLog.config=captureConfig(startup);
+    recordStatus(initial.status,initial.eventtime,acceptLive(initial.status,initial.eventtime),true);
+  }
 }
 function acceptLive(delta,time) {
   const next=store.liveState.accept(delta,time);
@@ -326,8 +330,7 @@ function acceptLive(delta,time) {
   if (!sliding) store.liveFrom=store.displayed;
   const sameGate=store.liveFrom?.unit===next.unit && store.liveFrom?.gate===next.gate && next.gate>=0;
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
-  next.motors={gear:(store.liveFrom?.motors.gear || 0)+(next.mmu_gripped || next.synced ? distance : 0),
-    extruder:(store.liveFrom?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)};
+  next.motors=liveMotors(store.liveFrom,next,distance);
   store.liveTarget=next;
   if (!sliding) {
     const now=animationNow();
@@ -345,18 +348,30 @@ function acceptLive(delta,time) {
   draw();
   return next;
 }
+const liveMotors=(from,next,distance)=>({gear:(from?.motors.gear || 0)+(next.mmu_gripped || next.synced ? distance : 0),
+  extruder:(from?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)});
 // Each update the capture panel lists is a step the playback controls can return to
 function recordStatus(delta,time,state,initial=false) {
-  if (!captureRows(delta).length) return;
-  const oldest=captureStatus(delta,time,initial,state ? store.replay.record(state,time).seq : null);
-  if (Number.isFinite(oldest)) store.replay.trim(oldest);
+  const listed=captureRows(delta).length>0, seq=listed && state ? store.replay.record(state,time).seq : null;
+  store.statusLog.add(delta,time,seq);
+  if (!listed) return;
+  const oldest=captureStatus(delta,time,initial,seq);
+  if (Number.isFinite(oldest)) { store.replay.trim(oldest); store.statusLog.trim(oldest); }
   renderStatusTimeline();
 }
 function clearCapture() {
   clearStatusCapture();
   store.replay=new StatusReplay();
+  store.statusLog.clear();
   renderStatusTimeline();
   draw();
+}
+// A loaded capture is another session's: it must not run on into what the printer reports next
+function dropLoadedCapture() {
+  if (!store.offline || store.viewMode!=='live') return;
+  clearStatusCapture();
+  store.replay=new StatusReplay(); store.statusLog=new StatusLog();
+  renderStatusTimeline();
 }
 function renderStatusTimeline() {
   const replay=store.replay, last=Math.max(0,replay.count-1), markers=replay.markers();
@@ -369,6 +384,7 @@ function renderStatusTimeline() {
   }));
   $('status-timeline').max=last;
   $('status-timeline').value=replay.index;
+  $('save-status').disabled=!replay.count;
 }
 // Back to the printer: carry on from what is on screen
 function followStatus() {
@@ -395,6 +411,7 @@ async function changeView(mode) {
   const generation=++store.viewGeneration;
   await telemetryStream.stop();
   store.subscriptionGeneration++;
+  dropLoadedCapture();
   store.viewMode=mode; store.offline=false; store.playing=null; store.displayed=null; store.sensorPulse=null;
   store.events=[]; store.rawEvents=[]; store.sourceRecords=[]; store.sourceReplay=new TelemetryReplay();
   store.liveTarget=null; store.liveFrom=null; store.liveState=new LiveState(); store.statusSensors=null; store.statusRecordMode=null; store.unitObjects={};
@@ -753,7 +770,7 @@ function currentView() {
   const connected = store.socket?.readyState===1;
   return {viewMode:store.viewMode, offline:store.offline, live:store.live, paused:store.paused, playing:store.playing, played:store.played, events:store.events, sensorPulse:store.sensorPulse, event:e, state:s,
     extruderTarget:store.offline ? null : extruderTarget(store.unitObjects,s.filament?.extruder),
-    unitInfo:store.offline ? recordedUnitInfo(store.sourceRecords[0],s.gate) : unitInfo(store.unitObjects,s.gate),
+    unitInfo:store.offline && store.viewMode==='playback' ? recordedUnitInfo(store.sourceRecords[0],s.gate) : unitInfo(store.unitObjects,s.gate),
     homing:store.liveTarget?.homing, simulator:isSimulator(), running, index, count:store.events.length, pauseAfterStep:store.pauseAfterStep,
     previousToolchange:toolchangeIndex(store.events, index, -1) >= 0, nextToolchange:toolchangeIndex(store.events, index, 1) >= 0,
     modeText: store.viewMode==='live' ? `Live view · ${connected ? s.action || s.filament_pos_name : 'Disconnected'}`
@@ -765,11 +782,12 @@ function currentView() {
 }
 // The same controls replay the status updates the capture panel lists
 function statusControls(s,connected) {
-  const replay=store.replay, what=connected ? s.action || s.filament_pos_name : 'Disconnected';
+  const replay=store.replay, what=connected || store.offline ? s.action || s.filament_pos_name : 'Disconnected';
+  const mode=replay.playing ? 'Playing' : replay.following ? 'End of recording' : 'Paused';
   return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
     previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
-    modeText:replay.following ? `Live view · ${what}`
-      : `Status playback · ${replay.playing ? 'Playing' : 'Paused'} · update ${replay.index+1} of ${replay.count} · ${what}`};
+    modeText:replay.following && !store.offline ? `Live view · ${what}`
+      : `Status playback · ${mode} · update ${replay.index+1} of ${replay.count} · ${what}`};
 }
 function renderScene() {
   if (store.viewMode==='live' ? !store.displayed : !store.events.length) return;
@@ -989,33 +1007,63 @@ $("show-dimensions").onchange = () => {
   $("scene").classList.toggle('hide-dimensions', !$("show-dimensions").checked);
 };
 $("nozzle-diameter").onchange = () => draw();
+function download(text,name) {
+  const url = URL.createObjectURL(new Blob([text],{type:'application/x-ndjson'}));
+  const link = document.createElement('a');
+  link.href=url; link.download=name; link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function downloadTelemetry() {
   const records = store.sourceRecords;
   if (!records.length) return message('No telemetry captured yet', true);
   const units = records[0].console_units || savedUnits(store.unitObjects.mmu_machine);
-  const text = records.map((r,i)=>JSON.stringify(i === 0 && units ? {...r,console_units:units} : r)).join('\n')+'\n';
-  const url = URL.createObjectURL(new Blob([text],{type:'application/x-ndjson'}));
-  const link = document.createElement('a');
-  link.href=url; link.download='happy-hare-motion.jsonl'; link.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  download(records.map((r,i)=>JSON.stringify(i === 0 && units ? {...r,console_units:units} : r)).join('\n')+'\n','happy-hare-motion.jsonl');
 }
 $('save-motion').onclick = downloadTelemetry;
+$('save-status').onclick = () => download(store.statusLog.serialize(),'happy-hare-status.jsonl');
+// A saved status capture: the same steps, rebuilt from the updates as a subscription would have
+function loadStatusCapture(log) {
+  const liveState=new LiveState(), objects={};
+  liveState.seed(log.config);
+  let previous=null;
+  const steps=log.records.map(({status,eventtime})=>{
+    mergeStatus(objects,status);
+    const state=liveState.accept(status,eventtime);
+    if (state) {
+      const same=previous?.unit===state.unit && previous.gate===state.gate && state.gate>=0;
+      state.motors=liveMotors(previous,state,same ? state.tips[state.gate]-previous.tips[state.gate] : 0);
+      previous=state;
+    }
+    return {status,eventtime,state};
+  });
+  if (!previous) throw Error('This status capture holds no MMU status to show');
+  return {liveState,objects,steps,last:previous,config:log.config};
+}
 $('load-telemetry').onclick = () => $('telemetry-file').click();
 $('telemetry-file').onchange = async () => {
   const file = $('telemetry-file').files[0];
   if (!file) return;
   try {
     if (file.size > 32*1024*1024) throw Error('Telemetry file exceeds 32 MB');
-    const records = parseTelemetry(await file.text());
+    const records = parseRecords(await file.text());
+    const capture = isStatusCapture(records) ? loadStatusCapture(StatusLog.parse(records)) : null;
     const replay = new TelemetryReplay();
-    replay.accept(records); // Validate completely before replacing the current view.
+    if (!capture) replay.accept(checkTelemetry(records)); // Validate completely before replacing the current view.
     if (!store.offline && store.socket?.readyState===1) rpc('printer.objects.subscribe',{objects:{}}).catch(()=>{}); // Not awaited: a long G-code would hold the load up
     await telemetryStream.stop();
-    store.modeChosen=true; store.viewMode='playback'; store.offline=true; store.subscriptionGeneration++; store.liveTarget=null; store.liveFrom=null;
+    store.modeChosen=true; store.viewMode=capture ? 'live' : 'playback'; store.offline=true; store.subscriptionGeneration++; store.liveTarget=null; store.liveFrom=null;
     store.pending.forEach(p=>p.reject(Error('Switched to offline recording'))); store.pending.clear();
-    store.sourceReplay=replay; store.sourceRecords=records;
-    store.rawEvents=replay.events; store.events=visibleSteps(store.rawEvents); store.session=replay.session;
-    store.live=false; store.paused=true; store.cursor=0; store.playing=null; store.sensorPulse=null; store.pauseAfterStep=false; store.displayed=null;
+    store.sourceReplay=replay; store.sourceRecords=capture ? [] : records;
+    store.rawEvents=replay.events; store.events=visibleSteps(store.rawEvents); store.session=capture ? 'subscription' : replay.session;
+    store.live=Boolean(capture); store.paused=!capture; store.cursor=0; store.playing=null; store.sensorPulse=null; store.pauseAfterStep=false; store.displayed=null;
+    if (capture) {
+      clearStatusCapture(); scene.clear();
+      store.replay=new StatusReplay(); store.statusLog=new StatusLog(capture.config);
+      store.liveState=capture.liveState; store.unitObjects=capture.objects; store.unitObjectsChanged?.();
+      capture.steps.forEach(({status,eventtime,state},i)=>recordStatus(status,eventtime,state,i===0));
+      store.liveTarget=store.liveFrom=capture.last; store.liveStart=animationNow(); store.liveDuration=1; store.liveSettled=true;
+      store.replay.seek(0); store.displayed=store.replay.frame(0);
+    }
     $('recording-name').textContent='Loaded: '+file.name;
     setConnection('Offline recording · not connected', 'offline');
     sourceMode(); draw(); renderTrace();
@@ -1171,6 +1219,7 @@ $('connect-printer').onclick=()=>{
     telemetryStream.stop(false);
     store.socket?.close();
     store.pending.forEach(p=>p.reject(Error('Connection changed'))); store.pending.clear();
+    dropLoadedCapture();
     store.modeChosen=false; store.offline=false; store.viewMode='live'; store.liveTarget=null; store.displayed=null; store.playing=null; store.sensorPulse=null;
     store.events=[]; store.rawEvents=[]; store.sourceRecords=[]; store.sourceReplay=new TelemetryReplay();
     scene.clear(); $('mode').textContent='Live view · Connecting…';

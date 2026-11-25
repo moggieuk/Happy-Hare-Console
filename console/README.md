@@ -127,7 +127,8 @@ equal synced travel preserves that position. Encoder labels update at move endpo
 **Record to log** (printers only, in Telemetry stream mode) runs `MMU_TELEMETRY MODE=...` and shows the
 `mmu.telemetry_mode` printer variable (off, on or next toolchange only); see the telemetry README. **Save telemetry** exports the bounded source recording as JSONL. **Load telemetry**
 opens that JSONL (or a JSON array/envelope of records) with the same replay reducer
-used live. Loading starts paused at the beginning. Printer controls are disabled,
+used live, or a saved status capture (see Live view below): the file says which it is.
+Loading starts paused at the beginning. Printer controls are disabled,
 live updates cannot overwrite the file, and playback stops at its end. The Console
 continues working if the simulator disconnects after the page has loaded.
 **Reconnect** (the Connect button) leaves the recording and reconnects to the current source. Files require a v2 session
@@ -242,6 +243,9 @@ playback and use **Load telemetry**:
   panel goes to it. Toolchanges are marked on the slider. Play replays the updates as
   far apart as they arrived and returns to the printer when it reaches the latest;
   Live returns at once. This is only what the page has seen since it subscribed.
+  **Save capture**, beside the slider, exports those updates as JSONL: the MMU's
+  startup configuration, then each update, the first as a complete status.
+  **Load telemetry** opens it as a Status playback, offline, exactly as it was seen.
 - **Telemetry playback** uses only the loaded JSON/JSONL recording, or the
   simulator's piped telemetry stream. Current printer status never changes an
   old recording. Playback controls and the movement trace appear in this mode.
