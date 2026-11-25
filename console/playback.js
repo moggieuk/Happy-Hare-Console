@@ -122,7 +122,12 @@ export function gateSelectionLit(state, gate) {
 }
 
 const gateTiming={retract:300,fade:500,slide:1350,advance:300};
-const gateDuration=gateTiming.retract+2*gateTiming.fade+gateTiming.slide+gateTiming.advance;
+// Between a virtual selector's own gates nothing retracts or fades, so the selection moves at once
+const gatePhases=event=>event.state?.selector_type==='VirtualSelector' && event.before?.unit===event.state.unit
+  ? {...gateTiming,retract:0,fade:0,advance:0} : gateTiming;
+const gateDuration=event=>{ const {retract,fade,slide,advance}=gatePhases(event); return retract+2*fade+slide+advance; };
+// The interpolation fraction for an evenly timed gate change (a status subscription has no phases of its own)
+export const gateChangeFraction=(event,fraction)=>gatePhases(event).retract ? fraction : .25+.5*fraction;
 
 // Residual contact melts only the immersed hair; retain at least 5mm.
 export function shortenedHair(length, tip, residualTop) {
@@ -357,7 +362,7 @@ const gripChanges = event => event.kind === 'selector_move' && event.before
   && (event.settled_state || event.state).mmu_gripped !== event.before.mmu_gripped;
 
 export function duration(event, compressBowden = false, compressPurge = false) {
-  if (event.kind === 'gate_changed') return gateDuration;
+  if (event.kind === 'gate_changed') return gateDuration(event);
   if (event.kind === 'cut' || event.kind === 'release') return 650;
   if (gripChanges(event)) return 650; // Long enough to see the gears grip or release
   if (event.kind !== 'movement') return 0;
@@ -956,13 +961,13 @@ export function nozzleArrivalTime(event, movementMs) {
 export function playbackFrame(event, elapsed, movementMs, selectionGrip = event.before?.mmu_gripped) {
   let fraction, fullOpacity=1;
   if (event.kind === 'gate_changed') {
-    const {retract,fade,slide,advance}=gateTiming;
+    const {retract,fade,slide,advance}=gatePhases(event);
     const t=elapsed, slideStart=retract+fade, slideEnd=slideStart+slide;
     if (t<retract) fraction=.25*t/retract;
     else if (t<slideStart) { fraction=.25; fullOpacity=1-(t-retract)/fade; }
     else if (t<slideEnd) { fraction=.25+.5*(t-slideStart)/slide; fullOpacity=0; }
     else if (t<slideEnd+fade) { fraction=.75; fullOpacity=(t-slideEnd)/fade; }
-    else fraction=.75+.25*(t-slideEnd-fade)/advance;
+    else fraction=advance ? .75+.25*(t-slideEnd-fade)/advance : 1;
     fraction=clamp01(fraction);
   } else fraction=motionFraction(event,movementMs ? Math.min(1,elapsed/movementMs) : 1);
   let state=interpolate(event,fraction);
@@ -972,7 +977,7 @@ export function playbackFrame(event, elapsed, movementMs, selectionGrip = event.
       mmu_gripped:elapsed > 0 && elapsed < movementMs ? false : selectionGrip};
     if (event.before?.unit !== event.state.unit) {
       // Virtual feeds retract into their spools first, and rise again only once the new unit is in place and the Bowden has faded in.
-      const {fade,slide,retract,advance}=gateTiming, slideEnd=retract+fade+slide;
+      const {fade,slide,retract,advance}=gatePhases(event), slideEnd=retract+fade+slide;
       state.gate_feed=clamp01(elapsed<retract ? 1-elapsed/retract : elapsed<slideEnd+fade ? 0 : (elapsed-slideEnd-fade)/advance);
     }
   }

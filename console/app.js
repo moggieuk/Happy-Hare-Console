@@ -76,6 +76,12 @@ function sourceMode() {
   $('sidebar-playback').hidden=store.viewMode==='live';
   $('trace').closest('.card').hidden=store.viewMode==='live';
   $('status-capture-card').hidden=store.viewMode!=='live' || store.offline;
+  // Dimensions come from configuration; a subscription view starts uncluttered
+  if (store.dimensionsFor!==store.viewMode) {
+    store.dimensionsFor=store.viewMode;
+    $('show-dimensions').checked=store.viewMode!=='live';
+    $('scene').classList.toggle('hide-dimensions',store.viewMode==='live');
+  }
   // Live status is always real time
   for (const id of ['compress-bowden','compress-purge']) $(id).closest('label').hidden=store.viewMode==='live';
   $('recording-name').hidden = !store.offline;
@@ -257,7 +263,7 @@ async function subscribeLive() {
   const references=new Set(Object.values(config?.units || {}).flatMap(u=>[u.extruder.name,...(u.heaters || [])]));
   const wanted=Object.fromEntries(objects.filter(n=>references.has(n) || n==='mmu' || n==='save_variables' ||
     /^mmu_(encoder|buffer|extruder|toolhead|espooler) /.test(n) || /:filament_proportional$/.test(n) ||
-    /^(extruder\d*|heater_generic .+|gcode_macro .+)$/.test(n)).map(n=>[n,n.startsWith('gcode_macro ') ? ['blade_pos','cutter_before_extruder','cooling_tube_position','cooling_tube_length']
+    /^(extruder\d*|heater_generic .+|gcode_macro .+)$/.test(n)).map(n=>[n,n.startsWith('gcode_macro ') ? ['blade_pos','cutter_before_extruder','cooling_tube_position','cooling_tube_length','retracted_length']
       : /^(extruder\d*|heater_generic .+)$/.test(n) ? ['target'] : null]));
   wanted.save_variables=['variables'];
   Object.assign(wanted,await unitObjectsWanted(objects));

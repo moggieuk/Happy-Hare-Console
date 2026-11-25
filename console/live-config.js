@@ -51,7 +51,8 @@ export function liveMachine(objects) {
   const feed=Number(settings['gcode_macro _mmu_servo_cutter_vars']?.variable_feed_length);
   const mmu_cutter=String(extension || '').toLowerCase().includes('cut') ? {feed_length:Number.isFinite(feed) ? feed : null} : null;
   return {num_gates:gate,units,parameters:machineParameters,mmu_cutter,
-    form_tip_macro:first(machineParameters.form_tip_macro),purge_macro:first(machineParameters.purge_macro)};
+    form_tip_macro:first(machineParameters.form_tip_macro),purge_macro:first(machineParameters.purge_macro),
+    park_macro:first(machineParameters.park_macro)};
 }
 
 // The active sensor map is keyed by short names for the selected gate. Rebuild the
