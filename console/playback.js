@@ -168,7 +168,8 @@ export function interpolate(event, fraction) {
   if (event.kind === 'cut') return fraction < .4 ? a : b;
   if (event.kind === 'gate_emptied') {
     const t=fraction*EJECT_TAIL_MS, ease=x=>x*x*(3-2*x);
-    return {...a,gate_eject:{gate:event.gate_emptied,withdraw:ease(clamp01(t/EJECT_WITHDRAW_MS)),fade:ease(clamp01((t-EJECT_WITHDRAW_MS)/EJECT_FADE_MS))}};
+    // The withdrawal runs at a steady pace, as the move before it did
+    return {...a,gate_eject:{gate:event.gate_emptied,withdraw:clamp01(t/EJECT_WITHDRAW_MS),fade:ease(clamp01((t-EJECT_WITHDRAW_MS)/EJECT_FADE_MS))}};
   }
   if (gripChanges(event)) return fraction < .4 ? a : event.settled_state || b; // The late grip change belongs to this step
   const mix = (x,y) => typeof x === 'number' && typeof y === 'number' ? x+(y-x)*fraction : x;

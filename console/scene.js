@@ -71,6 +71,7 @@ function advanceSpools(now, {espoolers, running, session, scan, backward=false})
 let rackGate = null, rackManualShift = 0, rackTween = null, bowdenDetached = false;
 // The tip as last drawn, and the hold a playing move started with
 let lastTip = null, moveHold = null;
+const SPOOL_TIP=570-504;   // How far along its tube a filament is drawn from: just inside the upper spool rim
 const rackScrollTime = 350, rackBleedPx = 12, MASK_HEIGHT = 700;
 // The MMU gears ease between gripped and released instead of snapping.
 let gearSpacingTween = null;
@@ -190,11 +191,20 @@ function measure(c) {
   let svg = `${branchMask}<path id="extruder-body" d="M${E-10} ${bodyTop} H${E-18} Q${E-20} ${bodyTop} ${E-20} ${bodyTop+2} V435 H${E+20} V${bodyTop+2} Q${E+20} ${bodyTop} ${E+18} ${bodyTop} H${E+10}" fill="var(--scene-body, #edf2f6)" stroke="var(--scene-border, #96abba)"/><rect x="${E-47}" y="375" width="94" height="58" rx="5" fill="var(--scene-heater, #c4d3df)"/><rect id="nozzle-collar" x="${E-20}" y="433" width="40" height="2" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-body" d="${nozzleBody}" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-bore" d="${nozzleFunnel}" fill="var(--scene-tube, #edf4f8)"/><g><g${virtual ? ' mask="url(#virtual-selection-fade)"' : ''}><path id="tube" d="${path}" fill="none" stroke="none"/><g><g${s.devices[`${s.unit}:buffer`] ? ' mask="url(#buffer-tube-gap)"' : ''}><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube-border, #b1c4d2)" stroke-width="19.25"/><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube, #edf4f8)" stroke-width="14.75"/></g></g><path id="nozzle-entrance" d="${nozzleEntrance}" fill="var(--scene-tube, #edf4f8)"/><path id="filament" mask="url(#bowden-end-fade)" d="${path}" fill="none" stroke="#${s.filament?.incoming_color || DEFAULT_COLOR}" stroke-width="7"/></g></g><text ${dimensionLink('Bowden')} id="bowden-length" x="${E+16}" y="60" text-anchor="start" fill="var(--scene-muted, #6e8190)" font-size="13">${bowdenLengthLabel(s).includes('Uncalibrated') ? `<tspan x="${E+16}" y="44">Bowden</tspan><tspan x="${E+16}" y="60">Uncalibrated length</tspan>` : bowdenLengthLabel(s)}${bowdenProgressLabel(s) ? `<tspan id="bowden-progress" x="${E+16}" y="73" font-size="10">${bowdenProgressLabel(s)}</tspan>` : ''}</text>`;
   const parkedTips=[];
   // Virtual feeds rise from the spool to the parked position; `feed` (cross-unit changes only) is the progress.
+  // An emptied gate's filament is taken back in one movement, down its tube and on inside the unit, to where it
+  // fades out at the spool's winding. `tip` is how far along the tube it still reaches, `front` the same place in the unit.
+  const ejectTravel=virtual ? gateIndex => {
+    if (s.gate_eject?.gate !== gateIndex) return null;
+    const spoolBottom=549.6+mmuOffset-spoolWindingRadius(spoolFill(s,gateIndex))*3.3;
+    const fadesAt=Math.max(SPOOL_TIP,virtual.bottom-spoolBottom);
+    const from=Math.max(fadesAt,lastTip?.gate === gateIndex ? lastTip.drawn : virtual.parkDistance);
+    const tip=from-(from-fadesAt)*s.gate_eject.withdraw;
+    return {tip,front:Math.min(spoolBottom,virtual.bottom-Math.min(virtual.parkDistance,tip))};
+  } : () => null;
   const feedFront=virtual ? gateIndex => {
     const spoolBottom=549.6+mmuOffset-spoolWindingRadius(spoolFill(s,gateIndex))*3.3;
     const parkEnd=virtual.bottom-virtual.parkDistance+(s.tip_shapes?.[gateIndex]==='cone' ? toolheadHeight/(end-entry) : 0);
-    // An ejected filament is drawn back into its own spool
-    return spoolBottom-(spoolBottom-parkEnd)*(s.gate_eject?.gate === gateIndex ? 1-s.gate_eject.withdraw : s.gate_feed ?? 1);
+    return ejectTravel(gateIndex)?.front ?? spoolBottom-(spoolBottom-parkEnd)*(s.gate_feed ?? 1);
   } : null;
   if (virtual) {
     let branches='';
@@ -387,9 +397,11 @@ function measure(c) {
   // Start just inside the upper spool rim; the fixed fade hides the insertion point.
   const fullTipOpacity=virtual ? 1 : s.gate_full_opacity ?? 1;
   const slidingRack=fullTipOpacity===0;
-  const spoolTip=570-504;
+  const spoolTip=SPOOL_TIP;
   const ejecting=s.gate_eject?.gate === gate ? s.gate_eject : null;
-  const retractedTip=constrained.tip+(Math.min(constrained.tip,spoolTip)-constrained.tip)*Math.max(ejecting?.withdraw || 0,virtual ? (s.gate_feed===undefined ? 0 : 1-s.gate_feed) : s.gate_retraction || 0);
+  const ejected=ejectTravel(gate);
+  const retractedTip=ejected ? Math.min(constrained.tip,ejected.tip)
+    : constrained.tip+(Math.min(constrained.tip,spoolTip)-constrained.tip)*Math.max(ejecting?.withdraw || 0,virtual ? (s.gate_feed===undefined ? 0 : 1-s.gate_feed) : s.gate_retraction || 0);
   const emptyGate=s.gate >= 0 && s.gate_status?.[gate] === 0 && s.filament_pos === 0;
   if (emptyGate) constrained.warnings=[];
   const selectedTip=withdrawnTip(gate,retractedTip,emptyGate,spoolTip);
