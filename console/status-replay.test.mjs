@@ -39,6 +39,20 @@ test('toolchanges are marked where the count rises or the tool changes, and can 
  assert.equal(r.toolchange(1),2);assert.equal(r.toolchange(-1),-1);
  r.seek(3);assert.equal(r.toolchange(-1),2);
 });
+test('a load, an unload and a toolchange are each marked where they start, labelled as telemetry labels them',()=>{
+ const r=new StatusReplay(), at=(action,filament_pos,extra={})=>state(0,{action,filament_pos,...extra});
+ [at('Idle',0),at('Loading',2),at('Loading Ext',8),at('Idle',10),                                       // MMU_LOAD
+  at('Idle',10),at('Cutting Tip',10),at('Unloading',3),at('Idle',0),                                    // MMU_UNLOAD
+  at('Selecting',0),at('Idle',0),                                                                       // Moves no filament
+  at('Loading',3),at('Idle',10),
+  at('Unloading',3),at('Loading',3,{tool:2}),at('Idle',10,{tool:2,num_toolchanges:1}),                  // A toolchange
+  at('Unloading',4,{tool:2,num_toolchanges:1})].forEach((s,i)=>r.record(s,i));                          // Under way
+ assert.deepEqual(r.markers(),[{index:1,label:'T0'},{index:5,label:'U'},{index:10,label:'T0'},{index:12,label:'T2'},{index:15,label:'U'}]);
+ r.seek(6);
+ assert.equal(r.toolchange(1),10);assert.equal(r.toolchange(-1),5);
+ r.record(at('Loading',3,{tool:3,num_toolchanges:1}),16);
+ assert.equal(r.markers().at(-1).label,'T3');
+});
 test('steps whose capture rows have gone are dropped, keeping the place in the replay',()=>{
  const r=recorded();
  r.seek(2);r.trim(3);
