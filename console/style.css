@@ -212,12 +212,12 @@ select, input { max-width: 100%; }
 [data-theme="dark"] .error { color: #ff92ac; }
 
 main > section { display: flex; flex-direction: column; gap: 16px; align-self: start; }
-#status-capture { height: 450px; overflow: auto; font: 12px/1.6 ui-monospace, monospace; overflow-wrap: anywhere; }
-.capture-group { background: #f1f5f8; border-radius: 6px; margin: 2px 0; padding: 2px 8px; display: flex; align-items: center; gap: 8px; }
+#status-capture { height: 450px; overflow: auto; font: 12px ui-monospace, monospace; overflow-wrap: anywhere; }
+.capture-group { background: #f1f5f8; border-radius: 6px; margin: 2px 0; padding: 9px 13px; display: flex; align-items: center; gap: 13px; }
 .capture-group > .console-time { flex: none; }
 .capture-body { flex: 1; min-width: 0; }
 [data-theme="dark"] .capture-group { background: #223240; }
-.capture-row { padding: 1px 0; }
+.capture-row + .capture-row { margin-top: 4px; }
 .capture-object { font-weight: 700; }
 .capture-field { display: block; }
 .capture-initial summary { cursor: pointer; }
