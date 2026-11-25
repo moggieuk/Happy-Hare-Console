@@ -664,7 +664,8 @@ function references(c) {
 
 // Sensor markers with homing rings and pulses
 function sensors(c) {
-  let {sensorPulse, s, gate, entry, end, virtual, selectionLit, svg, tube, isTouchSensor, sensorPoint, isBufferSensor, displayedSensors, start}=c;
+  let {viewMode, sensorPulse, s, gate, entry, end, virtual, selectionLit, svg, tube, isTouchSensor, sensorPoint, isBufferSensor, displayedSensors, start}=c;
+  const branchSensors={};
   for (const [name, d] of displayedSensors) {
     if (isBufferSensor(name)) continue;
     const suffix = sensorName(name).match(/^mmu_.*_(\d+)$/);
@@ -681,12 +682,12 @@ function sensors(c) {
     // A branch's sensors brighten with its gear as the selection arrives, rather than switching at once.
     const sensorClass=branchGate!==undefined ? ' virtual-gate-sensor' : '';
     const sensorLit=branchGate!==undefined ? selectionLit(branchGate) : 1;
-    // The gates' own sensors share one label, outside the gates on the side of the unit the selection is in
-    const branchLabel=Boolean(virtual) && ['entry','exit'].includes(sensorLabel);
-    const labelLeft=branchLabel ? syncIndicatorSide(virtual) < 0 : mmuSide && sensorLabel !== 'shared exit';
-    const labelX=branchLabel ? (labelLeft ? virtual.branches[0].x - 29 : virtual.branches.at(-1).x + 13)
-      : sensorLabel === 'shared exit' ? pt.x + 16 : mmuSide ? pt.x - 29 : pt.x + 29;
-    const showLabel=!branchLabel || pt.x===virtual.active.x;
+    // The gates' own sensors share one label, left of the first gate
+    const branchLabel=branchGate!==undefined;
+    if (branchLabel) (branchSensors[sensorLabel] ||= {y:pt.y,gates:new Set()}).gates.add(branchGate);
+    const labelLeft=mmuSide && sensorLabel !== 'shared exit';
+    const labelX=sensorLabel === 'shared exit' ? pt.x + 16 : mmuSide ? pt.x - 29 : pt.x + 29;
+    const showLabel=!branchLabel || pt.x===virtual.branches[0].x;
     svg += `<g class="sensor-marker${sensorClass}${d.state === null ? ' sensor-disabled' : ''}" data-sensor="${escape(name)}"${sensorClass ? ` style="--sensor-lit:${sensorLit}"` : ''}>${showLabel ? `<text x="${labelX}" y="${sensorLabel === 'entry' ? pt.y : pt.y + 4}" dominant-baseline="${sensorLabel === 'entry' ? 'central' : 'auto'}" text-anchor="${labelLeft ? "end" : "start"}" font-size="10" fill="var(--scene-text, #456078)">${escape(sensorLabel)}</text>` : ''}<circle cx="${sensorX}" cy="${pt.y}" r="5" fill="${d.state === true ? "#399b64" : d.state === false ? "#fff" : "#9ba5ae"}" stroke="#698394"/></g>`;
     svg += homingRing(name,sensorX,pt.y);
     if (sensorPulse?.sensor === name) {
@@ -695,6 +696,13 @@ function sensors(c) {
         const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
         svg += `<circle data-part="sensor-pulse" cx="${sensorX}" cy="${pt.y}" r="${reduced ? 10 : 7 + elapsed * 15}" fill="none" stroke="${sensorPulse.reverse ? 'var(--sensor-clear-pulse)' : '#48c982'}" stroke-width="2.5" opacity="${1-elapsed}"/>`;
       }
+    }
+  }
+  // A status subscription reports only the selected gate's sensors: the other gates' are there, their state unknown
+  if (viewMode === 'live' && virtual) for (const [label,{y,gates}] of Object.entries(branchSensors)) {
+    for (const branch of virtual.branches) {
+      if (gates.has(branch.gate)) continue;
+      svg += `<g class="sensor-marker virtual-gate-sensor" data-part="sensor-unreported" data-gate="${branch.gate}" style="--sensor-lit:${selectionLit(branch.gate)}" data-tooltip="Not reported for a gate that is not selected">${branch === virtual.branches[0] ? `<text x="${branch.x - 29}" y="${label === 'entry' ? y : y + 4}" dominant-baseline="${label === 'entry' ? 'central' : 'auto'}" text-anchor="end" font-size="10" fill="var(--scene-text, #456078)">${label}</text>` : ''}<circle cx="${branch.x - 16}" cy="${y}" r="5" fill="none" stroke="#698394" stroke-dasharray="2 2"/></g>`;
     }
   }
   Object.assign(c, {svg});
