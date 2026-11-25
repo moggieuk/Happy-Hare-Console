@@ -794,7 +794,7 @@ function statusControls(s,connected) {
   return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
     previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
     modeText:replay.following && !store.offline ? `Live view · ${what}`
-      : `Status playback · ${mode} · update ${replay.index+1} of ${replay.count} · ${what}`};
+      : `Status playback · ${mode} · update ${replay.entries[replay.index]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};
 }
 function renderScene() {
   if (store.viewMode==='live' ? !store.displayed : !store.events.length) return;

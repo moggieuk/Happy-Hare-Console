@@ -215,6 +215,7 @@ main > section { display: flex; flex-direction: column; gap: 16px; align-self: s
 #status-capture { height: 450px; overflow: auto; font: 12px ui-monospace, monospace; overflow-wrap: anywhere; }
 .capture-group { background: #f1f5f8; border-radius: 6px; margin: 2px 0; padding: 9px 13px; display: flex; align-items: center; gap: 13px; }
 .capture-group > .console-time { flex: none; }
+.capture-seq { display: inline-block; min-width: 4ch; text-align: right; }
 .capture-body { flex: 1; min-width: 0; }
 [data-theme="dark"] .capture-group { background: #223240; }
 .capture-row + .capture-row { margin-top: 4px; }

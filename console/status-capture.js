@@ -20,7 +20,14 @@ export function captureStatus(delta,eventtime,initial=false,seq=null) {
   const body=document.createElement('div');
   group.className=initial ? 'capture-group capture-initial' : 'capture-group';
   if (seq!==null) group.dataset.seq=seq;
-  time.className='console-time'; time.textContent=Number(eventtime).toFixed(2);
+  // Numbered and timed as a Movement trace entry is: the number is the update's, which playback also counts by
+  time.className='console-time';
+  if (seq!==null) {
+    const number=document.createElement('span');
+    number.className='capture-seq'; number.textContent=seq;
+    time.append(number,' · ');
+  }
+  time.append(Number(eventtime).toFixed(2)+'s');
   body.className='capture-body';
   group.append(time);
   for (const [name,fields] of rows) {
