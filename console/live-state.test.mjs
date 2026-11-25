@@ -113,16 +113,19 @@ test('a loaded filament parked with a retraction is drawn back from the melt it 
  assert.equal(r.accept({'gcode_macro _MMU_PARK':{retracted_length:0}},4).tips[parked.gate],parked.layout.nozzle);
 });
 test('a purge is counted from the live position, else from the suggested volume once it is over, and falls when the filament leaves',()=>{
- const area=Math.PI*(1.75/2)**2, start={extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null};
+ const area=Math.PI*(1.75/2)**2, start={extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null,origin:null};
  const run=steps=>steps.reduce((all,step)=>[...all,purged(all.at(-1),step)],[start]).slice(1);
  // The extruder is not the stepper followed: the volume is taken once the purge is over
  const told=run([{action:'Idle',filament_pos:10},{action:'Purging',filament_pos:10,toolchange_purge_volume:20*area},
   {action:'Purging',filament_pos:10,toolchange_purge_volume:20*area},{action:'Idle',filament_pos:10,toolchange_purge_volume:0},{action:'Unloading',filament_pos:9}]);
  assert.deepEqual(told.map(p=>[Math.round(p.extruded),Math.round(p.base)]),[[0,0],[0,0],[0,0],[20,0],[20,20]]);
  // The live position moves: it is counted as it happens, and nothing is added at the end
- const seen=run([{action:'Purging',filament_pos:10,toolchange_purge_volume:20*area,filament_position_live:100},
-  {action:'Purging',filament_pos:10,filament_position_live:112},{action:'Purging',filament_pos:10,filament_position_live:125},{action:'Idle',filament_pos:10,filament_position_live:125}]);
- assert.deepEqual(seen.map(p=>Math.round(p.extruded)),[0,12,25,25]);
+ // and a suggestion larger than what was seen to move is not made up
+ // a suggestion larger than what was seen to move is not made up, and priming again after a retraction adds nothing
+ const seen=run([{action:'Idle',filament_pos:10,filament_position_live:100},{action:'Purging',filament_pos:10,toolchange_purge_volume:40*area,filament_position_live:104},
+  {action:'Purging',filament_pos:10,filament_position_live:112},{action:'Purging',filament_pos:10,filament_position_live:110},{action:'Purging',filament_pos:10,filament_position_live:125},
+  {action:'Idle',filament_pos:10,filament_position_live:127},{action:'Idle',filament_pos:10,filament_position_live:130}]);
+ assert.deepEqual(seen.map(p=>Math.round(p.extruded)),[0,0,8,8,21,23,23]);
  const at=(extruded_mm,purge_base_mm=0)=>({unit:'u',gate:0,tips:[750],devices:{},extruded_mm,purge_base_mm});
  assert.equal(liveDuration(at(0),at(5),250),2000);
 });

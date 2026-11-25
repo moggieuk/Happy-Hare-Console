@@ -110,17 +110,19 @@ export class LiveState {
 
 // What has come out of the nozzle, in mm of filament: Happy Hare reports that it is purging and the volume it
 // suggests, not the extrusion itself. The live position counts it where the extruder is the stepper being followed;
-// otherwise the suggested volume is taken to have gone once the purge is over. The pile falls when the filament leaves.
+// only where none was seen is the suggested volume taken to have gone, once the purge is over. The pile falls when the filament leaves.
 const FILAMENT_AREA=Math.PI*(1.75/2)**2;
-const newPurge=()=>({extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null});
+const newPurge=()=>({extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null,origin:null});
 export function purged(memory,status) {
   const p={...memory}, purging=status.action==='Purging';
   const position=Number.isFinite(status.filament_position_live) ? status.filament_position_live : null;
-  if (purging && !p.active) Object.assign(p,{active:true,from:p.extruded,start:p.extruded,base:p.extruded,amount:0});
-  if (purging) {
-    p.amount=Math.max(p.amount,(Number(status.toolchange_purge_volume) || 0)/FILAMENT_AREA);
-    if (position!==null && p.position!==null && position>p.position) p.extruded+=position-p.position;
-  } else if (p.active) Object.assign(p,{active:false,extruded:Math.max(p.extruded,p.from+p.amount)});
+  if (purging && !p.active) Object.assign(p,{active:true,from:p.extruded,start:p.extruded,base:p.extruded,amount:0,origin:position});
+  // It is measured from the first update of the purge, as the one before may be part-way through the load, and
+  // only the furthest the filament has been fed counts: a purge retracts and primes again as it goes.
+  // The update that ends a purge still carries the last of its movement
+  if (p.active && position!==null && p.origin!==null) p.extruded=Math.max(p.extruded,p.from+position-p.origin);
+  if (purging) p.amount=Math.max(p.amount,(Number(status.toolchange_purge_volume) || 0)/FILAMENT_AREA);
+  else if (p.active) Object.assign(p,{active:false,extruded:p.extruded>p.from ? p.extruded : p.from+p.amount});
   else if (status.filament_pos!==10) p.base=p.extruded;
   p.position=position;
   return p;
