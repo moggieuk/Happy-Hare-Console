@@ -877,8 +877,17 @@ function traceRow(e, {showDetails, records, expanded}) {
         start:records.get(e.telemetry?.start?.sequence) || e.telemetry?.start,
         outcome:records.get(e.telemetry?.outcome?.sequence) || e.telemetry?.outcome
       } : records.get(e.seq) || e.telemetry || e.changes || {event:e.kind,label:e.label};
-      payload.textContent=JSON.stringify(telemetry,null,2);
-      details.append(summary,payload); row.append(details);
+      // A state update is listed as the status subscription lists one
+      if (Array.isArray(telemetry.changes) && telemetry.changes.every(change=>Array.isArray(change.path))) {
+        const changes=document.createElement('div');
+        changes.className='capture-body trace-changes';
+        changes.append(...changeRows(telemetry.changes).map(([heading,fields])=>statusRow(heading,fields)));
+        details.append(summary,changes);
+      } else {
+        payload.textContent=JSON.stringify(telemetry,null,2);
+        details.append(summary,payload);
+      }
+      row.append(details);
     }
   }
   return row;

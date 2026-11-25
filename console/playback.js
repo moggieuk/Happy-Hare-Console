@@ -166,6 +166,10 @@ export function interpolate(event, fraction) {
     return state;
   }
   if (event.kind === 'cut') return fraction < .4 ? a : b;
+  if (event.kind === 'gate_emptied') {
+    const t=fraction*EJECT_TAIL_MS, ease=x=>x*x*(3-2*x);
+    return {...a,gate_eject:{gate:event.gate_emptied,withdraw:ease(clamp01(t/EJECT_WITHDRAW_MS)),fade:ease(clamp01((t-EJECT_WITHDRAW_MS)/EJECT_FADE_MS))}};
+  }
   if (gripChanges(event)) return fraction < .4 ? a : event.settled_state || b; // The late grip change belongs to this step
   const mix = (x,y) => typeof x === 'number' && typeof y === 'number' ? x+(y-x)*fraction : x;
   const s = structuredClone(a);
@@ -372,15 +376,19 @@ export function motionFraction(event, timeFraction) {
 const gripChanges = event => event.kind === 'selector_move' && event.before
   && (event.settled_state || event.state).mmu_gripped !== event.before.mmu_gripped;
 
-// A move that leaves its gate empty has ejected the filament. Its playback carries on past the move: the filament
-// is drawn on into its spool, then the spool fades to the empty one the gate is left with.
+// A gate reported empty is animated as its own step: whatever filament is drawn there is taken back into its spool,
+// then the spool fades to the empty one the gate is left with.
 export const EJECT_WITHDRAW_MS=2400, EJECT_FADE_MS=675, EJECT_TAIL_MS=EJECT_WITHDRAW_MS+EJECT_FADE_MS;
-export function ejectedGate(event) {
-  const a=event.before, b=event.state, gate=a?.gate;
-  return event.kind === 'movement' && gate >= 0 && a.gate_status?.[gate] !== undefined && a.gate_status[gate] !== 0
-    && b?.gate_status?.[gate] === 0 ? gate : null;
-}
+// The first gate that had filament in `before` and has none in `after`, else -1
+export const emptiedGate=(before,after)=>(before?.gate_status || []).findIndex((status,gate)=>
+  status !== undefined && status !== 0 && after?.gate_status?.[gate] === 0);
+// What a gate's emptying replaces: kept as they were until that step has played
+const GATE_CONTENTS=['gate_colors','gate_status','spool_percentages','gate_map','filament','purge_transition'];
+const withContents=(state,from)=>({...state,...Object.fromEntries(GATE_CONTENTS.filter(k=>k in from).map(k=>[k,from[k]]))});
+const emptiedStep=(record,gate,before,state)=>({seq:record.seq,time:record.time,kind:'gate_emptied',label:`Gate ${gate} emptied`,
+  gate_emptied:gate,before,state,telemetry:record.telemetry});
 export function duration(event, compressBowden = false, compressPurge = false) {
+  if (event.kind === 'gate_emptied') return EJECT_TAIL_MS;
   if (event.kind === 'gate_changed') return gateDuration(event);
   if (event.kind === 'cut' || event.kind === 'release') return 650;
   if (gripChanges(event)) return 650; // Long enough to see the gears grip or release
@@ -401,7 +409,7 @@ export function duration(event, compressBowden = false, compressPurge = false) {
   if ((event.state?.extruded_mm || 0) > (event.before?.extruded_mm || 0)) seconds *= compressPurge ? .5 : 2;
   // Let the detached purge fall visibly even when the releasing retract is brief.
   const releasingPurge = (event.state?.purge_base_mm || 0) > (event.before?.purge_base_mm || 0);
-  return Math.max(releasingPurge ? 0.65 : 0.12,seconds)*1000+(ejectedGate(event) === null ? 0 : EJECT_TAIL_MS);
+  return Math.max(releasingPurge ? 0.65 : 0.12,seconds)*1000;
 }
 
 // The complete gate map entry for one spool, one "label: value" line each. Unset values are left out.
@@ -507,7 +515,7 @@ export function changeRows(changes) {
 }
 
 export function traceText(event) {
-  let type = {state:'state changed', gate_changed:'gate changed',move_completed:'move completed',selector_move:'selector',selector_completed:'selector'}[event.kind] || event.kind;
+  let type = {state:'state changed', gate_changed:'gate changed', gate_emptied:'gate emptied',move_completed:'move completed',selector_move:'selector',selector_completed:'selector'}[event.kind] || event.kind;
   if (event.kind === 'movement') {
     const source = event.source || event.telemetry?.start?.source;
     type = event.homing ? 'homing move' : source === 'mmu_gcode' ? 'G1' : 'move';
@@ -911,7 +919,7 @@ export function toolchangeIndex(events, index, direction) {
 
 export function annotatedStep(events, event, navigating) {
   if (navigating) return event;
-  const animated = item => ['movement', 'gate_changed', 'toolchange', 'selector_move'].includes(item.kind);
+  const animated = item => ['movement', 'gate_changed', 'gate_emptied', 'toolchange', 'selector_move'].includes(item.kind);
   return animated(event) ? event : events.findLast(item => item.seq <= event.seq && animated(item)) || event;
 }
 
@@ -931,7 +939,7 @@ export function orderedSteps(records) {
   const selectorSeen=new Set(selectors.map(e=>e.telemetry.start.sequence));
   const anchored=new Set();
   const steps=[];
-  let motion=null;
+  let motion=null, held=null;   // `held`: the move's end state with a gate's contents as they were, until its emptying is met
   for (const record of records) {
     if (!motion && record.kind === 'selector' && record.telemetry?.event === 'selector_movement_start') {
       const step=selectorSteps.get(record.seq);
@@ -944,16 +952,25 @@ export function orderedSteps(records) {
     } else if (record.kind === 'pending_move') {
       motion=outcomes.get(record.seq);
       if (!motion) break;
+      // A gate emptied during the move keeps its filament to the end of it: the emptying plays as its own step
+      held=emptiedGate(motion.before,motion.state) >= 0 ? withContents(motion.state,motion.before) : null;
       steps.push({...motion,seq:record.seq,time:record.time,
-        state:{...motion.state,espoolers:motion.before.espoolers}});
+        state:{...(held || motion.state),espoolers:motion.before.espoolers}});
     } else if (motion && record.seq === motion.seq) {
-      steps.push({seq:record.seq,time:record.time,kind:'move_completed',internal:true,during_move:true,
+      const completed={seq:record.seq,time:record.time,kind:'move_completed',internal:true,during_move:true,
         label:motion.homing ? (motion.homed ? 'Homing completed' : 'Homing did not trigger') : 'Move completed',
-        state:motion.state,telemetry:motion.telemetry.outcome});
-      motion=null;
+        state:motion.state,telemetry:motion.telemetry.outcome};
+      steps.push(held ? emptiedStep(completed,emptiedGate(held,motion.state),{...held,espoolers:steps.at(-1).state.espoolers},motion.state) : completed);
+      motion=held=null;
+    } else if (motion && held && record.kind === 'state' && emptiedGate(held,record.state) >= 0) {
+      steps.push(emptiedStep(record,emptiedGate(held,record.state),{...held,espoolers:steps.at(-1).state.espoolers},
+        {...motion.state,espoolers:record.state.espoolers}));
+      held=null;
     } else if (motion) {
       steps.push({...record,internal:record.kind === 'espooler' ? false : record.internal,
-        state:{...motion.state,espoolers:record.state.espoolers},before:undefined});
+        state:{...(held || motion.state),espoolers:record.state.espoolers},before:undefined});
+    } else if (record.kind === 'state' && steps.length && emptiedGate(steps.at(-1).state,record.state) >= 0) {
+      steps.push(emptiedStep(record,emptiedGate(steps.at(-1).state,record.state),steps.at(-1).state,record.state));
     } else steps.push(record);
   }
   return steps;
@@ -1005,17 +1022,8 @@ export function playbackFrame(event, elapsed, movementMs, selectionGrip = event.
     else if (t<slideEnd+fade) { fraction=.75; fullOpacity=(t-slideEnd)/fade; }
     else fraction=advance ? .75+.25*(t-slideEnd-fade)/advance : 1;
     fraction=clamp01(fraction);
-  }
-  const ejecting=event.kind === 'movement' && movementMs > EJECT_TAIL_MS ? ejectedGate(event) : null;
-  const moveMs=ejecting === null ? movementMs : movementMs-EJECT_TAIL_MS;
-  if (event.kind !== 'gate_changed') fraction=motionFraction(event,moveMs ? Math.min(1,elapsed/moveMs) : 1);
-  const tail=ejecting !== null && elapsed < movementMs;
-  // The gate keeps its filament's colour and its spool until the tail has played out
-  let state=interpolate(event,tail ? Math.min(fraction,1-1e-9) : fraction);
-  if (tail) {
-    const t=Math.max(0,elapsed-moveMs), ease=x=>x*x*(3-2*x);
-    state={...state,gate_eject:{gate:ejecting,withdraw:ease(clamp01(t/EJECT_WITHDRAW_MS)),fade:ease(clamp01((t-EJECT_WITHDRAW_MS)/EJECT_FADE_MS))}};
-  }
+  } else fraction=motionFraction(event,movementMs ? Math.min(1,elapsed/movementMs) : 1);
+  let state=interpolate(event,fraction);
   if (event.kind === 'gate_changed' && elapsed < movementMs) {
     // Keep the gears released through retreat, both fades, the slide, and advance.
     state={...state,gate_full_opacity:fullOpacity,
