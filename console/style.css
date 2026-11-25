@@ -435,6 +435,7 @@ select option:disabled, [data-theme="dark"] select option:disabled { color: #8a9
 .trace-options input { width: auto; margin: 0; }
 #trace .trace-internal { padding: 8px 10px; border: 1px dashed var(--scene-border, #dae2e9); border-radius: 6px; margin-bottom: 6px; font-size: 12px; }
 .trace-internal summary { cursor: pointer; }
+.trace-changes { margin-top: 6px; max-height: 220px; overflow: auto; overflow-wrap: anywhere; font: 12px Arial, sans-serif; }
 .trace-internal pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 11px; }
 .trace-type[data-type="internal"] { color: #4c525a; background: #e3e5e8; }
 [data-theme="dark"] .trace-type[data-type="internal"] { color: #e4e6e9; background: #4b515a; }

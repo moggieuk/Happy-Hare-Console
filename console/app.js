@@ -14,10 +14,10 @@ import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
 import {timelineMarkers, scanMove} from './playback.js';
-import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeLines, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
+import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
-import {captureStatus, captureRows, clearStatusCapture, highlightCapture} from './status-capture.js';
+import {captureStatus, captureRows, clearStatusCapture, highlightCapture, statusRow} from './status-capture.js';
 import {StatusReplay} from './status-replay.js';
 import {StatusLog, captureConfig, isStatusCapture, mergeStatus} from './status-log.js';
 import {createToolheadPanel} from './toolhead-panel.js';
@@ -853,8 +853,12 @@ function traceRow(e, {showDetails, records, expanded}) {
   } else if (internal) {
     const name = e.telemetry?.event;
     b.append(' · ' + (name && name !== 'state_delta' ? name.replaceAll('_',' ') : 'State update'));
-    const details = document.createElement('pre');
-    details.textContent = e.telemetry?.changes ? changeLines(e.telemetry.changes) : JSON.stringify(e.telemetry || e.state, null, 2);
+    // A state update is listed as the status subscription lists one; anything else is shown as recorded
+    const details = document.createElement(e.telemetry?.changes ? 'div' : 'pre');
+    if (e.telemetry?.changes) {
+      details.className='capture-body trace-changes';
+      details.append(...changeRows(e.telemetry.changes).map(([heading,fields])=>statusRow(heading,fields)));
+    } else details.textContent = JSON.stringify(e.telemetry || e.state, null, 2);
     row.append(b, details);
   } else b.append(` · ${detail.join(' · ')}`);
   // Detailed provenance stays in the tooltip.

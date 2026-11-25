@@ -486,9 +486,17 @@ export function selectorNotice(events, event, playing, following) {
     ? `Selector: ${selectorSummary(previous)} · Gate ${event.before?.gate} → ${event.state?.gate}` : null;
 }
 
-// A state update as one readable line per value; the recording keeps the full path/value records
-export const changeLines = changes => changes.map(({path, value, remove}) =>
-  `${path.join('.')}: ${remove ? '(removed)' : JSON.stringify(value)}`).join('\n');
+// A state update as the status subscription would list it: [object heading, [[field, value as JSON], ...]] for each
+// object changed, in the order first met. The recording keeps the full path/value records.
+export function changeRows(changes) {
+  const rows=new Map();
+  for (const {path, value, remove} of changes) {
+    const heading=path.length>2 ? `${path[0]}['${path[1]}']` : path[0];
+    if (!rows.has(heading)) rows.set(heading,[]);
+    rows.get(heading).push([path.slice(path.length>2 ? 2 : 1).join('.'),remove ? '(removed)' : JSON.stringify(value)]);
+  }
+  return [...rows];
+}
 
 export function traceText(event) {
   let type = {state:'state changed', gate_changed:'gate changed',move_completed:'move completed',selector_move:'selector',selector_completed:'selector'}[event.kind] || event.kind;

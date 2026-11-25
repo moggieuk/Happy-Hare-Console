@@ -19,7 +19,7 @@ test('timeline retains ticks but omits labels at thirty operations',()=>{
    assert.ok(markers.every(marker=>marker.label===''));
  }
 });
-import { changeLines, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, branchFade, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
+import { changeRows, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, branchFade, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
 const state=(tip,on)=>({gate:0,tips:[tip],tails:[null],motors:{gear:tip},devices:{encoder:{distance:tip}},buffers:{},sensors:{toolhead:{state:on,position:5}}});
 test('sensor crosses at geometric position with exact endpoints',()=>{
  const e={before:state(0,false),state:state(10,true)};
@@ -941,13 +941,16 @@ test('the toolhead drawing never collapses when the nozzle sits at the gears',()
  assert.ok(Number.isFinite(toolheadProgress(state,705)));
 });
 
-test('a state update reads as one path: value line per change',()=>{
- assert.equal(changeLines([
+test('a state update is listed by object, one field per change, as the status subscription lists it',()=>{
+ assert.deepEqual(changeRows([
   {path:['printer','mmu','selector','grip'],value:'Gripped'},
-  {path:['printer','mmu','sync_mode'],value:0},
+  {path:['printer','mmu_machine','units','unit0','espooler','operations','0','direction'],value:'stopped'},
   {path:['printer','mmu','gate_status'],value:[1,0]},
-  {path:['printer','mmu','sensors','unit0:mmu_shared_exit'],remove:true}]),
-  'printer.mmu.selector.grip: "Gripped"\nprinter.mmu.sync_mode: 0\nprinter.mmu.gate_status: [1,0]\nprinter.mmu.sensors.unit0:mmu_shared_exit: (removed)');
+  {path:['printer','mmu','sensors','unit0:mmu_shared_exit'],remove:true},
+  {path:['macros','_MMU_PARK','retracted_length'],value:2}]),
+  [["printer['mmu']",[['selector.grip','"Gripped"'],['gate_status','[1,0]'],['sensors.unit0:mmu_shared_exit','(removed)']]],
+   ["printer['mmu_machine']",[['units.unit0.espooler.operations.0.direction','"stopped"']]],
+   ["macros['_MMU_PARK']",[['retracted_length','2']]]]);
 });
 
 test('a tip held at a sensor leaves from where it was drawn and arrives where it will be drawn',()=>{
