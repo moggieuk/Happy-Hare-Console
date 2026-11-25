@@ -351,9 +351,9 @@ function acceptLive(delta,time) {
 const liveMotors=(from,next,distance)=>({gear:(from?.motors.gear || 0)+(next.mmu_gripped || next.synced ? distance : 0),
   extruder:(from?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)});
 // Each update the capture panel lists is a step the playback controls can return to
-function recordStatus(delta,time,state,initial=false) {
+function recordStatus(delta,time,state,initial=false,memory=store.liveState.memory()) {
   const listed=captureRows(delta).length>0, seq=listed && state ? store.replay.record(state,time).seq : null;
-  store.statusLog.add(delta,time,seq);
+  store.statusLog.add(delta,time,seq,memory);
   if (!listed) return;
   const oldest=captureStatus(delta,time,initial,seq);
   if (Number.isFinite(oldest)) { store.replay.trim(oldest); store.statusLog.trim(oldest); }
@@ -1024,7 +1024,7 @@ $('save-status').onclick = () => download(store.statusLog.serialize(),'happy-har
 // A saved status capture: the same steps, rebuilt from the updates as a subscription would have
 function loadStatusCapture(log) {
   const liveState=new LiveState(), objects={};
-  liveState.seed(log.config);
+  liveState.seed(log.config); liveState.restore(log.start);
   let previous=null;
   const steps=log.records.map(({status,eventtime})=>{
     mergeStatus(objects,status);
@@ -1034,10 +1034,10 @@ function loadStatusCapture(log) {
       state.motors=liveMotors(previous,state,same ? state.tips[state.gate]-previous.tips[state.gate] : 0);
       previous=state;
     }
-    return {status,eventtime,state};
+    return {status,eventtime,state,memory:liveState.memory()};
   });
   if (!previous) throw Error('This status capture holds no MMU status to show');
-  return {liveState,objects,steps,last:previous,config:log.config};
+  return {liveState,objects,steps,last:previous,config:log.config,start:log.start};
 }
 $('load-telemetry').onclick = () => $('telemetry-file').click();
 $('telemetry-file').onchange = async () => {
@@ -1058,9 +1058,9 @@ $('telemetry-file').onchange = async () => {
     store.live=Boolean(capture); store.paused=!capture; store.cursor=0; store.playing=null; store.sensorPulse=null; store.pauseAfterStep=false; store.displayed=null;
     if (capture) {
       clearStatusCapture(); scene.clear();
-      store.replay=new StatusReplay(); store.statusLog=new StatusLog(capture.config);
+      store.replay=new StatusReplay(); store.statusLog=new StatusLog(capture.config); store.statusLog.start=capture.start;
       store.liveState=capture.liveState; store.unitObjects=capture.objects; store.unitObjectsChanged?.();
-      capture.steps.forEach(({status,eventtime,state},i)=>recordStatus(status,eventtime,state,i===0));
+      capture.steps.forEach(({status,eventtime,state,memory},i)=>recordStatus(status,eventtime,state,i===0,memory));
       store.liveTarget=store.liveFrom=capture.last; store.liveStart=animationNow(); store.liveDuration=1; store.liveSettled=true;
       store.replay.seek(0); store.displayed=store.replay.frame(0);
     }

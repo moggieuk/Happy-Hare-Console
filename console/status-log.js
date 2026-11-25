@@ -1,7 +1,7 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
 // The status updates behind the replay steps, kept as they arrived so they can be saved and loaded again.
 // The file is JSONL: a header with the MMU's startup configuration, then one {eventtime, status} per step, the
-// first being a complete status.
+// first being a complete status with the tip memory it was resolved against when earlier steps have gone.
 export const CAPTURE_EVENT='status_capture';
 
 export function mergeStatus(into,delta) {
@@ -14,11 +14,12 @@ export const captureConfig=startup=>({configfile:{settings:Object.fromEntries(Ob
 export const isStatusCapture=records=>records[0]?.event===CAPTURE_EVENT;
 
 export class StatusLog {
-  constructor(config=null) { this.config=config; this.records=[]; this.pending=null; }
-  // An update that is not a replay step (`seq` null) is carried into the next one that is
-  add(status,eventtime,seq=null) {
+  constructor(config=null) { this.config=config; this.records=[]; this.pending=null; this.start=null; }
+  // An update that is not a replay step (`seq` null) is carried into the next one that is.
+  // `memory` is the live state's tip memory once the update has been taken in
+  add(status,eventtime,seq=null,memory=null) {
     if (seq===null) { this.pending=mergeStatus(this.pending || {},status); return; }
-    this.records.push({seq,eventtime,status:this.pending ? mergeStatus(this.pending,status) : status});
+    this.records.push({seq,eventtime,memory,status:this.pending ? mergeStatus(this.pending,status) : status});
     this.pending=null;
   }
   // Steps dropped from the front are folded into the oldest one kept, which becomes a complete status
@@ -26,15 +27,17 @@ export class StatusLog {
     const kept=this.records.findIndex(record=>record.seq>=oldest);
     if (kept<=0) return;
     const status=this.records.slice(0,kept+1).reduce((all,record)=>mergeStatus(all,record.status),{});
+    this.start=this.records[kept-1].memory;
     this.records.splice(0,kept);
     this.records[0]={...this.records[0],status};
   }
   clear() {
     this.pending=[...this.records.map(record=>record.status),this.pending].reduce(mergeStatus,{});
+    this.start=this.records.at(-1)?.memory ?? this.start;
     this.records=[];
   }
   serialize() {
-    return [{event:CAPTURE_EVENT,version:1,...this.config},...this.records.map(({eventtime,status})=>({eventtime,status}))]
+    return [{event:CAPTURE_EVENT,version:1,...this.config},...this.records.map(({eventtime,status},i)=>({eventtime,status,...(i===0 && this.start ? {memory:this.start} : {})}))]
       .map(record=>JSON.stringify(record)).join('\n')+'\n';
   }
   static parse(records) {
@@ -44,6 +47,7 @@ export class StatusLog {
     if (updates.some(r=>!Number.isFinite(r?.eventtime) || !r.status || typeof r.status!=='object'))
       throw Error('This status capture is damaged: every line after the first needs eventtime and status');
     const log=new StatusLog({configfile:header.configfile});
+    log.start=updates[0].memory || null;
     updates.forEach((r,i)=>log.add(r.status,r.eventtime,i+1));
     return log;
   }

@@ -25,3 +25,18 @@ test('steps dropped from the front leave a complete status in the oldest one kep
  log.add({mmu:{gate:2}},13,4);
  assert.deepEqual(log.records.map(r=>r.status),[{mmu:{gate:2,tool:1}}]);
 });
+test('a capture trimmed mid-movement reloads with the tip where it was shown',async()=>{
+ const {LiveState}=await import('./live-state.js'), {liveObjects}=await import('./live-fixture.mjs');
+ const live=new LiveState(), log=new StatusLog(), shown=[];
+ const updates=[liveObjects(),{mmu:{filament_pos:2,bowden_progress:-1,filament_position:0}},{mmu:{filament_position:40}},{mmu:{filament_position:90}}];
+ updates.forEach((status,i)=>{
+  const s=live.accept(status,i+1);
+  shown.push(s.tips[s.gate]);
+  log.add(status,i+1,i+1,live.memory());
+ });
+ assert.notEqual(shown[2],shown[1]);
+ log.trim(3);
+ const loaded=StatusLog.parse(parseRecords(log.serialize())), again=new LiveState();
+ again.restore(loaded.start);
+ assert.deepEqual(loaded.records.map(r=>{ const s=again.accept(r.status,r.eventtime); return s.tips[s.gate]; }),shown.slice(2));
+});

@@ -244,7 +244,9 @@ playback and use **Load telemetry**:
   far apart as they arrived and returns to the printer when it reaches the latest;
   Live returns at once. This is only what the page has seen since it subscribed.
   **Save capture**, beside the slider, exports those updates as JSONL: the MMU's
-  startup configuration, then each update, the first as a complete status.
+  startup configuration, then each update, the first as a complete status. When earlier
+  updates have been trimmed or cleared, it also carries where the tip had been put, so
+  the capture reloads as it was shown.
   **Load telemetry** opens it as a Status playback, offline, exactly as it was seen.
 - **Telemetry playback** uses only the loaded JSON/JSONL recording, or the
   simulator's piped telemetry stream. Current printer status never changes an
