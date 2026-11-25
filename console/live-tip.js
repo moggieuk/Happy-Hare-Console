@@ -14,14 +14,18 @@ export function tipRange(pos,at) {
 
 // The selected gate's tip from status alone. filament_position is the commanded position: it steps to a move's
 // target and restarts from a different zero on unload, so it only moves the tip within a state.
+// filament_position_live, where Happy Hare reports it, is where the stepper has got to: it is used in its place,
+// and is true during a homing move, which the commanded position is not.
 export function resolveTip(memory,status,s,at,bowdenStart) {
   const pos=status.filament_pos, range=tipRange(pos,at), name=positions[pos] || 'UNKNOWN';
   const same=Boolean(memory) && memory.unit===s.unit && memory.gate===s.gate;
   const progress=finite(status.bowden_progress) && status.bowden_progress>=0 ? Math.min(100,status.bowden_progress) : null;
   const homing=Boolean(status.homing);
-  const reported=finite(status.filament_position) ? status.filament_position : undefined;
+  const live=finite(status.filament_position_live);
+  const reported=live ? status.filament_position_live : finite(status.filament_position) ? status.filament_position : undefined;
   const last=same ? memory.filamentPosition : undefined;
-  const filamentPosition=homing ? last : reported;
+  const held=homing && !live;
+  const filamentPosition=held ? last : reported;
   const warnings=[];
   if (!range) {
     if (s.gate>=0) warnings.push('filament position is unknown');
@@ -31,7 +35,7 @@ export function resolveTip(memory,status,s,at,bowdenStart) {
   let tip;
   if (progress!==null && lo<hi) tip=clamp(bowdenStart+(at(6)-bowdenStart)*progress/100,lo,hi);
   else if (same && memory.pos===pos) {
-    const moved=!homing && finite(reported) && finite(last) ? reported-last : 0;
+    const moved=!held && finite(reported) && finite(last) ? reported-last : 0;
     tip=clamp(memory.tip+moved,lo,hi);
   } else tip=same && memory.tip>lo && memory.tip<hi ? memory.tip : reference;
 

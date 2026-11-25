@@ -30,6 +30,14 @@ test('filament_position moves the tip only within a state, never while homing, a
   {filament_pos:9,filament_position:-500},{filament_pos:3,filament_position:-900}]).map(r=>r.tip);
  assert.deepEqual(tips,[740,735,735,732,730,350]);
 });
+test('the live position is used in place of the commanded one, and through a homing move',()=>{
+ const homing={endstops:[],triggered:false};
+ const tips=run([{filament_pos:9,filament_position:10,filament_position_live:0},
+  {filament_pos:9,filament_position:10,filament_position_live:4},
+  {filament_pos:9,filament_position:200,filament_position_live:7,homing},
+  {filament_pos:9,filament_position:10,filament_position_live:10}]).map(r=>r.tip);
+ assert.deepEqual(tips,[740,744,747,750]);
+});
 test('an unload driven by Bowden progress never moves the tip forward',()=>{
  const tips=run([{filament_pos:10},{filament_pos:9},{filament_pos:5},{filament_pos:3,bowden_progress:100},
   {filament_pos:3,bowden_progress:50},{filament_pos:3,bowden_progress:6},{filament_pos:3},{filament_pos:1},{filament_pos:0}]).map(r=>r.tip);
