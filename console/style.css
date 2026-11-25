@@ -399,7 +399,7 @@ select option:disabled, [data-theme="dark"] select option:disabled { color: #8a9
 .connection-status[data-state="pending"], .connection-status[data-state="warning"] { --dot: #e6a23c; }
 .connection-status[data-state="offline"] { --dot: #4f86c6; }
 .connection-status[data-state="disconnected"] { --dot: #e5677b; }
-#scene-macros { display: flex; flex-wrap: wrap; gap: 0 18px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+#scene-macros { display: flex; flex-wrap: wrap; gap: 0 34px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 #scene-macros .macro-label { opacity: .65; }
 #scene-macros .macro-name { display: block; }
 #scene-macros [data-parameter] { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
