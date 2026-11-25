@@ -102,3 +102,13 @@ test('configuration read at startup is kept when a status update arrived first',
 test('the mmu subscription asks for every field except the encoder, which has its own object',()=>{
  assert.deepEqual(liveMmuFields({gate:1,encoder:{encoder_pos:1},operation:''}),['gate','operation']);
 });
+test('a loaded filament parked with a retraction is drawn back from the melt it left in the nozzle',()=>{
+ const r=new LiveState();r.accept(status(),1);
+ const loaded={mmu:{filament_pos:10,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:true}}};
+ const full=r.accept(loaded,2);
+ assert.equal(full.tips[full.gate],full.layout.nozzle);
+ const parked=r.accept({'gcode_macro _MMU_PARK':{retracted_length:4}},3);
+ assert.equal(parked.tips[parked.gate],parked.layout.nozzle-parked.filament.residual_mm-4);
+ assert.equal(parked.tip_shapes[parked.gate],'cone');assert.equal(parked.filament.retracted_length,4);
+ assert.equal(r.accept({'gcode_macro _MMU_PARK':{retracted_length:0}},4).tips[parked.gate],parked.layout.nozzle);
+});

@@ -1,6 +1,7 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
 import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, gateChanged, liveMmuFields} from './live-state.js';
 import {lastingWarnings} from './live-tip.js';
+import {pauseStatus} from './pause-status.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
@@ -76,6 +77,13 @@ function sourceMode() {
   $('sidebar-playback').hidden=store.viewMode==='live';
   $('trace').closest('.card').hidden=store.viewMode==='live';
   $('status-capture-card').hidden=store.viewMode!=='live' || store.offline;
+  // Dimensions come from configuration; a subscription view starts uncluttered
+  if (store.dimensionsFor!==store.viewMode) {
+    store.dimensionsFor=store.viewMode;
+    $('show-dimensions').checked=store.viewMode!=='live';
+    $('scene').classList.toggle('hide-dimensions',store.viewMode==='live');
+  }
+  $('debug-settings').hidden=store.viewMode==='live';
   // Live status is always real time
   for (const id of ['compress-bowden','compress-purge']) $(id).closest('label').hidden=store.viewMode==='live';
   $('recording-name').hidden = !store.offline;
@@ -87,6 +95,18 @@ function sourceMode() {
   $('live').setAttribute('aria-label', $('live').dataset.tooltip);
   renderWarning();
 }
+
+// The red box: an MMU pause, with what it means for the heater and the idle timeout
+function renderPause() {
+  const live=store.viewMode==='live' && !store.offline && store.socket?.readyState===1 && store.liveTarget;
+  const now=performance.now()/1000;
+  const result=live ? pauseStatus(store.liveState.objects,store.liveTarget.filament?.extruder,store.pauseMemory,now,
+    store.liveState.eventtime+now-store.liveReceived) : {memory:null,text:''};
+  store.pauseMemory=result.memory;
+  $('filament-error').hidden=!result.text;
+  $('filament-error-message').textContent=result.text;
+}
+setInterval(renderPause,1000);
 
 // A notice (blue, "i") and a warning (amber, "!") each have their own box, stacked
 function renderWarning(warnings=[], notice=null) {
@@ -255,10 +275,10 @@ async function subscribeLive() {
   const startup=(await rpc('printer.objects.query',{objects:{configfile:['settings'],save_variables:['variables']}})).status;
   const config=liveMachine(startup);
   const references=new Set(Object.values(config?.units || {}).flatMap(u=>[u.extruder.name,...(u.heaters || [])]));
-  const wanted=Object.fromEntries(objects.filter(n=>references.has(n) || n==='mmu' || n==='save_variables' ||
+  const wanted=Object.fromEntries(objects.filter(n=>references.has(n) || n==='mmu' || n==='save_variables' || n==='idle_timeout' ||
     /^mmu_(encoder|buffer|extruder|toolhead|espooler) /.test(n) || /:filament_proportional$/.test(n) ||
-    /^(extruder\d*|heater_generic .+|gcode_macro .+)$/.test(n)).map(n=>[n,n.startsWith('gcode_macro ') ? ['blade_pos','cutter_before_extruder','cooling_tube_position','cooling_tube_length']
-      : /^(extruder\d*|heater_generic .+)$/.test(n) ? ['target'] : null]));
+    /^(extruder\d*|heater_generic .+|gcode_macro .+)$/.test(n)).map(n=>[n,n.startsWith('gcode_macro ') ? ['blade_pos','cutter_before_extruder','cooling_tube_position','cooling_tube_length','retracted_length']
+      : /^extruder\d*$/.test(n) ? ['target','temperature'] : /^heater_generic .+$/.test(n) ? ['target'] : null]));
   wanted.save_variables=['variables'];
   Object.assign(wanted,await unitObjectsWanted(objects));
   // Everything else in mmu, so Status capture shows every change
@@ -271,6 +291,7 @@ async function subscribeLive() {
 }
 function acceptLive(delta,time) {
   const next=store.liveState.accept(delta,time);
+  if (next) store.liveReceived=performance.now()/1000;
   if (!next) { if (!store.liveTarget) $('mode').textContent='Live view · Waiting for MMU configuration'; return; }
   const previous=store.liveTarget;
   if (store.setup?.connection_kind==='live_machine' || store.liveState.objects.configfile) toolheadPanel.show(toolheadObjects(store.liveState.objects));
@@ -693,6 +714,7 @@ function renderScene() {
   const {warnings, unitSensors}=scene.render(view, sceneSettings());
   renderMacros(view.state, !store.offline && isSimulator());
   const live=store.viewMode==='live';
+  renderPause();
   renderWarning(live ? lastingWarnings(store.liveWarnings,store.liveTarget?.live_warnings || [],performance.now(),view.state.action==='Idle') : warnings, store.viewMode==='playback' ? selectorNotice(store.events, view.event, Boolean(store.playing), store.live && !store.paused) : null);
   renderSensors(unitSensors, {offline:store.offline, atLatest:view.atLatest, editable:!store.busy && isSimulator(),
     onToggle:(name, enable)=>action(async () => {

@@ -1040,3 +1040,13 @@ test('a preload park on another sensor is drawn at its own place, before the unl
  assert.equal(switchFilamentDistance(-100,10,-100,550,400,scale,null,300,{position:-100,distance:350}),
   switchFilamentDistance(-100,10,-100,550,400,scale,null,300));
 });
+test('a gate change between a virtual selector\'s own gates starts at once, with no retract or fade to wait for',()=>{
+ const gate=(g,unit='u',type='VirtualSelector')=>({gate:g,unit,selector_type:type,tips:[],sensors:{},mmu_gripped:true});
+ const own={kind:'gate_changed',before:gate(0),state:gate(2)};
+ assert.equal(duration(own),1350);
+ assert.ok(playbackFrame(own,135,1350).state.gate_slide>0);
+ const rack={kind:'gate_changed',before:gate(0,'u','LinearSelector'),state:gate(2,'u','LinearSelector')};
+ assert.equal(duration(rack),2950);
+ assert.equal(playbackFrame(rack,135,2950).state.gate_slide,0);
+ assert.equal(duration({kind:'gate_changed',before:gate(0,'a'),state:gate(5,'b')}),2950);
+});
