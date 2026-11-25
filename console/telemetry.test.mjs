@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {TelemetryReplay,parseTelemetry,applyDelta} from './telemetry.js';
 import {spoolPercentage} from './scene-state.js';
-import {orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
+import {EJECT_TAIL_MS,ejectedGate,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
 const fixture=name=>JSON.parse(fs.readFileSync(new URL(`./fixtures/${name}.json`,import.meta.url)));
 const header=()=>structuredClone(fixture('ercf-vvd')[0]);
 test('spool fill uses known weights, including zero, and rejects unknown weights',()=>{
@@ -1076,4 +1076,21 @@ test('an eject from the preload park only ever draws the filament back, and leav
  assert.equal(after.gate_status[0],0);assert.equal(after.spool_percentages[0],null);
  assert.equal(spoolFill(after,0),0);                       // Happy Hare cleared the gate's weight with the eject
  assert.equal(spoolFill({spool_percentages:[null],gate_status:[1]},0),100);
+});
+test('an eject plays on past its move: the filament withdraws into its spool, then the spool fades to empty',()=>{
+ const r=new TelemetryReplay();r.accept(fixture('boxturtle-eject'));
+ const [homing,eject]=r.events.filter(e=>e.kind==='movement');
+ assert.equal(ejectedGate(homing),null);assert.equal(ejectedGate(eject),0);
+ const ms=duration(eject), move=ms-EJECT_TAIL_MS;
+ assert.equal(duration(homing),duration({...homing}));assert.ok(move>0);
+ const at=t=>playbackFrame(eject,t,ms).state;
+ assert.deepEqual(at(move/2).gate_eject,{gate:0,withdraw:0,fade:0});   // Nothing of the tail during the move itself
+ // Through the tail the gate still has its filament, colour and weight
+ const tail=[0.1,0.6,0.9].map(f=>at(move+f*EJECT_TAIL_MS));
+ for (const s of tail) { assert.equal(s.gate_status[0],1);assert.equal(s.gate_colors[0],'cac60c');assert.equal(Math.round(s.tips[0]),-150); }
+ assert.ok(tail[0].gate_eject.withdraw>0 && tail[0].gate_eject.fade===0);
+ assert.deepEqual([tail[1].gate_eject.withdraw,tail[2].gate_eject.withdraw],[1,1]);
+ assert.ok(tail[2].gate_eject.fade>tail[1].gate_eject.fade && tail[2].gate_eject.fade<1);
+ const done=at(ms);
+ assert.equal(done.gate_status[0],0);assert.equal(done.gate_eject,undefined);
 });

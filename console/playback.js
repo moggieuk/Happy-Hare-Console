@@ -372,6 +372,14 @@ export function motionFraction(event, timeFraction) {
 const gripChanges = event => event.kind === 'selector_move' && event.before
   && (event.settled_state || event.state).mmu_gripped !== event.before.mmu_gripped;
 
+// A move that leaves its gate empty has ejected the filament. Its playback carries on past the move: the filament
+// is drawn on into its spool, then the spool fades to the empty one the gate is left with.
+export const EJECT_TAIL_MS=1500;
+export function ejectedGate(event) {
+  const a=event.before, b=event.state, gate=a?.gate;
+  return event.kind === 'movement' && gate >= 0 && a.gate_status?.[gate] !== undefined && a.gate_status[gate] !== 0
+    && b?.gate_status?.[gate] === 0 ? gate : null;
+}
 export function duration(event, compressBowden = false, compressPurge = false) {
   if (event.kind === 'gate_changed') return gateDuration(event);
   if (event.kind === 'cut' || event.kind === 'release') return 650;
@@ -393,7 +401,7 @@ export function duration(event, compressBowden = false, compressPurge = false) {
   if ((event.state?.extruded_mm || 0) > (event.before?.extruded_mm || 0)) seconds *= compressPurge ? .5 : 2;
   // Let the detached purge fall visibly even when the releasing retract is brief.
   const releasingPurge = (event.state?.purge_base_mm || 0) > (event.before?.purge_base_mm || 0);
-  return Math.max(releasingPurge ? 0.65 : 0.12,seconds)*1000;
+  return Math.max(releasingPurge ? 0.65 : 0.12,seconds)*1000+(ejectedGate(event) === null ? 0 : EJECT_TAIL_MS);
 }
 
 // The complete gate map entry for one spool, one "label: value" line each. Unset values are left out.
@@ -995,8 +1003,17 @@ export function playbackFrame(event, elapsed, movementMs, selectionGrip = event.
     else if (t<slideEnd+fade) { fraction=.75; fullOpacity=(t-slideEnd)/fade; }
     else fraction=advance ? .75+.25*(t-slideEnd-fade)/advance : 1;
     fraction=clamp01(fraction);
-  } else fraction=motionFraction(event,movementMs ? Math.min(1,elapsed/movementMs) : 1);
-  let state=interpolate(event,fraction);
+  }
+  const ejecting=event.kind === 'movement' && movementMs > EJECT_TAIL_MS ? ejectedGate(event) : null;
+  const moveMs=ejecting === null ? movementMs : movementMs-EJECT_TAIL_MS;
+  if (event.kind !== 'gate_changed') fraction=motionFraction(event,moveMs ? Math.min(1,elapsed/moveMs) : 1);
+  const tail=ejecting !== null && elapsed < movementMs;
+  // The gate keeps its filament's colour and its spool until the tail has played out
+  let state=interpolate(event,tail ? Math.min(fraction,1-1e-9) : fraction);
+  if (tail) {
+    const t=clamp01((elapsed-moveMs)/EJECT_TAIL_MS), ease=x=>x*x*(3-2*x);
+    state={...state,gate_eject:{gate:ejecting,withdraw:ease(clamp01(t/.55)),fade:ease(clamp01((t-.55)/.45))}};
+  }
   if (event.kind === 'gate_changed' && elapsed < movementMs) {
     // Keep the gears released through retreat, both fades, the slide, and advance.
     state={...state,gate_full_opacity:fullOpacity,

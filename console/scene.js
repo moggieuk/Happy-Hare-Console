@@ -193,7 +193,8 @@ function measure(c) {
   const feedFront=virtual ? gateIndex => {
     const spoolBottom=549.6+mmuOffset-spoolWindingRadius(spoolFill(s,gateIndex))*3.3;
     const parkEnd=virtual.bottom-virtual.parkDistance+(s.tip_shapes?.[gateIndex]==='cone' ? toolheadHeight/(end-entry) : 0);
-    return spoolBottom-(spoolBottom-parkEnd)*(s.gate_feed ?? 1);
+    // An ejected filament is drawn back into its own spool
+    return spoolBottom-(spoolBottom-parkEnd)*(s.gate_eject?.gate === gateIndex ? 1-s.gate_eject.withdraw : s.gate_feed ?? 1);
   } : null;
   if (virtual) {
     let branches='';
@@ -385,12 +386,14 @@ function measure(c) {
   const fullTipOpacity=virtual ? 1 : s.gate_full_opacity ?? 1;
   const slidingRack=fullTipOpacity===0;
   const spoolTip=570-504;
-  const retractedTip=constrained.tip+(Math.min(constrained.tip,spoolTip)-constrained.tip)*(virtual ? (s.gate_feed===undefined ? 0 : 1-s.gate_feed) : s.gate_retraction || 0);
+  const ejecting=s.gate_eject?.gate === gate ? s.gate_eject : null;
+  const retractedTip=constrained.tip+(Math.min(constrained.tip,spoolTip)-constrained.tip)*Math.max(ejecting?.withdraw || 0,virtual ? (s.gate_feed===undefined ? 0 : 1-s.gate_feed) : s.gate_retraction || 0);
   const emptyGate=s.gate >= 0 && s.gate_status?.[gate] === 0 && s.filament_pos === 0;
   if (emptyGate) constrained.warnings=[];
   const selectedTip=withdrawnTip(gate,retractedTip,emptyGate,spoolTip);
   tip = tipAtPathDistance(selectedTip);
-  const shapedTipOpacity=fullTipOpacity*(virtual && selectedTip<virtual.distanceAtY(virtual.hub) ? branchOpacity : 1)*clamp01((selectedTip-(570-502))/28);
+  const ejectFade=ejecting ? 1-ejecting.fade : 1;   // The filament goes with its spool
+  const shapedTipOpacity=ejectFade*fullTipOpacity*(virtual && selectedTip<virtual.distanceAtY(virtual.hub) ? branchOpacity : 1)*clamp01((selectedTip-(570-502))/28);
   const start = s.tails[gate] === null ? 0 : pathDistance(s.tails[gate]), stop = Math.max(0,selectedTip-coneOffset);
   const macroUnit=s.units?.indexOf(s.unit) ?? 0;
   const macroParams=s.configuration?.parameters?.[macroUnit] || {};
@@ -506,7 +509,7 @@ function rack(c) {
       const branch=virtual?.branches.find(branch=>branch.gate===index);
       if (branch && percent>0 && s.gate_status?.[index]!==0) {
         const top=470+mmuOffset, bottom=y-spoolWindingRadius(percent)*spoolScale, feedTop=Math.min(bottom,Math.max(top,feedFront(index)));
-        const opacity=(.2+.3*selectionLit(index))*endReach();
+        const opacity=(.2+.3*selectionLit(index))*endReach()*(s.gate_eject?.gate === index ? 1-s.gate_eject.fade : 1);
         svg += `<defs><linearGradient id="spool-feed-fade-${index}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${top}" y2="${bottom}"><stop stop-color="#${color}" stop-opacity="${opacity}"/><stop offset="1" stop-color="#${color}" stop-opacity="0"/></linearGradient></defs><path data-part="virtual-spool-feed" data-gate="${index}" d="M${branch.x} ${feedTop} V${bottom}" stroke="url(#spool-feed-fade-${index})" stroke-width="7" fill="none"/>`;
       }
       const knownWeight=Number.isFinite(s.spool_percentages?.[index]);
@@ -515,7 +518,7 @@ function rack(c) {
       svg += `<defs><linearGradient id="spool-shelf-edge-${index}" gradientUnits="userSpaceOnUse" x1="0" y1="${shelfY-3}" x2="0" y2="${shelfY}"><stop stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient><mask id="spool-shelf-mask-${index}" maskUnits="userSpaceOnUse" x="${x-80}" y="${y-70}" width="160" height="150"><rect x="${x-80}" y="${y-70}" width="160" height="150" fill="url(#spool-shelf-edge-${index})"/></mask></defs><g mask="url(#spool-shelf-mask-${index})">`;
       svg += `<g data-part="espooler" data-gate="${index}" data-active="${active}" data-fill-percent="${percent}" data-tooltip="${escape(title)}" transform="translate(${x} ${y}) scale(${spoolScale})" filter="url(#spool-separation-shadow)">`;
       spoolRequests.set(index,{idPrefix:`gate-${index}`, style:spoolStyle, color,
-        fillPercent:percent, showFillPercent:knownWeight, shadowStyle:settings.spoolRealism ? 'blur' : 'crisp',windingLines:settings.spoolRealism, viewAngle:spoolViewAngle, ...spoolMotion(index,operation),
+        fillPercent:percent, showFillPercent:knownWeight, windingOpacity:s.gate_eject?.gate === index ? 1-s.gate_eject.fade : 1, shadowStyle:settings.spoolRealism ? 'blur' : 'crisp',windingLines:settings.spoolRealism, viewAngle:spoolViewAngle, ...spoolMotion(index,operation),
         glow:index===s.gate ? Math.max(0,1-Math.abs(index-focus)) : 0});
       svg += '</g></g>';
     }
@@ -937,7 +940,7 @@ function finish(c) {
       line.setAttribute('x', bounds.x + bounds.width/2);
   }
   $("filament").setAttribute("stroke-dasharray", filamentDash);
-  $("filament").setAttribute("opacity", fullTipOpacity);
+  $("filament").setAttribute("opacity", fullTipOpacity*(s.gate_eject?.gate === gate ? 1-s.gate_eject.fade : 1));
   $("filament").setAttribute("visibility", slidingRack || spoolFill(s,gate)===0 ? "hidden" : "visible");
   const encoderTitle = host.querySelector('.encoder-offset-title');
   if (encoderTitle) host.querySelector('.encoder-offset-value')
