@@ -19,7 +19,7 @@ test('timeline retains ticks but omits labels at thirty operations',()=>{
    assert.ok(markers.every(marker=>marker.label===''));
  }
 });
-import { changeLines, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
+import { changeLines, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, branchFade, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
 const state=(tip,on)=>({gate:0,tips:[tip],tails:[null],motors:{gear:tip},devices:{encoder:{distance:tip}},buffers:{},sensors:{toolhead:{state:on,position:5}}});
 test('sensor crosses at geometric position with exact endpoints',()=>{
  const e={before:state(0,false),state:state(10,true)};
@@ -1030,6 +1030,13 @@ test('compressing purge playback runs a purging move four times faster',()=>{
  assert.equal(duration(purge),4000);
  assert.equal(duration(purge,false,true),1000);
  assert.equal(duration({kind:'movement',duration:2},false,true),2000);
+});
+test('the selected path fades out and in over the same part of a gate change however far the gates are apart',()=>{
+ const at=(from,to,slide)=>branchFade({gate:slide<.5 ? from : to,gate_from:from,gate_to:to,gate_slide:slide,gate_focus:from+(to-from)*slide});
+ for (const [from,to] of [[0,1],[0,4],[5,2]])
+  assert.deepEqual([0,.125,.25,.5,.75,.875,1].map(slide=>at(from,to,slide)),[1,.5,0,0,0,.5,1]);
+ assert.equal(branchFade({gate:3}),1);
+ assert.equal(branchFade({gate:3,gate_focus:3.5}),.5);
 });
 test('a preload park on another sensor is drawn at its own place, before the unloaded park',()=>{
  const scale=position=>position;

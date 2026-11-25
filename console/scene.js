@@ -2,7 +2,7 @@
 // The main view: draws one scene state into the host <svg>. It reads nothing from the page outside the host and
 // changes nothing outside it; the caller passes what to draw (view) and how (settings).
 import { SpoolRenderer, renderSpool, spoolWindingRadius, espoolerActive } from './spool.js';
-import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, bowdenProgressLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, meltColor, retractionLabel, movingTip, visualTip, withdrawTip} from './playback.js';
+import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, branchFade, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, bowdenProgressLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, meltColor, retractionLabel, movingTip, visualTip, withdrawTip} from './playback.js';
 import {$, escape, short as sensorName, DEFAULT_COLOR, round1, clamp01, dimensionArrow, spanArrow} from './util.js';
 import {renderBuffer} from './buffer-view.js';
 import {measurePath} from './path-measure.js';
@@ -180,7 +180,7 @@ function measure(c) {
   const nozzleEntrance=`M${E-5.5} 435 Q${E-3.5} 435 ${E-3.5} 437 V449 H${E+3.5} V437 Q${E+3.5} 435 ${E+5.5} 435 Z`;
   const bodyTop = 181; // Fixed 254-unit housing, ending at y=435.
   const bowdenPath = guide.pathFrom(470+mmuOffset,435);
-  const branchOpacity=virtual ? Math.max(0,1-Math.abs(s.gate-(s.gate_focus ?? s.gate))) : 1;
+  const branchOpacity=virtual ? branchFade(s) : 1;
   const branchShade=Math.round(branchOpacity*255);
   // Only the gate being left and the gate being reached change brightness; gates passed over stay dim.
   const selectionLit=branchGate=>gateSelectionLit(s,branchGate);

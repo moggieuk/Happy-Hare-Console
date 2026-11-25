@@ -115,6 +115,15 @@ export function bowdenAttachment(detached, reach, offset, spacing, sliding=false
   return {detached:held,reach:held ? Math.min(reach,alignment) : reach};
 }
 
+// How bright the selected gate's path into the Bowden is. During a gate change it fades out over the first part
+// of the slide and back in over the last, the same however far apart the gates are.
+const BRANCH_FADE=.25;
+export function branchFade(state) {
+  if (state.gate_slide===undefined) return Math.max(0,1-Math.abs(state.gate-(state.gate_focus ?? state.gate)));
+  const arriving=state.gate===state.gate_to;
+  return clamp01(1-(arriving ? 1-state.gate_slide : state.gate_slide)/BRANCH_FADE);
+}
+
 // How selected a gate looks while the selection moves. Only the gate being left and the gate being reached
 // change; gates the selection passes over stay unselected.
 export function gateSelectionLit(state, gate) {
