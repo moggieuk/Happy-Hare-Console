@@ -10,7 +10,7 @@ const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255
 // Moonraker replaces individual status fields, including dictionary-valued fields.
 // Keep one current snapshot, never a history of subscription messages.
 export class LiveState {
-  constructor() { this.objects={}; this.eventtime=-Infinity; this.tip=null; }
+  constructor() { this.objects={}; this.eventtime=-Infinity; this.tip=null; this.unloaded=new Set(); }
   accept(delta,eventtime=0) {
     if (eventtime<this.eventtime) return null;
     this.eventtime=eventtime;
@@ -49,6 +49,8 @@ export class LiveState {
         output_power:['assist','rewind'].includes(status.espooler?.[g]) ? 1 : 0}]))};
     }
     const model=new SceneModel();
+    if (this.tip?.unit===unitName && this.tip.gate===m.gate && this.tip.pos>0 && m.filament_pos===0) this.unloaded.add(m.gate);
+    model.unloaded=this.unloaded;
     model.facts={printer:{mmu:m,mmu_machine:machine},macros};
     model.tips=Array(machine.num_gates).fill(-20);
     model.shapes=model.tips.map(()=>machine.form_tip_macro?.toLowerCase().includes('cut') ? 'square' : 'cone');

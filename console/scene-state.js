@@ -14,7 +14,8 @@ const endstopName=name=>short(name || '').replace(/_\d+$/,'');
 // Happy Hare marks a gate 'buffered' (2) once it has been unloaded from the toolhead; 'available' (1) is a preload.
 export function parkedAt(s, gate) {
   const a=s.encoder_reference, b=s.preload_reference;
-  return b && s.gate_status?.[gate] === 1 && (endstopName(b.endstop) !== endstopName(a.endstop) || b.parking !== a.parking)
+  // Happy Hare marks the gate buffered only after it reports the filament unloaded, so an unload seen here counts first
+  return b && s.gate_status?.[gate] === 1 && !s.unloaded_gates?.includes(gate) && (endstopName(b.endstop) !== endstopName(a.endstop) || b.parking !== a.parking)
     ? 'preload' : 'gate';
 }
 // Sensor positions at the gate are nominal, so a preload on another sensor is only known to lie before the unloaded park
@@ -30,6 +31,7 @@ export class SceneModel {
     this.fragments={}; this.hotends={}; this.bufferPositions={};
     this.excess={}; this.overshoot={}; this.cutter=false; this.mmuCutter=false; this.mmuOffcut=null; this.nozzles={};
     this.encoderTurns=null;
+    this.unloaded=new Set();   // Gates seen being unloaded: at the unloaded park whatever their status says yet
   }
   logicalTip(s, pos, manual=false) {
     const {extruder_entry:entry,extruder_gears:gears,nozzle} = s.layout;
@@ -60,6 +62,7 @@ export class SceneModel {
       this.excess[m.gate]=0;
       delete this.bufferPositions[m.gate];
     }
+    for (const g of this.unloaded) if (!(m.gate_status?.[g] >= 1)) this.unloaded.delete(g);
     const p=unit.toolhead.parameters, up=unit.parameters;
     const bowden=unit.bowden_lengths[m.gate];
     const gateEndstop=short(up.gate_homing_endstop || '').replace(/_\d+$/,'');
@@ -159,6 +162,7 @@ export class SceneModel {
       extruder_target_temperature:finite(extruder.target_temperature) ? extruder.target_temperature : null,
       mmu_gripped:mmuGripped,synced:[1,3].includes(m.sync_mode),drive_motors:m.drive_motors,motors:this.motors,
       encoder_reference:{endstop:up.gate_homing_endstop,offset:up.gate_endstop_to_encoder,parking:number(up.gate_parking_distance),overshoot:this.overshoot[m.gate] || 0},
+      unloaded_gates:[...this.unloaded],
       preload_reference:{endstop:up.gate_preload_endstop || up.gate_homing_endstop,parking:number(up.gate_preload_parking_distance,number(up.gate_parking_distance))},
       retained_segment:this.fragments[extruder.name] || null,extruded_mm:hotend.extruded,purge_base_mm:hotend.base,purge_transition:hotend.plan,
       nozzle_color:hotend.nozzle,nozzle_outlet_color:hotend.outlet ?? purgeOutletColor({purge_transition:hotend.plan},hotend.extruded),bowden_unabsorbed_mm:devices[`${m.unit}:buffer`]?.excess ?? (this.excess[m.gate] || 0),sensor_conflicts:[]});
