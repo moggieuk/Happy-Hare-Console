@@ -326,6 +326,7 @@ button.sensor-chip:disabled { cursor: default; }
 select option { font-weight: 400; color: #172f40; background: #fff; }
 [data-theme="dark"] #parameter optgroup { color: #f1f6fa; background: #304859; }
 [data-theme="dark"] select option { color: #e5edf3; background: #111c26; }
+select option:disabled, [data-theme="dark"] select option:disabled { color: #8a97a3; }
 #parameter option.parameter-section { color: #6e8190; font-size: 11px; font-weight: 500; }
 [data-theme="dark"] #parameter option.parameter-section { color: #8a9dab; }
 
@@ -398,9 +399,9 @@ select option { font-weight: 400; color: #172f40; background: #fff; }
 .connection-status[data-state="pending"], .connection-status[data-state="warning"] { --dot: #e6a23c; }
 .connection-status[data-state="offline"] { --dot: #4f86c6; }
 .connection-status[data-state="disconnected"] { --dot: #e5677b; }
-#scene-macros { font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+#scene-macros { display: flex; flex-wrap: wrap; gap: 0 18px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 #scene-macros .macro-label { opacity: .65; }
-#scene-macros .macro-name { display: block; margin-bottom: 10px; }
+#scene-macros .macro-name { display: block; }
 #scene-macros [data-parameter] { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 #scene-macros [data-parameter]:hover { text-decoration-style: solid; }
 .scene-alert { position: relative; box-sizing: border-box; padding: 12px 12px 10px 16px; border: 1px solid #c48b27; border-radius: 6px; background: #fff4d9; color: #65430e; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
