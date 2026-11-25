@@ -852,7 +852,8 @@ function cutters(c) {
     const pt = tube.getPointAtLength(onMmu ? schematicDistance(cutter.position) : progress(cutter.position) * length);
     const direction = onMmu ? 1 : -1;
     const bladeEvent = live ? playing?.event : null;
-    const pressed = bladeEvent && ['cut','release'].includes(bladeEvent.kind)
+    // A status subscription carries its own stroke: it has no cut and release events to time one from
+    const pressed = s.cutter_stroke ? s.cutter_stroke[cutter.kind] || 0 : bladeEvent && ['cut','release'].includes(bladeEvent.kind)
       ? bladeStroke(bladeEvent, playing?.fraction || 0, cutter.kind)
       : (onMmu ? s.mmu_cutter_pressed : s.cutter_pressed) ? 1 : 0;
     if (onMmu && pressed > 0) {

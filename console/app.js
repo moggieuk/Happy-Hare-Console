@@ -2,6 +2,7 @@ import {TelemetryStream, recordControl, connectionControls} from './telemetry-st
 import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, gateChanged, liveMmuFields} from './live-state.js';
 import {lastingWarnings} from './live-tip.js';
 import {pauseStatus} from './pause-status.js';
+import {actionMotion, settleMotion, withMotion, motionActive} from './live-action.js';
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
@@ -305,7 +306,7 @@ function acceptLive(delta,time) {
   if (!sliding) store.liveFrom=store.displayed;
   const sameGate=store.liveFrom?.unit===next.unit && store.liveFrom?.gate===next.gate && next.gate>=0;
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
-  next.motors={gear:(store.liveFrom?.motors.gear || 0)+(next.mmu_gripped ? distance : 0),
+  next.motors={gear:(store.liveFrom?.motors.gear || 0)+(next.mmu_gripped || next.synced ? distance : 0),
     extruder:(store.liveFrom?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)};
   store.liveTarget=next;
   if (!sliding) {
@@ -986,8 +987,12 @@ function drawFrame() {
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
   if (store.viewMode==='live' && store.liveTarget) {
     const progress=liveProgress(now-store.liveStart,store.liveDuration,store.liveSettled);
-    store.displayed=liveFrame(store.liveFrom,store.liveTarget,progress.fraction);
-    if (progress.draw || store.sceneDirty || store.liveTarget.homing) draw();
+    // The reported action plays for as long as it lasts
+    if (store.liveAction?.name!==store.liveTarget.action) store.liveAction={name:store.liveTarget.action,start:now};
+    store.liveMotion=settleMotion(store.liveMotion || {},actionMotion(store.liveAction.name,now-store.liveAction.start),now-(store.liveMotionAt ?? now));
+    store.liveMotionAt=now;
+    store.displayed=withMotion(liveFrame(store.liveFrom,store.liveTarget,progress.fraction),store.liveMotion);
+    if (progress.draw || store.sceneDirty || store.liveTarget.homing || motionActive(store.liveMotion)) draw();
     store.liveSettled=progress.settled;
   }
   if (store.viewMode==='playback' && store.live && !store.paused && store.events.length) {

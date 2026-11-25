@@ -60,7 +60,10 @@ export class LiveState {
       // A loaded filament parked with a retraction has left its melt in the nozzle, as a replayed retract shows it
       const parked=retracted>0 ? s.layout.nozzle-s.filament.residual_mm-retracted : null;
       if (parked!==null && m.filament_pos===10) model.shapes[m.gate]='cone';
-      const resolved=resolveTip(this.tip,status,s,pos=>pos===10 && parked!==null ? parked : model.logicalTip(s,pos,true),
+      // A cut leaves the filament's end at the blade
+      const blade=s.cutters.find(cutter=>cutter.kind==='toolhead' && !cutter.before_extruder)?.position;
+      const resolved=resolveTip(this.tip,status,s,pos=>pos===10 && parked!==null ? parked
+        : pos===9 && Number.isFinite(blade) ? blade : model.logicalTip(s,pos,true),
         s.layout.extruder_gears-(machine.units[unitName].bowden_lengths[m.gate] || 700));
       this.tip=resolved.memory;
       model.tips[m.gate]=resolved.tip;
