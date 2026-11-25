@@ -680,7 +680,6 @@ $("restart").onclick = () =>
     await refresh();
     simulatorMessage("Fresh profile session started.");
   });
-$('clear-status-capture').onclick=clearCapture;
 $("load-config").onclick = () => $("files").click();
 $("files").onchange = () =>
   simulatorAction(async () => {
