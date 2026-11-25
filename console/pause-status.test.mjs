@@ -33,6 +33,10 @@ test('a printer that has not run anything is idle without a timeout having expir
  assert.doesNotMatch(r.text,/Idle timeout/);assert.match(r.text,/heater off in 10:00/);
  assert.match(pauseStatus(objects(paused,{idle_timeout:{state:'Ready'}}),'extruder',r.memory,65).text,/Idle timeout in about 19:59:00/);
 });
+test('a heater-off time published by Happy Hare is counted down exactly, even for a pause already under way',()=>{
+ const r=pauseStatus(objects({...paused,hotend_off_time:5000}),'extruder',null,500,4877.4);
+ assert.match(r.text,/Extruder heater off in 2:03\n/);
+});
 test('a pause already under way is given its limits, not a countdown',()=>{
  const r=pauseStatus(objects(paused),'extruder',null,500);
  assert.match(r.text,/Extruder heater off within 10:00\nIdle timeout within 20:00:00/);

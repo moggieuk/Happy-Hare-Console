@@ -8,7 +8,8 @@ const degrees=value=>`${Math.round(value)}°C`;
 // What an MMU pause means for the printer, from subscribed status. Klipper publishes neither timer's deadline, so the
 // countdowns run from when the pause (or a change of the idle timeout) was seen here: `memory` carries those moments,
 // and a pause already under way when the view connected can only be given its limits. `now` is in seconds.
-export function pauseStatus(objects, extruder, memory, now) {
+// Happy Hare may publish when the heater goes off (mmu.hotend_off_time), on Klipper's clock (`klipperNow`), which makes that one exact.
+export function pauseStatus(objects, extruder, memory, now, klipperNow=null) {
   const mmu=objects.mmu || {}, state=mmu.print_state;
   if (!['paused','pause_locked'].includes(state)) return {memory:{paused:false},text:''};
   const settings={...objects.configfile?.settings?.mmu_parameters,...mmu.config_changes?.mmu_parameters};
@@ -28,6 +29,7 @@ export function pauseStatus(objects, extruder, memory, now) {
     if (target<=0) lines.push(`Extruder heater is off${reading}`);
     else if (!locked) lines.push(Number.isFinite(temperature) && temperature<target-2
       ? `Extruder heating to ${degrees(target)}${reading}` : `Extruder at ${degrees(target)}`);
+    else if (Number.isFinite(mmu.hotend_off_time) && Number.isFinite(klipperNow)) lines.push(`Extruder heater off in ${clock(mmu.hotend_off_time-klipperNow)}`);
     else if (Number.isFinite(off)) lines.push(next.observed ? `Extruder heater off in ${clock(off-(now-next.since))}`
       : `Extruder heater off within ${clock(off)}`);
   }

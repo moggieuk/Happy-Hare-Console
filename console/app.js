@@ -99,8 +99,9 @@ function sourceMode() {
 // The red box: an MMU pause, with what it means for the heater and the idle timeout
 function renderPause() {
   const live=store.viewMode==='live' && !store.offline && store.socket?.readyState===1 && store.liveTarget;
-  const result=live ? pauseStatus(store.liveState.objects,store.liveTarget.filament?.extruder,store.pauseMemory,performance.now()/1000)
-    : {memory:null,text:''};
+  const now=performance.now()/1000;
+  const result=live ? pauseStatus(store.liveState.objects,store.liveTarget.filament?.extruder,store.pauseMemory,now,
+    store.liveState.eventtime+now-store.liveReceived) : {memory:null,text:''};
   store.pauseMemory=result.memory;
   $('filament-error').hidden=!result.text;
   $('filament-error-message').textContent=result.text;
@@ -290,6 +291,7 @@ async function subscribeLive() {
 }
 function acceptLive(delta,time) {
   const next=store.liveState.accept(delta,time);
+  if (next) store.liveReceived=performance.now()/1000;
   if (!next) { if (!store.liveTarget) $('mode').textContent='Live view · Waiting for MMU configuration'; return; }
   const previous=store.liveTarget;
   if (store.setup?.connection_kind==='live_machine' || store.liveState.objects.configfile) toolheadPanel.show(toolheadObjects(store.liveState.objects));
