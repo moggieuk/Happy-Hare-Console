@@ -230,7 +230,7 @@ function measure(c) {
   const pathDistance = position => progress(position)*length;
   const extruderTarget=s.extruder_target_temperature ?? view.extruderTarget;
   if (Number.isFinite(extruderTarget))
-    svg += `<text id="extruder-temperature" x="${E+42}" y="426" text-anchor="end" font-size="9" fill="var(--scene-text, #304c65)" data-tooltip="Extruder target temperature">${round1(extruderTarget)}°C</text>`;
+    svg += `<text id="extruder-temperature" x="${E-42}" y="426" text-anchor="start" font-size="9" fill="var(--scene-text, #304c65)" data-tooltip="Extruder target temperature">${round1(extruderTarget)}°C</text>`;
   const unitSensors = Object.entries(s.sensors).filter(([name]) => {
     if (name === `${s.unit}:mmu_gear_touch`) return true;
     if (s.active_sensors && !(virtual && /^mmu_(entry|exit)(?:_\d+)?$/.test(sensorName(name)))) return s.active_sensors.includes(name);
