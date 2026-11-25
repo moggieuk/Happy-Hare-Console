@@ -226,6 +226,10 @@ test('encoder reading persists through states and respects replay and unit',()=>
  assert.equal(lastEncoderReading(events,events[2],'unit0'),15.3);
  assert.equal(lastEncoderReading(events,events[0],'unit1'),null);
 });
+test('a status subscription shows the encoder reading its current state holds',()=>{
+ assert.equal(lastEncoderReading([],undefined,'unit0',{unit:'unit0',devices:{'unit0:encoder':{encoder_pos:41.5}}}),41.5);
+ assert.equal(lastEncoderReading([],undefined,'unit0',{unit:'unit0',devices:{}}),null);
+});
 test('cut fragment stays on retraction and moves only after contact',()=>{
  const a={...state(60,false),layout:{nozzle:100},retained_segment:{start:70,end:100,color:'ff0000'}};
  const b={...a,tips:[40]};

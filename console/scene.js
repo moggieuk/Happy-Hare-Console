@@ -732,7 +732,7 @@ function gears(c) {
 
 // Encoder and buffer
 function devices(c) {
-  let {live, playing, played, events, sensorPulse, e, s, end, path, dimensionLink, svg, unitSensors, encoderAnchor, sensorPoint, isBufferSensor, sensorFill, encoderPoint, start}=c;
+  let {viewMode, live, playing, played, events, sensorPulse, e, s, end, path, dimensionLink, svg, unitSensors, encoderAnchor, sensorPoint, isBufferSensor, sensorFill, encoderPoint, start}=c;
   for (const [name, d] of Object.entries(s.devices)) {
     if (name.includes(':') && name.split(':')[0] !== s.unit) continue;
     if (name.endsWith(":encoder")) {
@@ -748,7 +748,7 @@ function devices(c) {
       }
       // Device positions are interpolated alongside each captured move.
       const angle = gearAngle(d.rotation ?? d.encoder_pos ?? 0, 1, 11);
-      const encoderReading = lastEncoderReading(events, live && playing ? events.find(event => event.seq === played) : e, s.unit);
+      const encoderReading = lastEncoderReading(events, live && playing ? events.find(event => event.seq === played) : e, s.unit, viewMode==='live' ? s : null);
       svg += `<g id="encoder-marker"><g transform="rotate(${angle} ${pt.x} ${pt.y})"><circle cx="${pt.x}" cy="${pt.y}" r="11" fill="#faf4d9" stroke="#9d8e52"/><path d="M${pt.x - 7} ${pt.y} H${pt.x + 7} M${pt.x} ${pt.y - 7} V${pt.y + 7}" stroke="#9d8e52"/><circle cx="${pt.x - 7}" cy="${pt.y}" r="2" fill="#9d8e52"/></g><text x="${pt.x + 25}" y="${pt.y + 4}" text-anchor="start" font-size="11" fill="var(--scene-text, #304c65)">Encoder</text>${Number.isFinite(encoderReading) ? `<text id="encoder-measurement" x="${pt.x-25}" y="${pt.y+4}" text-anchor="end" font-size="11" fill="var(--scene-text, #304c65)">${encoderReading.toFixed(1)}mm</text>` : ''}</g>`;
     }
     if (name.endsWith(":buffer")) {
