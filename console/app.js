@@ -1155,7 +1155,9 @@ function drawFrame() {
   updateLiveIndicator();
   const now=animationNow();
   const spoolRunning=Boolean(store.playing) || (store.live && !store.paused);
-  const spoolMoving=scene.advanceSpools(now, {espoolers:store.displayed?.espoolers, running:spoolRunning, session:store.session,
+  // An event jumped to is shown from its own state: what was last played is not what is on screen
+  const jumped=store.viewMode==='playback' && !store.live ? store.events[store.cursor] : null;
+  const spoolMoving=scene.advanceSpools(now, {espoolers:(jumped ? jumped.settled_state || jumped.state : store.displayed)?.espoolers, running:spoolRunning, session:store.session,
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
   const replayed=store.viewMode==='live' ? store.replay.frame(now) : null;
   if (replayed) {

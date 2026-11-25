@@ -325,7 +325,8 @@ function measure(c) {
           : virtual && endstop==='mmu_shared_exit' && s.encoder_reference.parking<0 ? virtual.parkDistance : null,
         exitSensor && exitSensor !== sensor && s.preload_reference?.endstop?.split(':').at(-1).replace(/_\d+$/,'') === 'mmu_exit'
           ? {position:preloadPark(s,sensor[1].position,exitSensor[1].position),distance:virtual ? virtual.parkDistance
-            : mmuDistanceAtY(sensorPoint(...exitSensor).y)+Math.sign(s.preload_reference.parking)*8} : null);
+            : mmuDistanceAtY(sensorPoint(...exitSensor).y)+Math.sign(s.preload_reference.parking)*8,
+            sensor:{position:preloadPark(s,sensor[1].position,exitSensor[1].position)-s.preload_reference.parking,distance:mmuDistanceAtY(sensorPoint(...exitSensor).y)}} : null);
       schematicTip = schematicDistance(tip);
       tip = tipAtPathDistance(schematicTip);
       drawnAt = schematicDistance;

@@ -1062,3 +1062,13 @@ test('a gate change between a virtual selector\'s own gates starts at once, with
  assert.equal(playbackFrame(rack,135,2950).state.gate_slide,0);
  assert.equal(duration({kind:'gate_changed',before:gate(0,'a'),state:gate(5,'b')}),2950);
 });
+test('homing back off the sensor a preload parked beyond ends where that sensor is drawn',()=>{
+ // Homes on a shared exit at 10 (drawn at 400), unloaded park drawn at 300; preload park at -100 drawn at 188, its sensor at -110 drawn at 180
+ const at=x=>switchFilamentDistance(x,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:180}});
+ assert.equal(at(-100),188);
+ assert.equal(at(-110),180);
+ assert.ok(at(-105)>180 && at(-105)<188);
+ assert.ok(at(-150)<180);                                   // An eject carries on back from there
+ // A sensor drawn level with or past the park is kept behind it
+ assert.equal(switchFilamentDistance(-110,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:200}}),180);
+});

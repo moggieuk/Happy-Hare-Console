@@ -683,7 +683,12 @@ export function switchFilamentDistance(tip, home, parking, entry, sensorDistance
     knots.push([parked,distance]);
   }
   // A preload on another sensor: known only to lie before every other place
-  if (preload && knots.every(([position,landmark])=>preload.position < position && preload.distance < landmark)) knots.push([preload.position,preload.distance]);
+  if (preload && knots.every(([position,landmark])=>preload.position < position && preload.distance < landmark)) {
+    knots.push([preload.position,preload.distance]);
+    // The sensor it parked beyond is behind it, where that sensor is drawn: homing back off it ends there
+    if (preload.sensor && preload.sensor.position < preload.position)
+      knots.push([preload.sensor.position,Math.min(preload.sensor.distance,preload.distance-8)]);
+  }
   // A parked tip can coincide with the encoder.
   for (let i=knots.length-1;i>0;i--) if (knots.slice(0,i).some(k=>k[0]===knots[i][0])) knots.splice(i,1);
   knots.sort((a,b)=>a[0]-b[0]);
