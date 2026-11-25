@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {TelemetryReplay,parseTelemetry,applyDelta} from './telemetry.js';
 import {spoolPercentage} from './scene-state.js';
-import {EJECT_TAIL_MS,ejectedGate,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
+import {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,EJECT_FADE_MS,ejectedGate,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
 const fixture=name=>JSON.parse(fs.readFileSync(new URL(`./fixtures/${name}.json`,import.meta.url)));
 const header=()=>structuredClone(fixture('ercf-vvd')[0]);
 test('spool fill uses known weights, including zero, and rejects unknown weights',()=>{
@@ -1086,7 +1086,8 @@ test('an eject plays on past its move: the filament withdraws into its spool, th
  const at=t=>playbackFrame(eject,t,ms).state;
  assert.deepEqual(at(move/2).gate_eject,{gate:0,withdraw:0,fade:0});   // Nothing of the tail during the move itself
  // Through the tail the gate still has its filament, colour and weight
- const tail=[0.1,0.6,0.9].map(f=>at(move+f*EJECT_TAIL_MS));
+ const tail=[EJECT_WITHDRAW_MS*.2,EJECT_WITHDRAW_MS+EJECT_FADE_MS*.2,EJECT_WITHDRAW_MS+EJECT_FADE_MS*.8].map(t=>at(move+t));
+ assert.ok(EJECT_WITHDRAW_MS>2*EJECT_FADE_MS);      // The withdrawal is the slow part
  for (const s of tail) { assert.equal(s.gate_status[0],1);assert.equal(s.gate_colors[0],'cac60c');assert.equal(Math.round(s.tips[0]),-150); }
  assert.ok(tail[0].gate_eject.withdraw>0 && tail[0].gate_eject.fade===0);
  assert.deepEqual([tail[1].gate_eject.withdraw,tail[2].gate_eject.withdraw],[1,1]);

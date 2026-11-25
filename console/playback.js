@@ -374,7 +374,7 @@ const gripChanges = event => event.kind === 'selector_move' && event.before
 
 // A move that leaves its gate empty has ejected the filament. Its playback carries on past the move: the filament
 // is drawn on into its spool, then the spool fades to the empty one the gate is left with.
-export const EJECT_TAIL_MS=1500;
+export const EJECT_WITHDRAW_MS=1650, EJECT_FADE_MS=675, EJECT_TAIL_MS=EJECT_WITHDRAW_MS+EJECT_FADE_MS;
 export function ejectedGate(event) {
   const a=event.before, b=event.state, gate=a?.gate;
   return event.kind === 'movement' && gate >= 0 && a.gate_status?.[gate] !== undefined && a.gate_status[gate] !== 0
@@ -1011,8 +1011,8 @@ export function playbackFrame(event, elapsed, movementMs, selectionGrip = event.
   // The gate keeps its filament's colour and its spool until the tail has played out
   let state=interpolate(event,tail ? Math.min(fraction,1-1e-9) : fraction);
   if (tail) {
-    const t=clamp01((elapsed-moveMs)/EJECT_TAIL_MS), ease=x=>x*x*(3-2*x);
-    state={...state,gate_eject:{gate:ejecting,withdraw:ease(clamp01(t/.55)),fade:ease(clamp01((t-.55)/.45))}};
+    const t=Math.max(0,elapsed-moveMs), ease=x=>x*x*(3-2*x);
+    state={...state,gate_eject:{gate:ejecting,withdraw:ease(clamp01(t/EJECT_WITHDRAW_MS)),fade:ease(clamp01((t-EJECT_WITHDRAW_MS)/EJECT_FADE_MS))}};
   }
   if (event.kind === 'gate_changed' && elapsed < movementMs) {
     // Keep the gears released through retreat, both fades, the slide, and advance.
