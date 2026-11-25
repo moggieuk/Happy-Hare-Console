@@ -35,17 +35,19 @@ export function resolveTip(memory,status,s,at,bowdenStart) {
     tip=clamp(memory.tip+moved,lo,hi);
   } else tip=same && memory.tip>lo && memory.tip<hi ? memory.tip : reference;
 
-  const kept=s.retained_segment;
+  const kept=s.retained_segment, endstop=short(s.encoder_reference?.endstop || '').replace(/_\d+$/,'');
   let lower=-Infinity, upper=Infinity;
   for (const [sensor,d] of Object.entries(s.sensors)) {
     const label=short(sensor).replace(/_\d+$/,'');
     if (!REPORTED.test(short(sensor)) || d.enabled===false || typeof d.state!=='boolean' || d.assumed || !finite(d.position)) continue;
     const fragment=Boolean(kept) && kept.start<=d.position && kept.end>=d.position;
-    if (PRESENCE.test(short(sensor))) {
+    // A gate sensor the gate does not home on is drawn at a nominal place: a parked filament may well reach it
+    const placed=PRESENCE.test(short(sensor)) && (!label.startsWith('mmu_') || label===endstop);
+    if (placed) {
       if (!d.state) upper=Math.min(upper,d.position);
       else if (!fragment) lower=Math.max(lower,d.position);
     }
-    if (d.state && !fragment && hi<d.position) warnings.push(`${name} but the ${label} sensor is triggered`);
+    if (placed && d.state && !fragment && hi<d.position) warnings.push(`${name} but the ${label} sensor is triggered`);
     // UNLOADED says nothing about a filament being there, and homing back to a sensor ends with it clear
     if (!d.state && pos>0 && lo>=d.position && !(lo===hi && lo===d.position)) warnings.push(`${name} but the ${label} sensor is clear`);
   }

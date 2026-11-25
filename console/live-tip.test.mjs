@@ -7,7 +7,7 @@ import {liveObjects as status} from './live-fixture.mjs';
 
 // A 700mm Bowden from a gate sensor at 0: extruder sensor 690, gears 700, toolhead sensor 730, nozzle 750
 const at=pos=>({'-1':-20,0:-10,1:0,2:0,3:350,4:700,5:690,6:700,7:715,8:730,9:740,10:750})[pos];
-const scene=(sensors={},extra={})=>({unit:'u',gate:0,gate_status:[2],retained_segment:null,
+const scene=(sensors={},extra={})=>({unit:'u',gate:0,gate_status:[2],retained_segment:null,encoder_reference:{endstop:'mmu_exit'},
  sensors:Object.fromEntries(Object.entries({mmu_exit_0:[0],extruder:[690],toolhead:[730],...sensors}).filter(([,v])=>v[1]!==undefined)
   .map(([name,[position,state]])=>[`u:${name}`,{position,state,enabled:true,assumed:false}])),...extra});
 const run=(steps,s=scene())=>{
@@ -54,6 +54,13 @@ test('sensors hold the tip and a state they contradict is reported',()=>{
  assert.deepEqual(run([{filament_pos:-1}])[0].warnings,['filament position is unknown']);
  assert.deepEqual(run([{filament_pos:3}],scene({},{gate_status:[0]}))[0].warnings,['IN BOWDEN but the gate is marked empty']);
  assert.deepEqual(run([{filament_pos:6,bowden_progress:40}])[0].warnings,['EXTRUDER ENTRY but Bowden progress is reported']);
+});
+test('a gate sensor the gate does not home on has no known place, so only its being clear is evidence',()=>{
+ const shared={encoder_reference:{endstop:'unit0:mmu_shared_exit'}};
+ const parked=run([{filament_pos:0}],scene({mmu_exit_0:[0,true]},shared))[0];
+ assert.deepEqual([parked.tip,parked.warnings],[-10,[]]);
+ assert.deepEqual(run([{filament_pos:3}],scene({mmu_exit_0:[0,false]},shared))[0],
+  {tip:350,warnings:['IN BOWDEN but the mmu_exit sensor is clear'],memory:{unit:'u',gate:0,pos:3,filamentPosition:undefined,tip:350}});
 });
 test('a disagreement is shown once it has lasted, at once when idle, and forgotten when it goes',()=>{
  const seen=new Map();
