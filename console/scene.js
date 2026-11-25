@@ -271,6 +271,7 @@ function measure(c) {
   };
   // A gate that homes on the shared exit parks an unloaded filament between its own exit sensor and the shared one
   const exitSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && ['mmu_exit',`mmu_exit_${gate}`].includes(sensorName(name)));
+  const entrySensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && ['mmu_entry',`mmu_entry_${gate}`].includes(sensorName(name)));
   const sharedSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && sensorName(name) === 'mmu_shared_exit');
   const unloadedParkY = virtual && exitSensor && sharedSensor && s.encoder_reference?.endstop?.split(':').at(-1) === 'mmu_shared_exit' &&
     s.encoder_reference.parking < 0 ? (sensorPoint(...exitSensor).y+sensorPoint(...sharedSensor).y)/2 : null;
@@ -327,7 +328,8 @@ function measure(c) {
         exitSensor && exitSensor !== sensor && s.preload_reference?.endstop?.split(':').at(-1).replace(/_\d+$/,'') === 'mmu_exit'
           ? {position:preloadPark(s,sensor[1].position,exitSensor[1].position),distance:virtual ? virtual.parkDistance
             : mmuDistanceAtY(sensorPoint(...exitSensor).y)+Math.sign(s.preload_reference.parking)*8,
-            sensor:{position:preloadPark(s,sensor[1].position,exitSensor[1].position)-s.preload_reference.parking,distance:mmuDistanceAtY(sensorPoint(...exitSensor).y)}} : null);
+            sensor:{position:preloadPark(s,sensor[1].position,exitSensor[1].position)-s.preload_reference.parking,distance:mmuDistanceAtY(sensorPoint(...exitSensor).y)}} : null,
+        entrySensor ? {position:entrySensor[1].position,distance:mmuDistanceAtY(sensorPoint(...entrySensor).y)} : null);
       schematicTip = schematicDistance(tip);
       tip = tipAtPathDistance(schematicTip);
       drawnAt = schematicDistance;

@@ -1072,6 +1072,10 @@ test('homing back off the sensor a preload parked beyond ends where that sensor 
  assert.equal(at(-110),180);
  assert.ok(at(-105)>180 && at(-105)<188);
  assert.ok(at(-150)<180);                                   // An eject carries on back from there
+ // and ends at the gate's entry sensor, where that is drawn
+ const eject=x=>switchFilamentDistance(x,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:180}},{position:-150,distance:115});
+ assert.equal(eject(-150),115);assert.equal(eject(-110),180);
+ assert.ok(eject(-130)>115 && eject(-130)<180);
  // A sensor drawn level with or past the park is kept behind it
  assert.equal(switchFilamentDistance(-110,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:200}}),180);
 });

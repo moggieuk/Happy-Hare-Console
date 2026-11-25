@@ -374,7 +374,7 @@ const gripChanges = event => event.kind === 'selector_move' && event.before
 
 // A move that leaves its gate empty has ejected the filament. Its playback carries on past the move: the filament
 // is drawn on into its spool, then the spool fades to the empty one the gate is left with.
-export const EJECT_WITHDRAW_MS=1650, EJECT_FADE_MS=675, EJECT_TAIL_MS=EJECT_WITHDRAW_MS+EJECT_FADE_MS;
+export const EJECT_WITHDRAW_MS=2400, EJECT_FADE_MS=675, EJECT_TAIL_MS=EJECT_WITHDRAW_MS+EJECT_FADE_MS;
 export function ejectedGate(event) {
   const a=event.before, b=event.state, gate=a?.gate;
   return event.kind === 'movement' && gate >= 0 && a.gate_status?.[gate] !== undefined && a.gate_status[gate] !== 0
@@ -685,7 +685,7 @@ export function encoderFilamentDistance(events, event, state, tip, pathDistance,
 }
 
 // Keep schematic parking and switch homing on the same continuous path.
-export function switchFilamentDistance(tip, home, parking, entry, sensorDistance, pathDistance, encoder = null, parkedDistance = null, preload = null) {
+export function switchFilamentDistance(tip, home, parking, entry, sensorDistance, pathDistance, encoder = null, parkedDistance = null, preload = null, gateEntry = null) {
   const knots = [[home,sensorDistance],[entry,pathDistance(entry)]];
   if (encoder && encoder.position !== home && encoder.position < entry) knots.push([encoder.position,encoder.distance]);
   if (parking && home+parking < entry) {
@@ -705,6 +705,8 @@ export function switchFilamentDistance(tip, home, parking, entry, sensorDistance
     if (preload.sensor && preload.sensor.position < preload.position)
       knots.push([preload.sensor.position,Math.min(preload.sensor.distance,preload.distance-8)]);
   }
+  // The gate's entry sensor, where it lies behind everything else: an eject homes back to it and ends there
+  if (gateEntry && knots.every(([position,landmark])=>gateEntry.position < position && gateEntry.distance < landmark)) knots.push([gateEntry.position,gateEntry.distance]);
   // A parked tip can coincide with the encoder.
   for (let i=knots.length-1;i>0;i--) if (knots.slice(0,i).some(k=>k[0]===knots[i][0])) knots.splice(i,1);
   knots.sort((a,b)=>a[0]-b[0]);
