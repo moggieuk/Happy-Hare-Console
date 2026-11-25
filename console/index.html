@@ -72,10 +72,10 @@
         <label class="playback-option"><input id="unit-names" type="checkbox" checked>Show unit names</label>
         <label class="playback-option"><input id="compress-bowden" type="checkbox">Speed up Bowden playback time (x4)</label>
         <label class="playback-option"><input id="compress-purge" type="checkbox">Speed up purge playback time (x4)</label>
-        <label class="nozzle-control setting-select" for="status-history">Status history
-          <select id="status-history" aria-label="Status updates kept for replay">
-            <option value="500">500 updates</option><option value="1000">1,000 updates</option><option value="2500">2,500 updates</option>
-            <option value="5000" selected>5,000 updates</option><option value="10000">10,000 updates</option>
+        <label class="nozzle-control setting-select" for="status-history">Event window size
+          <select id="status-history" aria-label="Events kept for replay">
+            <option value="500">500 events</option><option value="1000">1,000 events</option><option value="2500">2,500 events</option>
+            <option value="5000" selected>5,000 events</option><option value="10000">10,000 events</option>
           </select>
         </label>
         <div id="debug-settings">
@@ -133,7 +133,7 @@
         </div>
         <div class="card collapsible">
           <div class="heading trace-heading">
-          <h2 tabindex="0" data-tooltip="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture." aria-description="Replay inspects history without rewinding the running simulator. The latest 7,000 events are retained; a restart begins a new capture.">Movement trace</h2>
+          <h2 id="trace-title" tabindex="0">Movement trace</h2>
           <label class="trace-options"><input id="show-internal" type="checkbox" data-tooltip="Show diagnostic updates; playback skips these rows">Show internal updates</label>
           </div>
           <div id="trace" role="log"></div>
@@ -153,7 +153,7 @@
         </div>
         </div>
         <div class="card collapsible" id="status-capture-card" hidden>
-          <div class="heading trace-heading"><h2 tabindex="0" data-tooltip="Every change the status subscription reports for the mmu objects, as it arrives · latest 500 rows, with as many updates kept for replay as Status history in Settings allows." aria-description="Every change the status subscription reports for the mmu objects, as it arrives · latest 500 rows, with as many updates kept for replay as Status history in Settings allows.">Status capture</h2></div>
+          <div class="heading trace-heading"><h2 id="capture-title" tabindex="0">Status capture</h2></div>
           <div id="status-capture" role="log" aria-label="Status capture"></div>
           <div class="trace-footer">
           <div class="controls timeline-control">

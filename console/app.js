@@ -28,7 +28,7 @@ import {renderMacros, renderSensors, renderDevices} from './readout.js';
 import './chrome.js';
 const sim = simulatorApi(rpc);
 // Everything the app knows: one object, so the views can be handed it (or watch it) instead of sharing module variables
-// How many status updates are kept for replay: the choice in Settings, remembered by the browser
+// The event window: how many status updates, or telemetry records, are kept for replay. The choice in Settings, remembered by the browser
 const HISTORY_KEY='hh-console-status-history';
 function historyLimit() { return Number($('status-history').value); }
 function newReplay() { return new StatusReplay(historyLimit()); }
@@ -1046,8 +1046,19 @@ function loadStatusCapture(log) {
   if (!previous) throw Error('This status capture holds no MMU status to show');
   return {liveState,objects,steps,last:previous,config:log.config,start:log.start};
 }
+// Both panels say how much they keep, which is the window size chosen
+function renderWindowTooltips() {
+  const size=historyLimit().toLocaleString('en-US');
+  for (const [id,text] of [
+    ['trace-title',`Replay inspects history without rewinding the running simulator. Up to ${size} events are kept, the Event window size in Settings: past that the capture starts again from the current state. A restart begins a new capture.`],
+    ['capture-title',`Every change the status subscription reports for the mmu objects, as it arrives · the latest 500 rows are listed, and the latest ${size} updates are kept for replay, the Event window size in Settings.`]]) {
+    $(id).dataset.tooltip=text; $(id).setAttribute('aria-description',text);
+  }
+}
+renderWindowTooltips();
 $('status-history').onchange=()=>{
   try { localStorage.setItem(HISTORY_KEY,$('status-history').value); } catch {}
+  renderWindowTooltips();
   store.replay.resize(historyLimit());
   if (store.replay.count) store.statusLog.trim(store.replay.entries[0].seq);
   renderStatusTimeline();
@@ -1124,7 +1135,7 @@ const telemetryStream=new TelemetryStream(rpc, async data=>{
       $('unit').value=String(unit); refresh().catch(error=>message(error.message,true));  // Not awaited: the batch must be acknowledged promptly
     }
   }
-  return store.sourceRecords.length>7000;
+  return store.sourceRecords.length>historyLimit();   // Past the window the stream starts again from a checkpoint
 }, error=>{
   setConnection('Telemetry stream unavailable', 'warning');
   message(`${error.message}. On a printer, enable [mmu_telemetry] in moonraker.conf. You can also load a recording.`,true);

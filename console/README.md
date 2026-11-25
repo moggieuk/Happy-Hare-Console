@@ -243,9 +243,11 @@ playback and use **Load telemetry**:
   panel goes to it. Toolchanges are marked on the slider. Play replays the updates as
   far apart as they arrived and returns to the printer when it reaches the latest;
   Live returns at once. This is only what the page has seen since it subscribed: the
-  latest 5,000 updates, which is more than the panel's 500 rows still list. **Status
-  history** in Settings changes that to between 500 and 10,000; the browser remembers
-  the choice, and lowering it lets the oldest updates go at once.
+  latest 5,000 updates, which is more than the panel's 500 rows still list. **Event
+  window size** in Settings changes that to between 500 and 10,000; the browser remembers
+  the choice, and lowering it lets the oldest updates go at once. The same setting is
+  how many telemetry records the Telemetry stream keeps before it starts its capture
+  again from the current state. Each panel's title tooltip states the size in force.
   A purge is drawn while Happy Hare reports the Purging action. Status carries no
   extrusion, so the amount comes from `filament_position_live` where the extruder is
   the stepper it follows, and otherwise from the suggested `toolchange_purge_volume`
