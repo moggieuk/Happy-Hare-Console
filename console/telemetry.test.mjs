@@ -1064,3 +1064,16 @@ test('an unload seen in the recording parks at the unloaded park before Happy Ha
  r.facts.printer.mmu.gate_status[gate]=0;
  assert.deepEqual(r.snapshot().unloaded_gates,[]);   // An emptied gate starts again
 });
+test('an eject from the preload park only ever draws the filament back, and leaves an empty spool',async()=>{
+ const {spoolFill}=await import('./scene.js');
+ const r=new TelemetryReplay();r.accept(fixture('boxturtle-eject'));
+ const moves=r.events.filter(e=>e.kind==='movement');
+ // Homing back off the gate's own sensor, which a preload parks beyond, is the 10mm it travelled: not a jump to the sensor's nominal place
+ assert.deepEqual(moves.map(e=>[Math.round(e.before.tips[0]),Math.round(e.state.tips[0])]),[[-100,-110],[-110,-150]]);
+ for (const e of moves) for (const f of [.25,.5,.75]) assert.ok(interpolate(e,f).tips[0]<=e.before.tips[0]);
+ const before=moves[0].before, after=r.events.at(-1).state;
+ assert.equal(Math.round(spoolFill(before,0)),84);
+ assert.equal(after.gate_status[0],0);assert.equal(after.spool_percentages[0],null);
+ assert.equal(spoolFill(after,0),0);                       // Happy Hare cleared the gate's weight with the eject
+ assert.equal(spoolFill({spool_percentages:[null],gate_status:[1]},0),100);
+});

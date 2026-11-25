@@ -9,8 +9,9 @@ import {measurePath} from './path-measure.js';
 import {parkedAt, preloadPark} from './scene-state.js';
 import {unitLogo, ICONS} from './unit-icons.js';
 
+// A gate with no filament and no known weight has had its spool taken away: Happy Hare clears both on an eject
 export function spoolFill(state, gate) {
-  return state.spool_percentages?.[gate] ?? 100;
+  return state.spool_percentages?.[gate] ?? (state.gate_status?.[gate] === 0 ? 0 : 100);
 }
 
 export function createScene(host, {now: animationNow, requestFrame: draw, rackHeld, rackMoved}) {
