@@ -58,8 +58,10 @@ test('the subscription note is information that gives way, the amber box is for 
  vm.runInContext("renderWarning(['IN BOWDEN but the toolhead sensor is triggered'])",c);
  assert.equal(nodes['filament-warning-message'].textContent,'Status is ambiguous: IN BOWDEN but the toolhead sensor is triggered');
  assert.equal(nodes['filament-warning'].hidden,false);
- assert.equal(nodes['filament-notice'].hidden,true);   // Pushed out by the warning, and it stays out
- draw();assert.equal(nodes['filament-notice'].hidden,true);
+ assert.equal(nodes['filament-notice'].hidden,false);   // A second box moves it down; it is still there to read
+ c.store.pauseShown=true;vm.runInContext("renderWarning(['IN BOWDEN but the toolhead sensor is triggered'])",c);
+ assert.equal(nodes['filament-notice'].hidden,true);   // A third takes its place, and it stays out
+ c.store.pauseShown=false;draw();assert.equal(nodes['filament-notice'].hidden,true);
  c.store.viewMode='playback';draw();assert.equal(nodes['filament-warning'].hidden,true);assert.equal(nodes['filament-notice'].hidden,true);
  vm.runInContext("renderWarning(['sensor conflict'])",c);
  assert.match(nodes['filament-warning-message'].textContent,/sensor conflict/);

@@ -17,6 +17,9 @@ export class LiveState {
     for (const [name,fields] of Object.entries(delta)) this.objects[name]={...this.objects[name],...clone(fields)};
     return this.snapshot();
   }
+  // What a tip is resolved against: where it was last put, and the gates seen unloading
+  memory() { return {tip:this.tip && {...this.tip},unloaded:[...this.unloaded]}; }
+  restore(memory) { this.tip=memory?.tip || null; this.unloaded=new Set(memory?.unloaded || []); }
   // Startup facts carry no time of their own, so they must not be ordered against status updates
   seed(objects) { Object.assign(this.objects,clone(objects)); }
   snapshot() {
@@ -94,6 +97,7 @@ export class LiveState {
     if (touch && s.homing) s.homing.endstops=s.homing.endstops.map(n=>sensorName(n).startsWith('mmu_gear_touch') ? touch : n);
     s.bowden_progress=status.bowden_progress;
     s.action=status.action;
+    s.num_toolchanges=status.num_toolchanges;
     s.tip_resolved=true;
     s.live_warnings=warnings;
     return s;

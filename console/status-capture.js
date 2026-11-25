@@ -9,12 +9,14 @@ export function captureRows(delta) {
     .map(([name,fields])=>[name,Object.entries(fields).map(([field,value])=>[field,JSON.stringify(value)])]);
 }
 // `initial` marks the full status a subscription starts from, as opposed to a later change
-export function captureStatus(delta,eventtime,initial=false) {
+// `seq` ties the rows to the replay step they belong to
+export function captureStatus(delta,eventtime,initial=false,seq=null) {
   const log=$('status-capture');
   const follow=log.scrollHeight-log.scrollTop-log.clientHeight < 32;
   for (const [name,fields] of captureRows(delta)) {
     const row=document.createElement(initial ? 'details' : 'div'), time=document.createElement('span'), object=document.createElement('span');
     row.className=initial ? 'capture-row capture-initial' : 'capture-row';
+    if (seq!==null) row.dataset.seq=seq;
     time.className='console-time'; time.textContent=Number(eventtime).toFixed(2)+' ';
     object.className='capture-object'; object.textContent=name;
     if (initial) {
@@ -33,5 +35,19 @@ export function captureStatus(delta,eventtime,initial=false) {
   }
   while (log.children.length>MAX_ROWS) log.firstChild.remove();
   if (follow) log.scrollTop=log.scrollHeight;
+}
+// Mark the rows of the step being shown; `reveal` brings them into view when it is not simply the latest
+export function highlightCapture(seq,reveal=false) {
+  const log=$('status-capture');
+  let first=null;
+  for (const row of log.children) {
+    const selected=seq!==undefined && Number(row.dataset.seq)===seq;
+    row.classList.toggle('selected',selected);
+    if (selected) first ||= row;
+  }
+  if (!reveal || !first) return;
+  const box=first.getBoundingClientRect(), bounds=log.getBoundingClientRect();
+  if (box.top<bounds.top) log.scrollTop-=bounds.top-box.top;
+  else if (box.bottom>bounds.bottom) log.scrollTop+=box.bottom-bounds.bottom;
 }
 export const clearStatusCapture=()=>$('status-capture').replaceChildren();

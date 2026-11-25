@@ -127,7 +127,8 @@ equal synced travel preserves that position. Encoder labels update at move endpo
 **Record to log** (printers only, in Telemetry stream mode) runs `MMU_TELEMETRY MODE=...` and shows the
 `mmu.telemetry_mode` printer variable (off, on or next toolchange only); see the telemetry README. **Save telemetry** exports the bounded source recording as JSONL. **Load telemetry**
 opens that JSONL (or a JSON array/envelope of records) with the same replay reducer
-used live. Loading starts paused at the beginning. Printer controls are disabled,
+used live, or a saved status capture (see Live view below): the file says which it is.
+Loading starts paused at the beginning. Printer controls are disabled,
 live updates cannot overwrite the file, and playback stops at its end. The Console
 continues working if the simulator disconnects after the page has loaded.
 **Reconnect** (the Connect button) leaves the recording and reconnects to the current source. Files require a v2 session
@@ -236,6 +237,20 @@ playback and use **Load telemetry**:
   expandable entry per object); it
   is emptied when Klipper or the simulator profile restarts. The
   two Speed up playback settings are hidden, since live status is always real time.
+  The playback controls, titled **Status playback** here, step back through those
+  updates: each one is kept with the scene it produced, the one being shown is
+  highlighted in Status capture, and clicking a row or dragging the slider under the
+  panel goes to it. Toolchanges are marked on the slider. Play replays the updates as
+  far apart as they arrived and returns to the printer when it reaches the latest;
+  Live returns at once. This is only what the page has seen since it subscribed: the
+  latest 5,000 updates, which is more than the panel's 500 rows still list. **Status
+  history** in Settings changes that to between 500 and 10,000; the browser remembers
+  the choice, and lowering it lets the oldest updates go at once.
+  **Save capture**, beside the slider, exports those updates as JSONL: the MMU's
+  startup configuration, then each update, the first as a complete status. When earlier
+  updates have been trimmed or cleared, it also carries where the tip had been put, so
+  the capture reloads as it was shown.
+  **Load telemetry** opens it as a Status playback, offline, exactly as it was seen.
 - **Telemetry playback** uses only the loaded JSON/JSONL recording, or the
   simulator's piped telemetry stream. Current printer status never changes an
   old recording. Playback controls and the movement trace appear in this mode.
