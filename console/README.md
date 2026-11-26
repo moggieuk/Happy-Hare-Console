@@ -259,8 +259,9 @@ playback and use **Load telemetry**:
   at once with no animation and no row.
   A purge is drawn while Happy Hare reports the Purging action. Status carries no
   extrusion, so the amount comes from `filament_position_live` where the extruder is
-  the stepper it follows, and otherwise from the suggested `toolchange_purge_volume`
-  once the purge is over. The pile falls when the park macro reports its retraction
+  the stepper it follows, and otherwise from the suggested `toolchange_purge_volume`,
+  taken from the second update of the purge. A load is drawn stopping at the melt left
+  in the nozzle, and the purge pushes the filament through it. The pile falls when the park macro reports its retraction
   (`retracted_length`), or the filament is no longer loaded. Happy Hare reports the
   loaded filament as what remains in the nozzle before it has purged, so the nozzle
   keeps the colour it had until the purge, or until a print carries on without one.
