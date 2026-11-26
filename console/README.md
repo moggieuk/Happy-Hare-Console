@@ -249,15 +249,14 @@ playback and use **Load telemetry**:
   how many telemetry records the Telemetry stream keeps before it starts its capture
   again from the current state. Each panel's title tooltip states the size in force.
   A filament ejected from a gate, or preloaded into one, is animated in both views from
-  the gate map, with no event of its own. An eject is a gate with filament going empty
-  with its spool's weight cleared as well, as `MMU_EJECT` and `MMU_GATE_MAP AVAILABLE=0`
-  leave it, and no filament in use there: the filament is taken back into its spool and
-  the spool fades to empty. A gate that only stops being available (found empty by a
-  check, a failed load, a runout) switches at once. A preload is an empty gate no longer
-  empty: the spool fades in, then the filament is drawn up from it. Any other gate map
-  change, such as a colour or a weight, shows at once with no animation. In Movement
-  trace an eject or preload with no move of its own is a "gate emptied" or "gate
-  preloaded" row.
+  the gate map, with no event of its own: a gate with filament going empty with its
+  spool's weight cleared, or an empty gate no longer empty, while the filament is being
+  worked on. In the Telemetry view that is during a move; in the Live view a homing move
+  or an action is under way, or the tip moved. An eject takes the filament back into its
+  spool and fades the spool to empty, shown in Movement trace as a "gate emptied" row; a
+  preload fades the spool in as its filament arrives. The same change with nothing moving
+  is the gate map edited (`MMU_GATE_MAP`), and like any other gate map change it shows
+  at once with no animation and no row.
   A purge is drawn while Happy Hare reports the Purging action. Status carries no
   extrusion, so the amount comes from `filament_position_live` where the extruder is
   the stepper it follows, and otherwise from the suggested `toolchange_purge_volume`

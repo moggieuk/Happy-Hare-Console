@@ -1,8 +1,7 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
 // Replay of the status updates a subscription has delivered: the steps the Status capture panel lists, and those
 // it has since let go, each kept with the scene it produced. Nothing is recorded by the printer; this is only what this page has seen.
-import {liveDuration, liveFrame, gateChanged} from './live-state.js';
-import {gateTransition} from './playback.js';
+import {liveDuration, liveFrame, gateChanged, liveTransition} from './live-state.js';
 import {clamp} from './util.js';
 
 // A toolchange as status shows it: Happy Hare counts one, or the selected tool changes
@@ -100,4 +99,4 @@ export class StatusReplay {
   }
 }
 // As long as the updates were apart, within what is watchable
-export const stepDuration=(a,b)=>gateChanged(a.state,b.state) || gateTransition(a.state,b.state) ? liveDuration(a.state,b.state) : clamp((b.time-a.time)*1000,150,1500);
+export const stepDuration=(a,b)=>gateChanged(a.state,b.state) || liveTransition(a.state,b.state) ? liveDuration(a.state,b.state) : clamp((b.time-a.time)*1000,150,1500);

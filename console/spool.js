@@ -153,10 +153,11 @@ export class SpoolRenderer {
         .map(node=>({node,offset:Number(node.dataset.spoolWindowCut),depth:Number(node.dataset.depth)}));
       this.rimMark=this.element.querySelector('[data-part="spool-rim-mark"]');
       this.rimMarkDepth=Number(this.rimMark.dataset.depth);
-      this.arrow=this.element.querySelector('[data-part="espooler-direction"]');
-      this.arrowPosition=this.arrow.getAttribute('transform').split(' scale(')[0];
+      // A fading spool is drawn twice, so each of these may be
+      this.arrows=[...this.element.querySelectorAll('[data-part="espooler-direction"]')];
+      this.arrowPosition=this.arrows[0].getAttribute('transform').split(' scale(')[0];
       this.glows=[...this.element.querySelectorAll('[data-part="selected-spool-backlight"]')];
-      this.pulse=this.element.querySelector('[data-part="spool-tag-pulse"]');
+      this.pulses=[...this.element.querySelectorAll('[data-part="spool-tag-pulse"]')];
       this.geometryKey=key;
       this.motion={};
     }
@@ -172,16 +173,16 @@ export class SpoolRenderer {
       for (const {node,offset,depth} of this.windowCuts)
         node.setAttribute('d',`M-18 -18 H18 V18 H-18 Z ${windowOutline(rotation+offset,depth)}`);
     }
-    if (arrowOpacity !== this.motion.arrowOpacity) this.arrow.setAttribute('opacity',arrowOpacity);
-    if (direction !== this.motion.direction) {
-      this.arrow.dataset.direction=direction;
-      this.arrow.setAttribute('transform',`${this.arrowPosition} scale(1 ${direction==='rewind' ? -1 : 1})`);
+    if (arrowOpacity !== this.motion.arrowOpacity) for (const arrow of this.arrows) arrow.setAttribute('opacity',arrowOpacity);
+    if (direction !== this.motion.direction) for (const arrow of this.arrows) {
+      arrow.dataset.direction=direction;
+      arrow.setAttribute('transform',`${this.arrowPosition} scale(1 ${direction==='rewind' ? -1 : 1})`);
     }
     if (glow !== this.motion.glow) for (const node of this.glows) node.setAttribute('opacity',glow);
-    if (pulse !== this.motion.pulse) {
-      this.pulse.setAttribute('opacity',pulse===null ? 0 : 1);
+    if (pulse !== this.motion.pulse) for (const node of this.pulses) {
+      node.setAttribute('opacity',pulse===null ? 0 : 1);
       if (pulse !== null) PULSE_RINGS.forEach((_,i)=>{
-        const {radius,opacity}=pulseRing(pulse,i), ring=this.pulse.children[i];
+        const {radius,opacity}=pulseRing(pulse,i), ring=node.children[i];
         ring.setAttribute('r',radius); ring.setAttribute('opacity',opacity);
       });
     }

@@ -131,8 +131,12 @@ test('a purge is counted from the live position, else from the suggested volume 
 });
 test('an eject and a preload play in the live view as they do from telemetry, and a gate marked empty just switches',async()=>{
  const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS}=await import('./playback.js'), {liveSteady}=await import('./live-state.js');
- const at=(status,percent)=>({unit:'u',gate:1,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
- const full=at([1,1],[80,60]), ejected=at([0,1],[null,60]), marked=at([0,1],[80,60]);
+ const at=(status,percent,homing=null)=>({unit:'u',gate:1,filament_pos:0,tips:[0,0],devices:{},motors:{},homing,gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
+ const homing={endstops:['mmu_entry_0'],triggered:false};
+ const full=at([1,1],[80,60],homing), ejected=at([0,1],[null,60],homing), marked=at([0,1],[80,60]);
+ // The same change with nothing moving is the gate map edited by hand: it just switches
+ assert.equal(liveDuration(at([1,1],[80,60]),at([0,1],[null,60]),250),300);
+ assert.equal(liveFrame(at([0,1],[null,60]),at([1,1],[80,60]),.5).gate_eject,undefined);
  assert.equal(liveDuration(full,ejected,250),EJECT_TAIL_MS);
  assert.equal(liveSteady(full,ejected),false);
  const frame=liveFrame(full,ejected,EJECT_WITHDRAW_MS/2/EJECT_TAIL_MS);
@@ -148,7 +152,7 @@ test('an eject and a preload play in the live view as they do from telemetry, an
 });
 test('a gate ejected and then left plays the eject in full before the gate changes',async()=>{
  const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,duration}=await import('./playback.js');
- const at=(gate,status,percent)=>({unit:'u',gate,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
+ const at=(gate,status,percent)=>({unit:'u',gate,filament_pos:0,tips:[0,0],devices:{},motors:{},homing:{endstops:['mmu_entry_0'],triggered:false},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
  const full=at(0,[1,1],[80,60]), left=at(1,[0,1],[null,60]);
  const change=duration({kind:'gate_changed',before:full,state:left}), total=change+EJECT_TAIL_MS;
  assert.equal(liveDuration(full,left,250),total);

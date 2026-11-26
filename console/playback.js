@@ -417,10 +417,11 @@ export function withGate(state, from, gate) {
   }
   return s;
 }
-const transitionStep=(record,transition,before,state)=>({seq:record.seq,time:record.time,
-  kind:transition.kind === 'ejected' ? 'gate_emptied' : 'gate_preloaded',
-  label:`Gate ${transition.gate} ${transition.kind === 'ejected' ? 'emptied' : 'preloaded'}`,
-  gate_transition:transition,before,state,telemetry:record.telemetry});
+// An eject may report its gate empty only once its move is over: the update that follows the move at once
+const ejectedAfter=(moved,before,record)=>Boolean(moved) && record.time-moved.time < .5 &&
+  gateTransition(before,record.state)?.kind === 'ejected' && gateTransition(before,record.state).gate === moved.gate;
+const emptiedStep=(record,gate,before,state)=>({seq:record.seq,time:record.time,kind:'gate_emptied',label:`Gate ${gate} emptied`,
+  gate_transition:{gate,kind:'ejected'},before,state,telemetry:record.telemetry});
 export function duration(event, compressBowden = false, compressPurge = false) {
   if (event.gate_transition) return gateTransitionMs(event.gate_transition);
   if (event.kind === 'gate_changed') return gateDuration(event);
@@ -549,7 +550,7 @@ export function changeRows(changes) {
 }
 
 export function traceText(event) {
-  let type = {state:'state changed', gate_changed:'gate changed', gate_emptied:'gate emptied', gate_preloaded:'gate preloaded',move_completed:'move completed',selector_move:'selector',selector_completed:'selector'}[event.kind] || event.kind;
+  let type = {state:'state changed', gate_changed:'gate changed', gate_emptied:'gate emptied',move_completed:'move completed',selector_move:'selector',selector_completed:'selector'}[event.kind] || event.kind;
   if (event.kind === 'movement') {
     const source = event.source || event.telemetry?.start?.source;
     type = event.homing ? 'homing move' : source === 'mmu_gcode' ? 'G1' : 'move';
@@ -953,7 +954,7 @@ export function toolchangeIndex(events, index, direction) {
 
 export function annotatedStep(events, event, navigating) {
   if (navigating) return event;
-  const animated = item => ['movement', 'gate_changed', 'gate_emptied', 'gate_preloaded', 'toolchange', 'selector_move'].includes(item.kind);
+  const animated = item => ['movement', 'gate_changed', 'gate_emptied', 'toolchange', 'selector_move'].includes(item.kind);
   return animated(event) ? event : events.findLast(item => item.seq <= event.seq && animated(item)) || event;
 }
 
@@ -973,7 +974,7 @@ export function orderedSteps(records) {
   const selectorSeen=new Set(selectors.map(e=>e.telemetry.start.sequence));
   const anchored=new Set();
   const steps=[];
-  let motion=null, held=null;   // `held`: the move's end state with a gate's contents as they were, until its emptying is met
+  let motion=null, held=null, moved=null;   // `held`: the move's end state with a gate's contents as they were, until its emptying is met
   for (const record of records) {
     if (!motion && record.kind === 'selector' && record.telemetry?.event === 'selector_movement_start') {
       const step=selectorSteps.get(record.seq);
@@ -997,18 +998,19 @@ export function orderedSteps(records) {
       const completed={seq:record.seq,time:record.time,kind:'move_completed',internal:true,during_move:true,
         label:motion.homing ? (motion.homed ? 'Homing completed' : 'Homing did not trigger') : 'Move completed',
         state:motion.state,telemetry:motion.telemetry.outcome};
-      steps.push(held ? transitionStep(completed,{gate:held.gate,kind:'ejected'},{...held.state,espoolers:steps.at(-1).state.espoolers},motion.state) : completed);
+      steps.push(held ? emptiedStep(completed,held.gate,{...held.state,espoolers:steps.at(-1).state.espoolers},motion.state) : completed);
+      moved={gate:motion.state.gate,time:record.time};
       motion=held=null;
     } else if (motion && held && record.kind === 'state' && record.state.gate_status?.[held.gate] === 0) {
-      steps.push(transitionStep(record,{gate:held.gate,kind:'ejected'},{...held.state,espoolers:steps.at(-1).state.espoolers},
+      steps.push(emptiedStep(record,held.gate,{...held.state,espoolers:steps.at(-1).state.espoolers},
         {...motion.state,espoolers:record.state.espoolers}));
       held=null;
     } else if (motion) {
       steps.push({...record,internal:record.kind === 'espooler' ? false : record.internal,
         state:{...(held?.state || motion.state),espoolers:record.state.espoolers},before:undefined});
-    } else if (record.kind === 'state' && steps.length && gateTransition(steps.at(-1).state,record.state)) {
-      steps.push(transitionStep(record,gateTransition(steps.at(-1).state,record.state),steps.at(-1).state,record.state));
-    } else steps.push(record);
+    } else if (record.kind === 'state' && ejectedAfter(moved,steps.at(-1)?.state,record)) {
+      steps.push(emptiedStep(record,moved.gate,steps.at(-1).state,record.state));
+    } else steps.push(record);   // With no move behind it the gate map was edited: it just switches
   }
   return steps;
 }

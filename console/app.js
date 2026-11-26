@@ -1,5 +1,5 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
-import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, gateChanged, liveMmuFields} from './live-state.js';
+import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, liveTransition, gateChanged, liveMmuFields} from './live-state.js';
 import {lastingWarnings} from './live-tip.js';
 import {pauseStatus} from './pause-status.js';
 import {createAlerts} from './alerts.js';
@@ -13,7 +13,7 @@ import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
-import {timelineMarkers, scanMove, gateTransition} from './playback.js';
+import {timelineMarkers, scanMove} from './playback.js';
 import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
@@ -334,7 +334,7 @@ function acceptLive(delta,time) {
   }
   // Updates that arrive while the rack is sliding to this gate must not restart the slide
   // nor one that arrives while a gate's eject or preload is playing
-  const playing=gateTransition(store.liveFrom,previous), still=playing && gateTransition(store.liveFrom,next);
+  const playing=liveTransition(store.liveFrom,previous), still=playing && liveTransition(store.liveFrom,next);
   const sliding=Boolean(previous) && !store.liveSettled && (liveSteady(previous,next) ||
     gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit ||
     Boolean(still) && still.gate===playing.gate && still.kind===playing.kind);
@@ -343,7 +343,7 @@ function acceptLive(delta,time) {
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
   next.motors=liveMotors(store.liveFrom,next,distance);
   store.liveTarget=next;
-  if (sliding && gateTransition(store.liveFrom,next)) store.liveDuration=liveDuration(store.liveFrom,next);   // A gate change joining it plays after
+  if (sliding && liveTransition(store.liveFrom,next)) store.liveDuration=liveDuration(store.liveFrom,next);   // A gate change joining it plays after
   if (!sliding) {
     const now=animationNow();
     store.liveDuration=liveDuration(store.liveFrom,next,now-(store.liveMoved ?? now));
