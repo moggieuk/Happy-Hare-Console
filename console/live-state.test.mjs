@@ -146,3 +146,14 @@ test('an eject and a preload play in the live view as they do from telemetry, an
  assert.equal(liveDuration(full,marked,250),300);
  assert.equal(liveFrame(full,marked,.5).gate_eject,undefined);assert.equal(liveFrame(full,marked,.5).gate_status[0],0);
 });
+test('a gate ejected and then left plays the eject in full before the gate changes',async()=>{
+ const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,duration}=await import('./playback.js');
+ const at=(gate,status,percent)=>({unit:'u',gate,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
+ const full=at(0,[1,1],[80,60]), left=at(1,[0,1],[null,60]);
+ const change=duration({kind:'gate_changed',before:full,state:left}), total=change+EJECT_TAIL_MS;
+ assert.equal(liveDuration(full,left,250),total);
+ const frame=liveFrame(full,left,EJECT_WITHDRAW_MS/2/total);
+ assert.equal(frame.gate,0);assert.deepEqual(frame.gate_eject,{gate:0,withdraw:.5,fade:0});
+ const after=liveFrame(full,left,(EJECT_TAIL_MS+change/2)/total);
+ assert.equal(after.gate_eject,undefined);assert.equal(after.gate_status[0],0);
+});

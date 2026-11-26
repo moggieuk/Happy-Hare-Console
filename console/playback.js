@@ -401,7 +401,7 @@ export function gateTransitionFrame({gate,kind}, before, after, fraction, spoolO
   return {...after,gate_eject:{gate,withdraw:spoolOnly ? 0 : 1-clamp01((t-EJECT_FADE_MS)/EJECT_WITHDRAW_MS),fade:1-ease(clamp01(t/EJECT_FADE_MS))}};
 }
 // One gate's contents taken from another state: the rest of the gate map is left as it is
-function withGate(state, from, gate) {
+export function withGate(state, from, gate) {
   const entry=(now,then)=>Array.isArray(now) && Array.isArray(then) && now.length === then.length
     ? now.map((value,index)=>index === gate ? then[index] : value) : now;
   const s={...state};

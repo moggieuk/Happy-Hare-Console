@@ -343,6 +343,7 @@ function acceptLive(delta,time) {
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
   next.motors=liveMotors(store.liveFrom,next,distance);
   store.liveTarget=next;
+  if (sliding && gateTransition(store.liveFrom,next)) store.liveDuration=liveDuration(store.liveFrom,next);   // A gate change joining it plays after
   if (!sliding) {
     const now=animationNow();
     store.liveDuration=liveDuration(store.liveFrom,next,now-(store.liveMoved ?? now));
