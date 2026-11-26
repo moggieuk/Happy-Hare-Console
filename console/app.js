@@ -92,12 +92,6 @@ function sourceMode() {
   $('sidebar-playback').setAttribute('aria-label',$('playback-title').textContent);
   $('trace').closest('.card').hidden=store.viewMode==='live';
   $('status-capture-card').hidden=store.viewMode!=='live';
-  // Dimensions come from configuration; a subscription view starts uncluttered
-  if (store.dimensionsFor!==store.viewMode) {
-    store.dimensionsFor=store.viewMode;
-    $('show-dimensions').checked=store.viewMode!=='live';
-    $('scene').classList.toggle('hide-dimensions',store.viewMode==='live');
-  }
   $('debug-settings').hidden=store.viewMode==='live';
   // Live status is watched as it happens, so the simulator runs as a printer does; telemetry replays at its own pace
   const pace=isSimulator() && !store.offline && store.socket?.readyState===1 ? store.viewMode : null;
@@ -805,11 +799,11 @@ function currentView() {
 // The same controls replay the status updates the capture panel lists
 function statusControls(s,connected) {
   const replay=store.replay, what=connected || store.offline ? s.action || s.filament_pos_name : 'Disconnected';
-  const mode=replay.playing ? 'Playing' : replay.following ? 'End of recording' : 'Paused';
+  const mode=replay.playing ? 'Playing' : replay.following ? 'End of recording ·' : 'Paused at';
   return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
     previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
     modeText:replay.following && !store.offline ? `Live view · ${what}`
-      : `Status playback · ${mode} · update ${replay.entries[replay.index]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};
+      : `Status playback · ${mode} update ${replay.entries[replay.index]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};
 }
 function renderScene() {
   if (store.viewMode==='live' ? !store.displayed : !store.events.length) return;
