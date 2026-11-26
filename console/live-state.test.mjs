@@ -137,7 +137,7 @@ test('the nozzle keeps the colour that was in it until the purge, and the pile f
  assert.deepEqual(run.map(p=>[p.old,Math.round(p.extruded),Math.round(p.base)]),
   [['aa0000',0,0],['aa0000',0,0],['aa0000',20,0],['aa0000',20,20],['00bb00',20,20]]);
 });
-test('a filament purged through the nozzle leaves its colour in the outlet when it retracts',()=>{
+test('a filament purged through the nozzle leaves its colour in the outlet when it retracts, fading to what was there',()=>{
  const r=new LiveState(), before=r.accept(status(),1);
  r.accept({mmu:{gate_color:before.gate_colors.map(()=>'00bb00')}},1);
  r.accept({mmu:{filament_pos:10,action:'Purging',toolchange_purge_volume:before.filament.residual_mm*Math.PI*(1.75/2)**2,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:true}}},2);
@@ -146,6 +146,7 @@ test('a filament purged through the nozzle leaves its colour in the outlet when 
  assert.notEqual(before.nozzle_outlet_color,'00bb00');
  assert.equal(parked.nozzle_outlet_color,parked.filament.incoming_color);
  assert.equal(liveFrame(purging,parked,.5).nozzle_outlet_color,parked.filament.incoming_color);
+ assert.equal(parked.purge_transition.nozzle_arrival_mm,parked.extruded_mm);   // The outlet's fade is drawn from here
 });
 test('an eject and a preload play in the live view as they do from telemetry, and a gate marked empty just switches',async()=>{
  const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS}=await import('./playback.js'), {liveSteady}=await import('./live-state.js');

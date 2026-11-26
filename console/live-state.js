@@ -82,8 +82,11 @@ export class LiveState {
       if (hotend.plan) {
         Object.assign(hotend.plan,{start_mm:this.purge.start,old_color:this.purge.old});
         hotend.nozzle=purgeColor({purge_transition:hotend.plan},hotend.extruded);
-        // Pushed right through, the filament has filled the nozzle's outlet too
-        if (this.purge.loaded!==null && hotend.extruded-this.purge.loaded>=hotend.plan.retained_mm) hotend.outlet=s.filament.incoming_color;
+        // Pushed right through, the filament has reached the nozzle's outlet, which fades to what was there until that is flushed
+        if (this.purge.loaded!==null && hotend.extruded-this.purge.loaded>=hotend.plan.retained_mm) {
+          hotend.outlet=s.filament.incoming_color;
+          hotend.plan.nozzle_arrival_mm=this.purge.loaded+hotend.plan.retained_mm;
+        }
       }
     } else this.tip=null;
     // Buffer position is reported state, never a result of integrating motor travel.
