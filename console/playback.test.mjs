@@ -369,20 +369,20 @@ test('gate selection eases between lanes without interpolating physical filament
  const before={gate:0,tips:[-20,-30],gate_colors:['ff0000','0000ff']};
  const state={...before,gate:1};
  const event={kind:'gate_changed',before,state};
- assert.equal(duration(event),2950);
+ assert.equal(duration(event),1980);
  const frame=t=>playbackFrame(event,t,duration(event)).state;
- assert.equal(frame(550).gate_full_opacity,.5);
- assert.equal(frame(550).gate_focus,0);
- assert.equal(frame(1475).gate_full_opacity,0);
- assert.equal(frame(1475).gate_focus,.5);
- assert.equal(frame(2400).gate_full_opacity,.5);
- assert.equal(frame(2400).gate_focus,1);
- assert.equal(frame(2400).gate_retraction,1);
- assert.equal(frame(2800).gate_full_opacity,1);
- assert.equal(frame(2800).gate_retraction,.5);
+ assert.equal(frame(370).gate_full_opacity,.5);
+ assert.equal(frame(370).gate_focus,0);
+ assert.equal(frame(990).gate_full_opacity,0);
+ assert.equal(frame(990).gate_focus,.5);
+ assert.equal(frame(1610).gate_full_opacity,.5);
+ assert.equal(frame(1610).gate_focus,1);
+ assert.equal(frame(1610).gate_retraction,1);
+ assert.equal(frame(1880).gate_full_opacity,1);
+ assert.equal(frame(1880).gate_retraction,.5);
  assert.equal(frame(1).gate_retraction>0,true);
- assert.equal(frame(2949).gate_retraction>0,true);
- assert.equal(frame(2950).gate,1);
+ assert.equal(frame(1979).gate_retraction>0,true);
+ assert.equal(frame(1980).gate,1);
  assert.equal(interpolate(event,0),before);
  assert.equal(interpolate(event,1),state);
  assert.equal(interpolate(event,.5).gate_focus,.5);
@@ -723,7 +723,7 @@ test('gate swap restores its starting grip in either playback direction',()=>{
   const before={gate:0,tips:[-20,-30],mmu_gripped:!grip};
   const state={...before,gate:1,mmu_gripped:!grip};
   const event={kind:'gate_changed',before,state};
-  for (const elapsed of [0,100,300,550,1475,2400,2750,2850,2950]) {
+  for (const elapsed of [0,100,300,370,990,1610,1800,1900,1980]) {
    const frame=playbackFrame(event,reverse ? duration(event)-elapsed : elapsed,duration(event),grip);
    const time=reverse ? duration(event)-elapsed : elapsed;
    assert.equal(frame.state.mmu_gripped,time===duration(event) ? !grip : time>0 && time<duration(event) ? false : grip);
@@ -880,12 +880,12 @@ test('virtual spool feeds rise only after the unit has arrived and the Bowden ha
  const before={unit:'a',gate:0,tips:[-20,-30],gate_colors:['ff0000','0000ff']};
  const event={kind:'gate_changed',before,state:{...before,unit:'b',gate:1}};
  const frame=t=>playbackFrame(event,t,duration(event)).state.gate_feed;
- assert.equal(frame(0),1);assert.equal(frame(150),.5);assert.equal(frame(500),0);   // The leaving unit's feeds retract first
- assert.equal(frame(1475),0);assert.equal(frame(2400),0);    // Hidden while sliding and fading in
- assert.equal(frame(2650),0);assert.equal(frame(2800),.5);   // Then they rise quickly
- assert.equal(frame(2949)>.99,true);
+ assert.equal(frame(0),1);assert.equal(frame(100),.5);assert.equal(frame(400),0);   // The leaving unit's feeds retract first
+ assert.equal(frame(990),0);assert.equal(frame(1610),0);    // Hidden while sliding and fading in
+ assert.equal(frame(1780),0);assert.equal(frame(1880),.5);   // Then they rise quickly
+ assert.equal(frame(1979)>.99,true);
  const same={kind:'gate_changed',before,state:{...before,gate:1}};
- assert.equal(playbackFrame(same,1475,duration(same)).state.gate_feed,undefined);   // Same unit: untouched
+ assert.equal(playbackFrame(same,990,duration(same)).state.gate_feed,undefined);   // Same unit: untouched
 });
 test('a hand-scrolled rack returns to the selected gate only after 2.5 seconds of inactivity',()=>{
  assert.equal(rackIdleReturn(-300,2499),false);
@@ -1058,12 +1058,12 @@ test('a preload park on another sensor is drawn at its own place, before the unl
 test('a gate change between a virtual selector\'s own gates starts at once, with no retract or fade to wait for',()=>{
  const gate=(g,unit='u',type='VirtualSelector')=>({gate:g,unit,selector_type:type,tips:[],sensors:{},mmu_gripped:true});
  const own={kind:'gate_changed',before:gate(0),state:gate(2)};
- assert.equal(duration(own),1350);
- assert.ok(playbackFrame(own,135,1350).state.gate_slide>0);
+ assert.equal(duration(own),900);
+ assert.ok(playbackFrame(own,90,900).state.gate_slide>0);
  const rack={kind:'gate_changed',before:gate(0,'u','LinearSelector'),state:gate(2,'u','LinearSelector')};
- assert.equal(duration(rack),2950);
- assert.equal(playbackFrame(rack,135,2950).state.gate_slide,0);
- assert.equal(duration({kind:'gate_changed',before:gate(0,'a'),state:gate(5,'b')}),2950);
+ assert.equal(duration(rack),1980);
+ assert.equal(playbackFrame(rack,90,1980).state.gate_slide,0);
+ assert.equal(duration({kind:'gate_changed',before:gate(0,'a'),state:gate(5,'b')}),1980);
 });
 test('homing back off the sensor a preload parked beyond ends where that sensor is drawn',()=>{
  // Homes on a shared exit at 10 (drawn at 400), unloaded park drawn at 300; preload park at -100 drawn at 188, its sensor at -110 drawn at 180

@@ -135,7 +135,7 @@ export function gateSelectionLit(state, gate) {
   return gate===to ? arrived : gate===from ? 1-arrived : 0;
 }
 
-const gateTiming={retract:300,fade:500,slide:1350,advance:300};
+const gateTiming={retract:200,fade:340,slide:900,advance:200};
 // Between a virtual selector's own gates nothing retracts or fades, so the selection moves at once
 const gatePhases=event=>mergedSelector(event.state?.selector_type) && event.before?.unit===event.state.unit
   ? {...gateTiming,retract:0,fade:0,advance:0} : gateTiming;
