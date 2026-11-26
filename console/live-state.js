@@ -2,7 +2,7 @@
 import {SceneModel} from './scene-state.js';
 import {liveMachine,qualifySensors} from './live-config.js';
 import {short as sensorName, DEFAULT_COLOR, clamp} from './util.js';
-import {interpolate, duration, gateChangeFraction, purgeColor, purgeOutletColor} from './playback.js';
+import {interpolate, duration, gateChangeFraction, purgeColor, purgeOutletColor, gateTransition, gateTransitionMs, gateTransitionFrame} from './playback.js';
 import {resolveTip} from './live-tip.js';
 const clone=value=>structuredClone(value);
 const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('') : String(value || DEFAULT_COLOR).replace(/^#/,'').slice(0,6);
@@ -137,13 +137,15 @@ const sameGate=(from,to)=>Boolean(from) && from.unit===to.unit && from.gate===to
 // As long as the updates are apart, so a steady stream reads as one movement; a long step is a quick sweep
 export function liveDuration(from,to,interval=0) {
   if (gateChanged(from,to)) return duration({kind:'gate_changed',before:from,state:to});
+  // A filament ejected or preloaded, as the gate map shows it, plays as it does from telemetry
+  if (gateTransition(from,to)) return gateTransitionMs(gateTransition(from,to));
   const distance=sameGate(from,to) ? Math.abs(to.tips[to.gate]-from.tips[to.gate]) || 0 : 0;
   // A purge reported only once it is over is drawn coming out, and a pile is given time to fall
   const purge=sameGate(from,to) ? Math.min(4000,Math.max(0,emitted(from,to))*400)+(dropped(from,to) ? 650 : 0) : 0;
   return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3),purge);
 }
 // An update that moves nothing must not restart the movement under way
-export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] &&
+export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] && !gateTransition(target,next) &&
   emitted(target,next)===0 && !dropped(target,next) &&
   Object.entries(next.devices).every(([name,d])=>target.devices[name]?.travel===d.travel);
 // The frame that reaches the target is drawn once, however late it comes
@@ -159,6 +161,8 @@ export function liveFrame(from,to,fraction) {
     const event={kind:'gate_changed',before:from,state:to};
     return interpolate(event,gateChangeFraction(event,fraction));
   }
+  const transition=gateTransition(from,to);
+  if (transition) return gateTransitionFrame(transition,from,to,Math.max(0,fraction));
   const f=Math.max(0,fraction), s={...to,tips:[...to.tips],devices:clone(to.devices)};
   if (from.unit===to.unit && from.gate===to.gate && to.gate>=0) {
     s.tips[to.gate]=from.tips[to.gate]+(to.tips[to.gate]-from.tips[to.gate])*f;

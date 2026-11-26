@@ -19,7 +19,7 @@ test('timeline retains ticks but omits labels at thirty operations',()=>{
    assert.ok(markers.every(marker=>marker.label===''));
  }
 });
-import { changeRows, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, branchFade, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
+import { changeRows, gateTransition, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, branchFade, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
 const state=(tip,on)=>({gate:0,tips:[tip],tails:[null],motors:{gear:tip},devices:{encoder:{distance:tip}},buffers:{},sensors:{toolhead:{state:on,position:5}}});
 test('sensor crosses at geometric position with exact endpoints',()=>{
  const e={before:state(0,false),state:state(10,true)};
@@ -1078,4 +1078,20 @@ test('homing back off the sensor a preload parked beyond ends where that sensor 
  assert.ok(eject(-130)>115 && eject(-130)<180);
  // A sensor drawn level with or past the park is kept behind it
  assert.equal(switchFilamentDistance(-110,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:200}}),180);
+});
+test('an eject and a preload are read from the gate map; other ways a gate empties are not',()=>{
+ const gates=(status,percent,extra={})=>({gate:0,filament_pos:0,gate_status:status,spool_percentages:percent,...extra});
+ const full=gates([1,2,-1,0],[80,50,null,null]);
+ // Emptied with the spool's weight cleared, the filament not in use
+ assert.deepEqual(gateTransition(full,gates([0,2,-1,0],[null,50,null,null])),{gate:0,kind:'ejected'});
+ assert.deepEqual(gateTransition(full,gates([1,0,-1,0],[80,null,null,null])),{gate:1,kind:'ejected'});
+ // Marked unavailable or found empty with the weight kept, an unknown gate found empty, a runout with filament loaded
+ assert.equal(gateTransition(full,gates([0,2,-1,0],[80,50,null,null])),null);
+ assert.equal(gateTransition(full,gates([1,2,0,0],[80,50,null,null])),null);
+ assert.equal(gateTransition(full,gates([0,2,-1,0],[null,50,null,null],{filament_pos:10})),null);
+ // An empty gate given filament, known or not yet
+ assert.deepEqual(gateTransition(full,gates([1,2,-1,1],[80,50,null,null])),{gate:3,kind:'preloaded'});
+ assert.deepEqual(gateTransition(full,gates([1,2,-1,-1],[80,50,null,null])),{gate:3,kind:'preloaded'});
+ // A weight or status that changes otherwise
+ assert.equal(gateTransition(full,gates([2,2,1,0],[70,50,null,null])),null);
 });

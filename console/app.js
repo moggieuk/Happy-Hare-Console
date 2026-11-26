@@ -13,7 +13,7 @@ import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
-import {timelineMarkers, scanMove} from './playback.js';
+import {timelineMarkers, scanMove, gateTransition} from './playback.js';
 import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
@@ -333,8 +333,11 @@ function acceptLive(delta,time) {
     if (name) store.sensorPulse={sensor:name,reverse:!previous.homing.triggered,start:animationNow()};
   }
   // Updates that arrive while the rack is sliding to this gate must not restart the slide
+  // nor one that arrives while a gate's eject or preload is playing
+  const playing=gateTransition(store.liveFrom,previous), still=playing && gateTransition(store.liveFrom,next);
   const sliding=Boolean(previous) && !store.liveSettled && (liveSteady(previous,next) ||
-    gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit);
+    gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit ||
+    Boolean(still) && still.gate===playing.gate && still.kind===playing.kind);
   if (!sliding) store.liveFrom=store.displayed;
   const sameGate=store.liveFrom?.unit===next.unit && store.liveFrom?.gate===next.gate && next.gate>=0;
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
