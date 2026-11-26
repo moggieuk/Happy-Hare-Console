@@ -166,6 +166,7 @@ export function interpolate(event, fraction) {
     return state;
   }
   if (event.kind === 'cut') return fraction < .4 ? a : b;
+  if (event.gate_transition) return gateTransitionFrame(event.gate_transition,a,b,fraction);
   if (gripChanges(event)) return fraction < .4 ? a : event.settled_state || b; // The late grip change belongs to this step
   const mix = (x,y) => typeof x === 'number' && typeof y === 'number' ? x+(y-x)*fraction : x;
   const s = structuredClone(a);
@@ -372,7 +373,56 @@ export function motionFraction(event, timeFraction) {
 const gripChanges = event => event.kind === 'selector_move' && event.before
   && (event.settled_state || event.state).mmu_gripped !== event.before.mmu_gripped;
 
+// A gate's filament arriving or leaving is read from the gate map, which both views have. An eject is a gate with
+// filament going empty with its spool's weight cleared too, as Happy Hare's eject leaves it, and no filament in use
+// there; anything else that empties a gate (marked unavailable, found empty, run out) just switches. A preload is
+// an empty gate no longer empty. Only the first such gate in an update is animated.
+export function gateTransition(before, after) {
+  const was=before?.gate_status, now=after?.gate_status;
+  if (!Array.isArray(was) || !Array.isArray(now)) return null;
+  for (let gate=0; gate<now.length; gate++) {
+    const a=was[gate], b=now[gate];
+    if (a === undefined || b === undefined || a === b) continue;
+    if (a === 0) return {gate,kind:'preloaded'};
+    if (a > 0 && b === 0 && after.spool_percentages?.[gate] == null && (after.gate !== gate || after.filament_pos === 0))
+      return {gate,kind:'ejected'};
+  }
+  return null;
+}
+// An eject takes whatever filament is drawn at the gate back into its spool, then fades the spool to the empty one
+// the gate is left with. A preload is that in reverse. `spoolOnly` leaves the filament to the move that feeds it.
+// A preload is brisk: the spool is simply there
+export const EJECT_WITHDRAW_MS=2400, EJECT_FADE_MS=675, EJECT_TAIL_MS=EJECT_WITHDRAW_MS+EJECT_FADE_MS;
+export const PRELOAD_FADE_MS=250, PRELOAD_FEED_MS=350;
+export const gateTransitionMs=(transition,spoolOnly=false)=>transition.kind === 'ejected' ? EJECT_TAIL_MS
+  : PRELOAD_FADE_MS+(spoolOnly ? 0 : PRELOAD_FEED_MS);
+export function gateTransitionFrame({gate,kind}, before, after, fraction, spoolOnly=false) {
+  const t=fraction*gateTransitionMs({kind},spoolOnly), ease=x=>x*x*(3-2*x);
+  // The filament runs at a steady pace, as a move does. The scene draws both from `gate_eject`
+  if (kind === 'ejected')
+    return {...before,gate_eject:{gate,withdraw:clamp01(t/EJECT_WITHDRAW_MS),fade:ease(clamp01((t-EJECT_WITHDRAW_MS)/EJECT_FADE_MS))}};
+  return {...after,gate_eject:{gate,withdraw:spoolOnly ? 0 : 1-clamp01((t-PRELOAD_FADE_MS)/PRELOAD_FEED_MS),fade:1-ease(clamp01(t/PRELOAD_FADE_MS))}};
+}
+// One gate's contents taken from another state: the rest of the gate map is left as it is
+export function withGate(state, from, gate) {
+  const entry=(now,then)=>Array.isArray(now) && Array.isArray(then) && now.length === then.length
+    ? now.map((value,index)=>index === gate ? then[index] : value) : now;
+  const s={...state};
+  for (const key of ['gate_colors','gate_status','spool_percentages']) s[key]=entry(state[key],from[key]);
+  if (state.gate_map && from.gate_map) s.gate_map=Object.fromEntries(Object.entries(state.gate_map)
+    .map(([key,value])=>[key,key === 'ttg_map' ? value : entry(value,from.gate_map[key])]));
+  if (state.gate === gate && state.filament && from.filament) {
+    s.filament={...state.filament,incoming_color:from.filament.incoming_color};
+    s.purge_transition=from.purge_transition;
+  }
+  return s;
+}
+const transitionStep=(record,transition,before,state)=>({seq:record.seq,time:record.time,
+  kind:transition.kind === 'ejected' ? 'gate_emptied' : 'gate_preloaded',
+  label:`Gate ${transition.gate} ${transition.kind === 'ejected' ? 'emptied' : 'preloaded'}`,
+  gate_transition:transition,before,state,telemetry:record.telemetry});
 export function duration(event, compressBowden = false, compressPurge = false) {
+  if (event.gate_transition) return gateTransitionMs(event.gate_transition);
   if (event.kind === 'gate_changed') return gateDuration(event);
   if (event.kind === 'cut' || event.kind === 'release') return 650;
   if (gripChanges(event)) return 650; // Long enough to see the gears grip or release
@@ -486,12 +536,20 @@ export function selectorNotice(events, event, playing, following) {
     ? `Selector: ${selectorSummary(previous)} · Gate ${event.before?.gate} → ${event.state?.gate}` : null;
 }
 
-// A state update as one readable line per value; the recording keeps the full path/value records
-export const changeLines = changes => changes.map(({path, value, remove}) =>
-  `${path.join('.')}: ${remove ? '(removed)' : JSON.stringify(value)}`).join('\n');
+// A state update as the status subscription would list it: [object heading, [[field, value as JSON], ...]] for each
+// object changed, in the order first met. The recording keeps the full path/value records.
+export function changeRows(changes) {
+  const rows=new Map();
+  for (const {path, value, remove} of changes) {
+    const heading=path.length>2 ? `${path[0]}['${path[1]}']` : path[0];
+    if (!rows.has(heading)) rows.set(heading,[]);
+    rows.get(heading).push([path.slice(path.length>2 ? 2 : 1).join('.'),remove ? '(removed)' : JSON.stringify(value)]);
+  }
+  return [...rows];
+}
 
 export function traceText(event) {
-  let type = {state:'state changed', gate_changed:'gate changed',move_completed:'move completed',selector_move:'selector',selector_completed:'selector'}[event.kind] || event.kind;
+  let type = {state:'state changed', gate_changed:'gate changed', gate_emptied:'gate emptied', gate_preloaded:'gate preloaded',move_completed:'move completed',selector_move:'selector',selector_completed:'selector'}[event.kind] || event.kind;
   if (event.kind === 'movement') {
     const source = event.source || event.telemetry?.start?.source;
     type = event.homing ? 'homing move' : source === 'mmu_gcode' ? 'G1' : 'move';
@@ -669,7 +727,7 @@ export function encoderFilamentDistance(events, event, state, tip, pathDistance,
 }
 
 // Keep schematic parking and switch homing on the same continuous path.
-export function switchFilamentDistance(tip, home, parking, entry, sensorDistance, pathDistance, encoder = null, parkedDistance = null, preload = null) {
+export function switchFilamentDistance(tip, home, parking, entry, sensorDistance, pathDistance, encoder = null, parkedDistance = null, preload = null, gateEntry = null) {
   const knots = [[home,sensorDistance],[entry,pathDistance(entry)]];
   if (encoder && encoder.position !== home && encoder.position < entry) knots.push([encoder.position,encoder.distance]);
   if (parking && home+parking < entry) {
@@ -683,7 +741,14 @@ export function switchFilamentDistance(tip, home, parking, entry, sensorDistance
     knots.push([parked,distance]);
   }
   // A preload on another sensor: known only to lie before every other place
-  if (preload && knots.every(([position,landmark])=>preload.position < position && preload.distance < landmark)) knots.push([preload.position,preload.distance]);
+  if (preload && knots.every(([position,landmark])=>preload.position < position && preload.distance < landmark)) {
+    knots.push([preload.position,preload.distance]);
+    // The sensor it parked beyond is behind it, where that sensor is drawn: homing back off it ends there
+    if (preload.sensor && preload.sensor.position < preload.position)
+      knots.push([preload.sensor.position,Math.min(preload.sensor.distance,preload.distance-8)]);
+  }
+  // The gate's entry sensor, where it lies behind everything else: an eject homes back to it and ends there
+  if (gateEntry && knots.every(([position,landmark])=>gateEntry.position < position && gateEntry.distance < landmark)) knots.push([gateEntry.position,gateEntry.distance]);
   // A parked tip can coincide with the encoder.
   for (let i=knots.length-1;i>0;i--) if (knots.slice(0,i).some(k=>k[0]===knots[i][0])) knots.splice(i,1);
   knots.sort((a,b)=>a[0]-b[0]);
@@ -888,7 +953,7 @@ export function toolchangeIndex(events, index, direction) {
 
 export function annotatedStep(events, event, navigating) {
   if (navigating) return event;
-  const animated = item => ['movement', 'gate_changed', 'toolchange', 'selector_move'].includes(item.kind);
+  const animated = item => ['movement', 'gate_changed', 'gate_emptied', 'gate_preloaded', 'toolchange', 'selector_move'].includes(item.kind);
   return animated(event) ? event : events.findLast(item => item.seq <= event.seq && animated(item)) || event;
 }
 
@@ -908,7 +973,7 @@ export function orderedSteps(records) {
   const selectorSeen=new Set(selectors.map(e=>e.telemetry.start.sequence));
   const anchored=new Set();
   const steps=[];
-  let motion=null;
+  let motion=null, held=null;   // `held`: the move's end state with a gate's contents as they were, until its emptying is met
   for (const record of records) {
     if (!motion && record.kind === 'selector' && record.telemetry?.event === 'selector_movement_start') {
       const step=selectorSteps.get(record.seq);
@@ -921,16 +986,28 @@ export function orderedSteps(records) {
     } else if (record.kind === 'pending_move') {
       motion=outcomes.get(record.seq);
       if (!motion) break;
+      // A gate emptied during the move keeps its filament to the end of it: the emptying plays as its own step.
+      // One preloaded during it has its filament from the start, so the move shows it come in as the spool appears.
+      const change=gateTransition(motion.before,motion.state);
+      held=change?.kind === 'ejected' ? {gate:change.gate,state:withGate(motion.state,motion.before,change.gate)} : null;
       steps.push({...motion,seq:record.seq,time:record.time,
-        state:{...motion.state,espoolers:motion.before.espoolers}});
+        ...(change?.kind === 'preloaded' ? {before:withGate(motion.before,motion.state,change.gate),gate_preloading:change.gate} : {}),
+        state:{...(held?.state || motion.state),espoolers:motion.before.espoolers}});
     } else if (motion && record.seq === motion.seq) {
-      steps.push({seq:record.seq,time:record.time,kind:'move_completed',internal:true,during_move:true,
+      const completed={seq:record.seq,time:record.time,kind:'move_completed',internal:true,during_move:true,
         label:motion.homing ? (motion.homed ? 'Homing completed' : 'Homing did not trigger') : 'Move completed',
-        state:motion.state,telemetry:motion.telemetry.outcome});
-      motion=null;
+        state:motion.state,telemetry:motion.telemetry.outcome};
+      steps.push(held ? transitionStep(completed,{gate:held.gate,kind:'ejected'},{...held.state,espoolers:steps.at(-1).state.espoolers},motion.state) : completed);
+      motion=held=null;
+    } else if (motion && held && record.kind === 'state' && record.state.gate_status?.[held.gate] === 0) {
+      steps.push(transitionStep(record,{gate:held.gate,kind:'ejected'},{...held.state,espoolers:steps.at(-1).state.espoolers},
+        {...motion.state,espoolers:record.state.espoolers}));
+      held=null;
     } else if (motion) {
       steps.push({...record,internal:record.kind === 'espooler' ? false : record.internal,
-        state:{...motion.state,espoolers:record.state.espoolers},before:undefined});
+        state:{...(held?.state || motion.state),espoolers:record.state.espoolers},before:undefined});
+    } else if (record.kind === 'state' && steps.length && gateTransition(steps.at(-1).state,record.state)) {
+      steps.push(transitionStep(record,gateTransition(steps.at(-1).state,record.state),steps.at(-1).state,record.state));
     } else steps.push(record);
   }
   return steps;
@@ -984,6 +1061,9 @@ export function playbackFrame(event, elapsed, movementMs, selectionGrip = event.
     fraction=clamp01(fraction);
   } else fraction=motionFraction(event,movementMs ? Math.min(1,elapsed/movementMs) : 1);
   let state=interpolate(event,fraction);
+  if (event.gate_preloading !== undefined && elapsed < movementMs)
+    state={...state,gate_eject:gateTransitionFrame({gate:event.gate_preloading,kind:'preloaded'},null,null,
+      Math.min(1,Math.max(0,elapsed)/PRELOAD_FADE_MS),true).gate_eject};   // The spool appears as the filament comes in
   if (event.kind === 'gate_changed' && elapsed < movementMs) {
     // Keep the gears released through retreat, both fades, the slide, and advance.
     state={...state,gate_full_opacity:fullOpacity,
@@ -1040,3 +1120,6 @@ export function toolheadProgress(state, position, range=toolheadDrawingRange(sta
   return fraction <= pivot ? fraction*drawn/pivot
     : drawn+(fraction-pivot)*(1-drawn)/(1-pivot);
 }
+// Whether playback stops on the step it has just played. One played alone onto the latest event of a stream
+// carries on following it; only a pause holds it there. A recording has nothing after its end.
+export const holdsAfterStep=({stepping,held,offline,atEnd})=>offline ? stepping || atEnd : stepping && (held || !atEnd);

@@ -1,4 +1,4 @@
-import {SceneModel} from './scene-state.js';
+import {SceneModel, preloadEndstop} from './scene-state.js';
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
 import {purgeColor, shortenedHair} from './playback.js';
 import {finite, number, short, positions} from './util.js';
@@ -312,7 +312,7 @@ export class TelemetryReplay extends SceneModel {
         const sensor=state.sensors[target];
         const forward=start.trigger_state ?? (number(start.requested_mm,d)>0);
         if (!/filament_(compression|tension)|encoder/.test(target) && finite(sensor.position)) {
-          next=sensor.position-(forward ? 0 : .001);
+          next=preloadEndstop(state,target,sensor.position)-(forward ? 0 : .001);
           details.homing_anchor=true;
         } else if (buffered) {
           const low=(buffered.maximum-buffered.range)/2,high=(buffered.maximum+buffered.range)/2;

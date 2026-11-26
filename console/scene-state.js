@@ -25,6 +25,16 @@ export function preloadPark(s, home, preloadSensor) {
     : Math.min((preloadSensor ?? 0)+b.parking, home+Math.min(a.parking,0)-10);
 }
 
+// Where a homing move to `target` leaves the tip. A gate's own sensor has only a nominal position, so the one a
+// preload homes to is placed from the preload park: a filament parked there is then moved by what it travels.
+export function preloadEndstop(s, target, position) {
+  const a=s.encoder_reference, b=s.preload_reference;
+  if (!a || !b || endstopName(target) !== endstopName(b.endstop) || endstopName(b.endstop) === endstopName(a.endstop)) return position;
+  const place=name=>s.active_sensors.map(n=>[n,s.sensors[n]]).find(([n])=>short(n) === name || short(n) === `${name}_${s.gate}`)?.[1]?.position;
+  const home=a.endstop === 'encoder' ? s.layout.mmu_encoder : place(a.endstop) ?? 0;
+  return preloadPark(s,home,position)-b.parking;
+}
+
 export class SceneModel {
   constructor() {
     this.tips=[]; this.shapes=[]; this.hairLengths=[]; this.motors={};

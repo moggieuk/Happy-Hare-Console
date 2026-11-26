@@ -8,6 +8,28 @@ export function captureRows(delta) {
   return Object.entries(delta || {}).filter(([name])=>/^mmu(_\w+)?( |$)/.test(name))
     .map(([name,fields])=>[name,Object.entries(fields).map(([field,value])=>[field,JSON.stringify(value)])]);
 }
+// An object and its fields as they are listed everywhere: the heading bold, each field on its own line with its
+// name greyed. With a `note` the fields open and close under the heading. `fields` is [[field, value as JSON], ...]
+export function statusRow(heading,fields,note=null) {
+  const row=document.createElement(note ? 'details' : 'div'), object=document.createElement('span');
+  const head=note ? document.createElement('summary') : row;
+  row.className='capture-row';
+  object.className='capture-object'; object.textContent=heading;
+  head.append(object);
+  if (note) {
+    const text=document.createElement('span');
+    text.className='capture-note'; text.textContent=note;
+    head.append(text);
+    row.append(head);
+  }
+  for (const [field,value] of fields) {
+    const item=document.createElement('span'), key=document.createElement('span');
+    item.className='capture-field'; key.className='capture-key'; key.textContent=field+': ';
+    item.append(key,value);
+    row.append(item);
+  }
+  return row;
+}
 // `initial` marks the full status a subscription starts from, as opposed to a later change
 // `seq` ties the rows to the replay step they belong to
 export function captureStatus(delta,eventtime,initial=false,seq=null) {
@@ -20,29 +42,18 @@ export function captureStatus(delta,eventtime,initial=false,seq=null) {
   const body=document.createElement('div');
   group.className=initial ? 'capture-group capture-initial' : 'capture-group';
   if (seq!==null) group.dataset.seq=seq;
-  time.className='console-time'; time.textContent=Number(eventtime).toFixed(2);
+  // Numbered and timed as a Movement trace entry is: the number is the update's, which playback also counts by
+  time.className='capture-time';
+  if (seq!==null) {
+    const number=document.createElement('span');
+    number.className='capture-seq'; number.textContent=seq;
+    time.append(number,' · ');
+  }
+  time.append(Number(eventtime).toFixed(2)+'s');
   body.className='capture-body';
   group.append(time);
-  for (const [name,fields] of rows) {
-    const row=document.createElement(initial ? 'details' : 'div'), object=document.createElement('span');
-    const head=initial ? document.createElement('summary') : row;
-    row.className='capture-row';
-    object.className='capture-object'; object.textContent=`printer['${name}']`;
-    head.append(object);
-    if (initial) {
-      const note=document.createElement('span');
-      note.className='capture-note'; note.textContent=` initial status · ${fields.length} fields`;
-      head.append(note);
-      row.append(head);
-    }
-    for (const [field,value] of fields) {
-      const item=document.createElement('span'), key=document.createElement('span');
-      item.className='capture-field'; key.className='capture-key'; key.textContent=field+': ';
-      item.append(key,value);
-      row.append(item);
-    }
-    body.append(row);
-  }
+  for (const [name,fields] of rows)
+    body.append(statusRow(`printer['${name}']`,fields,initial ? ` initial status · ${fields.length} fields` : null));
   group.append(body);
   log.append(group);
   for (let count=log.querySelectorAll('.capture-row').length; count>MAX_ROWS && log.children.length>1; ) {

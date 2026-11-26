@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {TelemetryReplay,parseTelemetry,applyDelta} from './telemetry.js';
 import {spoolPercentage} from './scene-state.js';
-import {orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
+import {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,EJECT_FADE_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
 const fixture=name=>JSON.parse(fs.readFileSync(new URL(`./fixtures/${name}.json`,import.meta.url)));
 const header=()=>structuredClone(fixture('ercf-vvd')[0]);
 test('spool fill uses known weights, including zero, and rejects unknown weights',()=>{
@@ -1063,4 +1063,78 @@ test('an unload seen in the recording parks at the unloaded park before Happy Ha
  assert.deepEqual(r.snapshot().unloaded_gates,[gate]);
  r.facts.printer.mmu.gate_status[gate]=0;
  assert.deepEqual(r.snapshot().unloaded_gates,[]);   // An emptied gate starts again
+});
+test('an eject from the preload park only ever draws the filament back, and leaves an empty spool',async()=>{
+ const {spoolFill}=await import('./scene.js');
+ const r=new TelemetryReplay();r.accept(fixture('boxturtle-eject'));
+ const moves=r.events.filter(e=>e.kind==='movement');
+ // Homing back off the gate's own sensor, which a preload parks beyond, is the 10mm it travelled: not a jump to the sensor's nominal place
+ assert.deepEqual(moves.map(e=>[Math.round(e.before.tips[0]),Math.round(e.state.tips[0])]),[[-100,-110],[-110,-150]]);
+ for (const e of moves) for (const f of [.25,.5,.75]) assert.ok(interpolate(e,f).tips[0]<=e.before.tips[0]);
+ const before=moves[0].before, after=r.events.at(-1).state;
+ assert.equal(Math.round(spoolFill(before,0)),84);
+ assert.equal(after.gate_status[0],0);assert.equal(after.spool_percentages[0],null);
+ assert.equal(spoolFill(after,0),0);                       // Happy Hare cleared the gate's weight with the eject
+ assert.equal(spoolFill({spool_percentages:[null],gate_status:[1]},0),100);
+});
+test('a gate reported empty is its own step: the move before it ends with the filament still there, then it is withdrawn and the spool fades',()=>{
+ const r=new TelemetryReplay();r.accept(fixture('boxturtle-eject'));
+ const steps=visibleSteps(r.events);
+ assert.deepEqual(steps.map(e=>`${e.seq}:${e.kind}`),['0:session','2:espooler','3:movement','5:espooler','8:espooler','9:movement','10:gate_emptied','11:espooler']);
+ const eject=steps[5], emptied=steps[6];
+ // The move ends at the entry sensor with the gate as it was: Happy Hare's reset of the gate arrived part-way through it
+ const end=playbackFrame(eject,duration(eject),duration(eject)).state;
+ assert.equal(Math.round(end.tips[0]),-150);assert.equal(end.gate_status[0],1);assert.equal(end.gate_colors[0],'cac60c');
+ assert.equal(Math.round(end.spool_percentages[0]),84);
+ assert.equal(duration(eject),duration({...eject,kind:'movement'}));
+ // The emptying: withdrawn first, then faded, the gate keeping its colour and weight until it is over
+ assert.equal(emptied.label,'Gate 0 emptied');assert.equal(duration(emptied),EJECT_TAIL_MS);
+ assert.deepEqual(emptied.gate_transition,{gate:0,kind:'ejected'});
+ assert.ok(EJECT_WITHDRAW_MS>2*EJECT_FADE_MS);
+ const at=t=>playbackFrame(emptied,t,EJECT_TAIL_MS).state;
+ const frames=[EJECT_WITHDRAW_MS*.2,EJECT_WITHDRAW_MS+EJECT_FADE_MS*.2,EJECT_WITHDRAW_MS+EJECT_FADE_MS*.8].map(at);
+ for (const f of frames) { assert.equal(f.gate_status[0],1);assert.equal(f.gate_colors[0],'cac60c');assert.equal(f.gate_eject.gate,0); }
+ assert.ok(frames[0].gate_eject.withdraw>0 && frames[0].gate_eject.withdraw<1 && frames[0].gate_eject.fade===0);
+ assert.equal(frames[1].gate_eject.withdraw,1);
+ assert.ok(frames[2].gate_eject.fade>frames[1].gate_eject.fade && frames[2].gate_eject.fade<1);
+ const done=at(EJECT_TAIL_MS);
+ assert.equal(done.gate_status[0],0);assert.equal(done.gate_eject,undefined);assert.equal(done.spool_percentages[0],null);
+ // The espooler step that follows shows the gate empty
+ assert.equal(steps[7].state.gate_status[0],0);
+});
+test('with no move under way, only an eject or a preload is a step: other gate map changes just switch',()=>{
+ const h=()=>structuredClone(fixture('boxturtle-eject')[0]);
+ const mmu=h().state.printer.mmu, set=(list,value,gate=2)=>list.map((v,g)=>g===gate ? value : v);
+ const play=changes=>{ const r=new TelemetryReplay();
+  r.accept([h(),{sequence:1,event:'state_delta',timestamp:h().timestamp+1,changes:changes.map(([key,value])=>({path:['printer','mmu',key],value}))}]);
+  return visibleSteps(r.events); };
+ assert.equal(mmu.gate_status[2],1);assert.equal(mmu.gate_status[1],0);
+ // Marked unavailable, its spool's weight kept: no step, and the change is shown on the step before it
+ const marked=play([['gate_status',set(mmu.gate_status,0)]]);
+ assert.deepEqual(marked.map(e=>e.kind),['session']);assert.equal(marked[0].settled_state.gate_status[2],0);
+ // A colour set in the gate map likewise
+ const coloured=play([['gate_color',set(mmu.gate_color,'ff0000')]]);
+ assert.deepEqual(coloured.map(e=>e.kind),['session']);assert.equal(coloured[0].settled_state.gate_colors[2],'ff0000');
+ // Emptied with its weight cleared, as an eject leaves it
+ const ejected=play([['gate_status',set(mmu.gate_status,0)],['gate_initial_weight',set(mmu.gate_initial_weight,-1)],['gate_remaining_weight',set(mmu.gate_remaining_weight,-1)]]);
+ assert.equal(ejected.at(-1).kind,'gate_emptied');assert.deepEqual(ejected.at(-1).gate_transition,{gate:2,kind:'ejected'});
+ // An empty gate given filament: the spool fades in, then the filament is drawn up from it
+ const preloaded=play([['gate_status',set(mmu.gate_status,1,1)]]), step=preloaded.at(-1);
+ assert.equal(step.kind,'gate_preloaded');assert.equal(step.label,'Gate 1 preloaded');
+ const at=t=>playbackFrame(step,t,duration(step)).state;
+ const early=at(PRELOAD_FADE_MS*.5), late=at(PRELOAD_FADE_MS+PRELOAD_FEED_MS*.5);
+ assert.ok(duration(step)<1000);   // Brisk, where an eject lingers
+ assert.equal(early.gate_status[1],1);
+ assert.ok(early.gate_eject.fade>0 && early.gate_eject.fade<1);assert.equal(early.gate_eject.withdraw,1);
+ assert.equal(late.gate_eject.fade,0);assert.ok(late.gate_eject.withdraw>0 && late.gate_eject.withdraw<1);
+ assert.equal(at(duration(step)).gate_eject,undefined);
+});
+test('holding an ejected gate as it was for the move leaves the other gates\' changes showing',()=>{
+ const records=structuredClone(fixture('boxturtle-eject'));
+ const colours=records[10].changes.find(c=>c.path.join('.')==='printer.mmu.gate_color');
+ colours.value[5]='123456';
+ const r=new TelemetryReplay();r.accept(records);
+ const eject=visibleSteps(r.events).find(e=>e.seq===9);
+ assert.equal(eject.state.gate_colors[0],'cac60c');assert.equal(eject.state.gate_status[0],1);
+ assert.equal(eject.state.gate_colors[5],'123456');
 });

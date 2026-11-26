@@ -2,7 +2,7 @@
 import {SceneModel} from './scene-state.js';
 import {liveMachine,qualifySensors} from './live-config.js';
 import {short as sensorName, DEFAULT_COLOR, clamp} from './util.js';
-import {interpolate, duration, gateChangeFraction, purgeColor, purgeOutletColor} from './playback.js';
+import {interpolate, duration, gateChangeFraction, purgeColor, purgeOutletColor, gateTransition, gateTransitionMs, gateTransitionFrame, withGate} from './playback.js';
 import {resolveTip} from './live-tip.js';
 const clone=value=>structuredClone(value);
 const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('') : String(value || DEFAULT_COLOR).replace(/^#/,'').slice(0,6);
@@ -134,16 +134,34 @@ export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 
 const emitted=(from,to)=>(to.extruded_mm || 0)-(from.extruded_mm || 0);
 const dropped=(from,to)=>(to.purge_base_mm || 0)>(from.purge_base_mm || 0);
 const sameGate=(from,to)=>Boolean(from) && from.unit===to.unit && from.gate===to.gate && to.gate>=0;
+const gateChangeMs=(from,to)=>duration({kind:'gate_changed',before:from,state:to});
+function gateChangeFrame(from,to,fraction) {
+  const event={kind:'gate_changed',before:from,state:to};
+  return interpolate(event,gateChangeFraction(event,fraction));
+}
+// A gate ejected or preloaded and a gate change in one: each plays in full, the transition at the gate it
+// happened at. One at the gate arrived at follows the change; any other is over before the gate is left.
+function gateChangeWithTransition(from,to,transition,fraction) {
+  const change=gateChangeMs(from,to), tail=gateTransitionMs(transition), at=fraction*(change+tail);
+  if (transition.gate===to.gate) {
+    const arrived=withGate(to,from,transition.gate);
+    return at<change ? gateChangeFrame(from,arrived,at/change) : gateTransitionFrame(transition,arrived,to,(at-change)/tail);
+  }
+  const leaving=withGate(from,to,transition.gate);
+  return at<tail ? gateTransitionFrame(transition,from,leaving,at/tail) : gateChangeFrame(leaving,to,(at-tail)/change);
+}
 // As long as the updates are apart, so a steady stream reads as one movement; a long step is a quick sweep
 export function liveDuration(from,to,interval=0) {
-  if (gateChanged(from,to)) return duration({kind:'gate_changed',before:from,state:to});
+  if (gateChanged(from,to)) return gateChangeMs(from,to)+(gateTransition(from,to) ? gateTransitionMs(gateTransition(from,to)) : 0);
+  // A filament ejected or preloaded, as the gate map shows it, plays as it does from telemetry
+  if (gateTransition(from,to)) return gateTransitionMs(gateTransition(from,to));
   const distance=sameGate(from,to) ? Math.abs(to.tips[to.gate]-from.tips[to.gate]) || 0 : 0;
   // A purge reported only once it is over is drawn coming out, and a pile is given time to fall
   const purge=sameGate(from,to) ? Math.min(4000,Math.max(0,emitted(from,to))*400)+(dropped(from,to) ? 650 : 0) : 0;
   return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3),purge);
 }
 // An update that moves nothing must not restart the movement under way
-export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] &&
+export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] && !gateTransition(target,next) &&
   emitted(target,next)===0 && !dropped(target,next) &&
   Object.entries(next.devices).every(([name,d])=>target.devices[name]?.travel===d.travel);
 // The frame that reaches the target is drawn once, however late it comes
@@ -155,10 +173,9 @@ export function liveProgress(elapsed,total,settled) {
 // Cosmetic smoothing only: the target always comes from subscribed state.
 export function liveFrame(from,to,fraction) {
   if (!from || fraction>=1) return to;
-  if (gateChanged(from,to)) {
-    const event={kind:'gate_changed',before:from,state:to};
-    return interpolate(event,gateChangeFraction(event,fraction));
-  }
+  const transition=gateTransition(from,to);
+  if (gateChanged(from,to)) return transition ? gateChangeWithTransition(from,to,transition,Math.max(0,fraction)) : gateChangeFrame(from,to,fraction);
+  if (transition) return gateTransitionFrame(transition,from,to,Math.max(0,fraction));
   const f=Math.max(0,fraction), s={...to,tips:[...to.tips],devices:clone(to.devices)};
   if (from.unit===to.unit && from.gate===to.gate && to.gate>=0) {
     s.tips[to.gate]=from.tips[to.gate]+(to.tips[to.gate]-from.tips[to.gate])*f;

@@ -42,7 +42,14 @@ export function spoolWindingRadius(percent) {
  * Angles are radians for viewAngle and degrees for rotation. The caller owns
  * placement, scale, clipping, and animation; idPrefix must be unique and SVG-safe.
  */
-export function renderSpool({idPrefix, style, color, fillPercent, viewAngle,
+// `windingOpacity` below 1 fades the filament off the spool: the wound spool is drawn over the empty one
+export function renderSpool(options) {
+  const {windingOpacity=1}=options;
+  if (!(windingOpacity<1) || !(options.fillPercent>0)) return spoolMarkup(options);
+  return spoolMarkup({...options,fillPercent:0,showFillPercent:false,idPrefix:`${options.idPrefix}-empty`})
+    +`<g data-part="spool-winding-fade" opacity="${windingOpacity}">${spoolMarkup(options)}</g>`;
+}
+function spoolMarkup({idPrefix, style, color, fillPercent, viewAngle,
   rotation=0, arrowOpacity=0, direction='assist', glow=0, pulse=null, showFillPercent=false, shadowStyle='blur', windingLines=true}) {
   const spoolStyle=style, percent=fillPercent, spoolViewAngle=viewAngle;
   const angle=rotation, fade=arrowOpacity;
@@ -135,8 +142,8 @@ export class SpoolRenderer {
   }
 
   update(options) {
-    const {idPrefix,style,color,fillPercent,viewAngle,showFillPercent,shadowStyle,windingLines}=options;
-    const key=JSON.stringify([idPrefix,style,color,fillPercent,viewAngle,showFillPercent,shadowStyle,windingLines]);
+    const {idPrefix,style,color,fillPercent,viewAngle,showFillPercent,shadowStyle,windingLines,windingOpacity=1}=options;
+    const key=JSON.stringify([idPrefix,style,color,fillPercent,viewAngle,showFillPercent,shadowStyle,windingLines,windingOpacity]);
     if (key !== this.geometryKey) {
       // Keep invisible arrow/glow nodes mounted so fading never recreates geometry.
       this.element.innerHTML=renderSpool({...options,rotation:0,arrowOpacity:1,glow:1});

@@ -19,7 +19,7 @@ test('timeline retains ticks but omits labels at thirty operations',()=>{
    assert.ok(markers.every(marker=>marker.label===''));
  }
 });
-import { changeLines, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, branchFade, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
+import { changeRows, gateTransition, virtualSelectorLayout, toolheadProgress, toolheadDrawingRange, playbackFrame, motionFraction, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, visibleSteps, toolchangeIndex, annotatedStep, excessFilamentLabel, bufferSpringPath, bufferPiston, interpolate, constrainFilament, duration, gearAngle, CommandHistory, traceText, homingTarget, homingPulse, bladeStroke, bowdenLengthLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, branchFade, purgeColor, purgeOutletColor, purgeCoils, purgeStrandLength } from './playback.js';
 const state=(tip,on)=>({gate:0,tips:[tip],tails:[null],motors:{gear:tip},devices:{encoder:{distance:tip}},buffers:{},sensors:{toolhead:{state:on,position:5}}});
 test('sensor crosses at geometric position with exact endpoints',()=>{
  const e={before:state(0,false),state:state(10,true)};
@@ -941,13 +941,16 @@ test('the toolhead drawing never collapses when the nozzle sits at the gears',()
  assert.ok(Number.isFinite(toolheadProgress(state,705)));
 });
 
-test('a state update reads as one path: value line per change',()=>{
- assert.equal(changeLines([
+test('a state update is listed by object, one field per change, as the status subscription lists it',()=>{
+ assert.deepEqual(changeRows([
   {path:['printer','mmu','selector','grip'],value:'Gripped'},
-  {path:['printer','mmu','sync_mode'],value:0},
+  {path:['printer','mmu_machine','units','unit0','espooler','operations','0','direction'],value:'stopped'},
   {path:['printer','mmu','gate_status'],value:[1,0]},
-  {path:['printer','mmu','sensors','unit0:mmu_shared_exit'],remove:true}]),
-  'printer.mmu.selector.grip: "Gripped"\nprinter.mmu.sync_mode: 0\nprinter.mmu.gate_status: [1,0]\nprinter.mmu.sensors.unit0:mmu_shared_exit: (removed)');
+  {path:['printer','mmu','sensors','unit0:mmu_shared_exit'],remove:true},
+  {path:['macros','_MMU_PARK','retracted_length'],value:2}]),
+  [["printer['mmu']",[['selector.grip','"Gripped"'],['gate_status','[1,0]'],['sensors.unit0:mmu_shared_exit','(removed)']]],
+   ["printer['mmu_machine']",[['units.unit0.espooler.operations.0.direction','"stopped"']]],
+   ["macros['_MMU_PARK']",[['retracted_length','2']]]]);
 });
 
 test('a tip held at a sensor leaves from where it was drawn and arrives where it will be drawn',()=>{
@@ -1061,4 +1064,42 @@ test('a gate change between a virtual selector\'s own gates starts at once, with
  assert.equal(duration(rack),2950);
  assert.equal(playbackFrame(rack,135,2950).state.gate_slide,0);
  assert.equal(duration({kind:'gate_changed',before:gate(0,'a'),state:gate(5,'b')}),2950);
+});
+test('homing back off the sensor a preload parked beyond ends where that sensor is drawn',()=>{
+ // Homes on a shared exit at 10 (drawn at 400), unloaded park drawn at 300; preload park at -100 drawn at 188, its sensor at -110 drawn at 180
+ const at=x=>switchFilamentDistance(x,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:180}});
+ assert.equal(at(-100),188);
+ assert.equal(at(-110),180);
+ assert.ok(at(-105)>180 && at(-105)<188);
+ assert.ok(at(-150)<180);                                   // An eject carries on back from there
+ // and ends at the gate's entry sensor, where that is drawn
+ const eject=x=>switchFilamentDistance(x,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:180}},{position:-150,distance:115});
+ assert.equal(eject(-150),115);assert.equal(eject(-110),180);
+ assert.ok(eject(-130)>115 && eject(-130)<180);
+ // A sensor drawn level with or past the park is kept behind it
+ assert.equal(switchFilamentDistance(-110,10,-100,700,400,p=>p+200,null,300,{position:-100,distance:188,sensor:{position:-110,distance:200}}),180);
+});
+test('an eject and a preload are read from the gate map; other ways a gate empties are not',()=>{
+ const gates=(status,percent,extra={})=>({gate:0,filament_pos:0,gate_status:status,spool_percentages:percent,...extra});
+ const full=gates([1,2,-1,0],[80,50,null,null]);
+ // Emptied with the spool's weight cleared, the filament not in use
+ assert.deepEqual(gateTransition(full,gates([0,2,-1,0],[null,50,null,null])),{gate:0,kind:'ejected'});
+ assert.deepEqual(gateTransition(full,gates([1,0,-1,0],[80,null,null,null])),{gate:1,kind:'ejected'});
+ // Marked unavailable or found empty with the weight kept, an unknown gate found empty, a runout with filament loaded
+ assert.equal(gateTransition(full,gates([0,2,-1,0],[80,50,null,null])),null);
+ assert.equal(gateTransition(full,gates([1,2,0,0],[80,50,null,null])),null);
+ assert.equal(gateTransition(full,gates([0,2,-1,0],[null,50,null,null],{filament_pos:10})),null);
+ // An empty gate given filament, known or not yet
+ assert.deepEqual(gateTransition(full,gates([1,2,-1,1],[80,50,null,null])),{gate:3,kind:'preloaded'});
+ assert.deepEqual(gateTransition(full,gates([1,2,-1,-1],[80,50,null,null])),{gate:3,kind:'preloaded'});
+ // A weight or status that changes otherwise
+ assert.equal(gateTransition(full,gates([2,2,1,0],[70,50,null,null])),null);
+});
+test('a step played alone onto the end of a stream follows it; a pause or a recording holds there',async()=>{
+ const {holdsAfterStep}=await import('./playback.js');
+ assert.equal(holdsAfterStep({stepping:true,atEnd:true}),false);
+ assert.equal(holdsAfterStep({stepping:true,atEnd:false}),true);
+ assert.equal(holdsAfterStep({stepping:true,held:true,atEnd:true}),true);
+ assert.equal(holdsAfterStep({stepping:false,offline:true,atEnd:true}),true);
+ assert.equal(holdsAfterStep({stepping:false,atEnd:true}),false);
 });

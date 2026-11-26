@@ -13,11 +13,11 @@ import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
-import {timelineMarkers, scanMove} from './playback.js';
-import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeLines, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
+import {timelineMarkers, scanMove, gateTransition} from './playback.js';
+import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
-import {captureStatus, captureRows, clearStatusCapture, highlightCapture} from './status-capture.js';
+import {captureStatus, captureRows, clearStatusCapture, highlightCapture, statusRow} from './status-capture.js';
 import {StatusReplay} from './status-replay.js';
 import {StatusLog, captureConfig, isStatusCapture, mergeStatus} from './status-log.js';
 import {createToolheadPanel} from './toolhead-panel.js';
@@ -28,7 +28,7 @@ import {renderMacros, renderSensors, renderDevices} from './readout.js';
 import './chrome.js';
 const sim = simulatorApi(rpc);
 // Everything the app knows: one object, so the views can be handed it (or watch it) instead of sharing module variables
-// How many status updates are kept for replay: the choice in Settings, remembered by the browser
+// The event window: how many status updates, or telemetry records, are kept for replay. The choice in Settings, remembered by the browser
 const HISTORY_KEY='hh-console-status-history';
 function historyLimit() { return Number($('status-history').value); }
 function newReplay() { return new StatusReplay(historyLimit()); }
@@ -333,13 +333,17 @@ function acceptLive(delta,time) {
     if (name) store.sensorPulse={sensor:name,reverse:!previous.homing.triggered,start:animationNow()};
   }
   // Updates that arrive while the rack is sliding to this gate must not restart the slide
+  // nor one that arrives while a gate's eject or preload is playing
+  const playing=gateTransition(store.liveFrom,previous), still=playing && gateTransition(store.liveFrom,next);
   const sliding=Boolean(previous) && !store.liveSettled && (liveSteady(previous,next) ||
-    gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit);
+    gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit ||
+    Boolean(still) && still.gate===playing.gate && still.kind===playing.kind);
   if (!sliding) store.liveFrom=store.displayed;
   const sameGate=store.liveFrom?.unit===next.unit && store.liveFrom?.gate===next.gate && next.gate>=0;
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
   next.motors=liveMotors(store.liveFrom,next,distance);
   store.liveTarget=next;
+  if (sliding && gateTransition(store.liveFrom,next)) store.liveDuration=liveDuration(store.liveFrom,next);   // A gate change joining it plays after
   if (!sliding) {
     const now=animationNow();
     store.liveDuration=liveDuration(store.liveFrom,next,now-(store.liveMoved ?? now));
@@ -741,6 +745,7 @@ function seek(index) {
   store.pauseAfterStep = false; store.nextStepAt = 0;
   scene.resetSpoolArrows();
   store.cursor = Math.max(0, Math.min(index, store.events.length - 1));
+  if (!store.offline && store.cursor === store.events.length - 1) return followLive();   // The end is the stream
   store.live = false; store.paused = true; store.replayingHistory = true; store.playing = null; store.sensorPulse = null;
   draw(); followTrace();
 }
@@ -794,7 +799,7 @@ function statusControls(s,connected) {
   return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
     previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
     modeText:replay.following && !store.offline ? `Live view · ${what}`
-      : `Status playback · ${mode} · update ${replay.index+1} of ${replay.count} · ${what}`};
+      : `Status playback · ${mode} · update ${replay.entries[replay.index]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};
 }
 function renderScene() {
   if (store.viewMode==='live' ? !store.displayed : !store.events.length) return;
@@ -853,8 +858,12 @@ function traceRow(e, {showDetails, records, expanded}) {
   } else if (internal) {
     const name = e.telemetry?.event;
     b.append(' · ' + (name && name !== 'state_delta' ? name.replaceAll('_',' ') : 'State update'));
-    const details = document.createElement('pre');
-    details.textContent = e.telemetry?.changes ? changeLines(e.telemetry.changes) : JSON.stringify(e.telemetry || e.state, null, 2);
+    // A state update is listed as the status subscription lists one; anything else is shown as recorded
+    const details = document.createElement(e.telemetry?.changes ? 'div' : 'pre');
+    if (e.telemetry?.changes) {
+      details.className='capture-body trace-changes';
+      details.append(...changeRows(e.telemetry.changes).map(([heading,fields])=>statusRow(heading,fields)));
+    } else details.textContent = JSON.stringify(e.telemetry || e.state, null, 2);
     row.append(b, details);
   } else b.append(` · ${detail.join(' · ')}`);
   // Detailed provenance stays in the tooltip.
@@ -873,8 +882,17 @@ function traceRow(e, {showDetails, records, expanded}) {
         start:records.get(e.telemetry?.start?.sequence) || e.telemetry?.start,
         outcome:records.get(e.telemetry?.outcome?.sequence) || e.telemetry?.outcome
       } : records.get(e.seq) || e.telemetry || e.changes || {event:e.kind,label:e.label};
-      payload.textContent=JSON.stringify(telemetry,null,2);
-      details.append(summary,payload); row.append(details);
+      // A state update is listed as the status subscription lists one
+      if (Array.isArray(telemetry.changes) && telemetry.changes.every(change=>Array.isArray(change.path))) {
+        const changes=document.createElement('div');
+        changes.className='capture-body trace-changes';
+        changes.append(...changeRows(telemetry.changes).map(([heading,fields])=>statusRow(heading,fields)));
+        details.append(summary,changes);
+      } else {
+        payload.textContent=JSON.stringify(telemetry,null,2);
+        details.append(summary,payload);
+      }
+      row.append(details);
     }
   }
   return row;
@@ -931,7 +949,7 @@ document.addEventListener('keydown', event => {
   }
 });
 function startPlayback() {
-  store.pauseAfterStep = false; store.nextStepAt = 0;
+  store.pauseAfterStep = store.holdAtEnd = false; store.nextStepAt = 0;
   if (!store.events.length) return;
   if (!store.live) {
     const event = store.events[store.cursor];
@@ -960,7 +978,7 @@ $("play-step").onclick = () => {
 };
 $("replay").onclick = () => {
   if (store.live && !store.paused) {
-    if (store.playing) store.pauseAfterStep = true;
+    if (store.playing) store.pauseAfterStep = store.holdAtEnd = true;
     else store.paused = true;
     draw();
   } else startPlayback();
@@ -993,11 +1011,12 @@ for (const [id,act] of Object.entries({
     draw();
   };
 }
-$('status-timeline').oninput=()=>{ store.replay.seek(Number($('status-timeline').value)); draw(); };
+const seekStatus=index=>{ store.replay.seek(index); if (store.replay.following) followStatus(); draw(); };
+$('status-timeline').oninput=()=>seekStatus(Number($('status-timeline').value));
 $('status-capture').onclick=event=>{
   const seq=Number(event.target.closest('.capture-group')?.dataset.seq);
   const index=store.replay.entries.findIndex(entry=>entry.seq===seq);
-  if (index>=0 && !event.target.closest('summary')) { store.replay.seek(index); draw(); }
+  if (index>=0 && !event.target.closest('summary')) seekStatus(index);
 };
 $("timeline").oninput = () => seek(Number($("timeline").value));
 $("compress-bowden").onchange = () => renderTrace();
@@ -1046,8 +1065,19 @@ function loadStatusCapture(log) {
   if (!previous) throw Error('This status capture holds no MMU status to show');
   return {liveState,objects,steps,last:previous,config:log.config,start:log.start};
 }
+// Both panels say how much they keep, which is the window size chosen
+function renderWindowTooltips() {
+  const size=historyLimit().toLocaleString('en-US');
+  for (const [id,text] of [
+    ['trace-title',`Replay inspects history without rewinding the running simulator. Up to ${size} events are kept, the Event window size in Settings: past that the capture starts again from the current state. A restart begins a new capture.`],
+    ['capture-title',`Every change the status subscription reports for the mmu objects, as it arrives · the latest 500 rows are listed, and the latest ${size} updates are kept for replay, the Event window size in Settings.`]]) {
+    $(id).dataset.tooltip=text; $(id).setAttribute('aria-description',text);
+  }
+}
+renderWindowTooltips();
 $('status-history').onchange=()=>{
   try { localStorage.setItem(HISTORY_KEY,$('status-history').value); } catch {}
+  renderWindowTooltips();
   store.replay.resize(historyLimit());
   if (store.replay.count) store.statusLog.trim(store.replay.entries[0].seq);
   renderStatusTimeline();
@@ -1124,7 +1154,7 @@ const telemetryStream=new TelemetryStream(rpc, async data=>{
       $('unit').value=String(unit); refresh().catch(error=>message(error.message,true));  // Not awaited: the batch must be acknowledged promptly
     }
   }
-  return store.sourceRecords.length>7000;
+  return store.sourceRecords.length>historyLimit();   // Past the window the stream starts again from a checkpoint
 }, error=>{
   setConnection('Telemetry stream unavailable', 'warning');
   message(`${error.message}. On a printer, enable [mmu_telemetry] in moonraker.conf. You can also load a recording.`,true);
@@ -1144,9 +1174,13 @@ function drawFrame() {
   updateLiveIndicator();
   const now=animationNow();
   const spoolRunning=Boolean(store.playing) || (store.live && !store.paused);
-  const spoolMoving=scene.advanceSpools(now, {espoolers:store.displayed?.espoolers, running:spoolRunning, session:store.session,
+  // An event jumped to is shown from its own state: what was last played is not what is on screen
+  const jumped=store.viewMode==='playback' && !store.live ? store.events[store.cursor] : null;
+  const spoolMoving=scene.advanceSpools(now, {espoolers:(jumped ? jumped.settled_state || jumped.state : store.displayed)?.espoolers, running:spoolRunning, session:store.session,
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
+  const followed=store.viewMode!=='live' || store.replay.following;
   const replayed=store.viewMode==='live' ? store.replay.frame(now) : null;
+  if (!followed && store.replay.following) followStatus();   // Played to the end
   if (replayed) {
     // A step of the recorded status, not the printer as it is now
     if (replayed!==store.displayed) draw();
@@ -1182,7 +1216,9 @@ function drawFrame() {
         store.played=store.playing.event.seq;
         store.nextStepAt=now+homingHold(store.playing.event);
         store.playing=null;
-        if (store.pauseAfterStep || (store.offline && store.played >= store.events.at(-1).seq)) { store.paused = true; store.pauseAfterStep = false; }
+        if (holdsAfterStep({stepping:store.pauseAfterStep, held:store.holdAtEnd, offline:store.offline, atEnd:store.played >= store.events.at(-1).seq})) store.paused = true;
+        else store.replayingHistory = false;
+        store.pauseAfterStep = false;
         followTrace();
       }
       draw();

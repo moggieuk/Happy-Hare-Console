@@ -9,8 +9,9 @@ import {measurePath} from './path-measure.js';
 import {parkedAt, preloadPark} from './scene-state.js';
 import {unitLogo, ICONS} from './unit-icons.js';
 
+// A gate with no filament and no known weight has had its spool taken away: Happy Hare clears both on an eject
 export function spoolFill(state, gate) {
-  return state.spool_percentages?.[gate] ?? 100;
+  return state.spool_percentages?.[gate] ?? (state.gate_status?.[gate] === 0 ? 0 : 100);
 }
 
 export function createScene(host, {now: animationNow, requestFrame: draw, rackHeld, rackMoved}) {
@@ -70,6 +71,7 @@ function advanceSpools(now, {espoolers, running, session, scan, backward=false})
 let rackGate = null, rackManualShift = 0, rackTween = null, bowdenDetached = false;
 // The tip as last drawn, and the hold a playing move started with
 let lastTip = null, moveHold = null;
+const SPOOL_TIP=570-504;   // How far along its tube a filament is drawn from: just inside the upper spool rim
 const rackScrollTime = 350, rackBleedPx = 12, MASK_HEIGHT = 700;
 // The MMU gears ease between gripped and released instead of snapping.
 let gearSpacingTween = null;
@@ -189,10 +191,20 @@ function measure(c) {
   let svg = `${branchMask}<path id="extruder-body" d="M${E-10} ${bodyTop} H${E-18} Q${E-20} ${bodyTop} ${E-20} ${bodyTop+2} V435 H${E+20} V${bodyTop+2} Q${E+20} ${bodyTop} ${E+18} ${bodyTop} H${E+10}" fill="var(--scene-body, #edf2f6)" stroke="var(--scene-border, #96abba)"/><rect x="${E-47}" y="375" width="94" height="58" rx="5" fill="var(--scene-heater, #c4d3df)"/><rect id="nozzle-collar" x="${E-20}" y="433" width="40" height="2" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-body" d="${nozzleBody}" fill="var(--scene-nozzle, #9cafbe)"/><path id="nozzle-bore" d="${nozzleFunnel}" fill="var(--scene-tube, #edf4f8)"/><g><g${virtual ? ' mask="url(#virtual-selection-fade)"' : ''}><path id="tube" d="${path}" fill="none" stroke="none"/><g><g${s.devices[`${s.unit}:buffer`] ? ' mask="url(#buffer-tube-gap)"' : ''}><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube-border, #b1c4d2)" stroke-width="19.25"/><path d="${bowdenPath}" fill="none" stroke="var(--scene-tube, #edf4f8)" stroke-width="14.75"/></g></g><path id="nozzle-entrance" d="${nozzleEntrance}" fill="var(--scene-tube, #edf4f8)"/><path id="filament" mask="url(#bowden-end-fade)" d="${path}" fill="none" stroke="#${s.filament?.incoming_color || DEFAULT_COLOR}" stroke-width="7"/></g></g><text ${dimensionLink('Bowden')} id="bowden-length" x="${E+16}" y="60" text-anchor="start" fill="var(--scene-muted, #6e8190)" font-size="13">${bowdenLengthLabel(s).includes('Uncalibrated') ? `<tspan x="${E+16}" y="44">Bowden</tspan><tspan x="${E+16}" y="60">Uncalibrated length</tspan>` : bowdenLengthLabel(s)}${bowdenProgressLabel(s) ? `<tspan id="bowden-progress" x="${E+16}" y="73" font-size="10">${bowdenProgressLabel(s)}</tspan>` : ''}</text>`;
   const parkedTips=[];
   // Virtual feeds rise from the spool to the parked position; `feed` (cross-unit changes only) is the progress.
+  // An emptied gate's filament is taken back in one movement, down its tube and on inside the unit, to where it
+  // fades out at the spool's winding. `tip` is how far along the tube it still reaches, `front` the same place in the unit.
+  const ejectTravel=virtual ? gateIndex => {
+    if (s.gate_eject?.gate !== gateIndex) return null;
+    const spoolBottom=549.6+mmuOffset-spoolWindingRadius(spoolFill(s,gateIndex))*3.3;
+    const fadesAt=Math.max(SPOOL_TIP,virtual.bottom-spoolBottom);
+    const from=Math.max(fadesAt,lastTip?.gate === gateIndex ? lastTip.drawn : virtual.parkDistance);
+    const tip=from-(from-fadesAt)*s.gate_eject.withdraw;
+    return {tip,front:Math.min(spoolBottom,virtual.bottom-Math.min(virtual.parkDistance,tip))};
+  } : () => null;
   const feedFront=virtual ? gateIndex => {
     const spoolBottom=549.6+mmuOffset-spoolWindingRadius(spoolFill(s,gateIndex))*3.3;
     const parkEnd=virtual.bottom-virtual.parkDistance+(s.tip_shapes?.[gateIndex]==='cone' ? toolheadHeight/(end-entry) : 0);
-    return spoolBottom-(spoolBottom-parkEnd)*(s.gate_feed ?? 1);
+    return ejectTravel(gateIndex)?.front ?? spoolBottom-(spoolBottom-parkEnd)*(s.gate_feed ?? 1);
   } : null;
   if (virtual) {
     let branches='';
@@ -269,6 +281,7 @@ function measure(c) {
   };
   // A gate that homes on the shared exit parks an unloaded filament between its own exit sensor and the shared one
   const exitSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && ['mmu_exit',`mmu_exit_${gate}`].includes(sensorName(name)));
+  const entrySensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && ['mmu_entry',`mmu_entry_${gate}`].includes(sensorName(name)));
   const sharedSensor = unitSensors.find(([name,d]) => Number.isFinite(d.position) && sensorName(name) === 'mmu_shared_exit');
   const unloadedParkY = virtual && exitSensor && sharedSensor && s.encoder_reference?.endstop?.split(':').at(-1) === 'mmu_shared_exit' &&
     s.encoder_reference.parking < 0 ? (sensorPoint(...exitSensor).y+sensorPoint(...sharedSensor).y)/2 : null;
@@ -324,7 +337,9 @@ function measure(c) {
           : virtual && endstop==='mmu_shared_exit' && s.encoder_reference.parking<0 ? virtual.parkDistance : null,
         exitSensor && exitSensor !== sensor && s.preload_reference?.endstop?.split(':').at(-1).replace(/_\d+$/,'') === 'mmu_exit'
           ? {position:preloadPark(s,sensor[1].position,exitSensor[1].position),distance:virtual ? virtual.parkDistance
-            : mmuDistanceAtY(sensorPoint(...exitSensor).y)+Math.sign(s.preload_reference.parking)*8} : null);
+            : mmuDistanceAtY(sensorPoint(...exitSensor).y)+Math.sign(s.preload_reference.parking)*8,
+            sensor:{position:preloadPark(s,sensor[1].position,exitSensor[1].position)-s.preload_reference.parking,distance:mmuDistanceAtY(sensorPoint(...exitSensor).y)}} : null,
+        entrySensor ? {position:entrySensor[1].position,distance:mmuDistanceAtY(sensorPoint(...entrySensor).y)} : null);
       schematicTip = schematicDistance(tip);
       tip = tipAtPathDistance(schematicTip);
       drawnAt = schematicDistance;
@@ -382,13 +397,17 @@ function measure(c) {
   // Start just inside the upper spool rim; the fixed fade hides the insertion point.
   const fullTipOpacity=virtual ? 1 : s.gate_full_opacity ?? 1;
   const slidingRack=fullTipOpacity===0;
-  const spoolTip=570-504;
-  const retractedTip=constrained.tip+(Math.min(constrained.tip,spoolTip)-constrained.tip)*(virtual ? (s.gate_feed===undefined ? 0 : 1-s.gate_feed) : s.gate_retraction || 0);
+  const spoolTip=SPOOL_TIP;
+  const ejecting=s.gate_eject?.gate === gate ? s.gate_eject : null;
+  const ejected=ejectTravel(gate);
+  const retractedTip=ejected ? Math.min(constrained.tip,ejected.tip)
+    : constrained.tip+(Math.min(constrained.tip,spoolTip)-constrained.tip)*Math.max(ejecting?.withdraw || 0,virtual ? (s.gate_feed===undefined ? 0 : 1-s.gate_feed) : s.gate_retraction || 0);
   const emptyGate=s.gate >= 0 && s.gate_status?.[gate] === 0 && s.filament_pos === 0;
   if (emptyGate) constrained.warnings=[];
   const selectedTip=withdrawnTip(gate,retractedTip,emptyGate,spoolTip);
   tip = tipAtPathDistance(selectedTip);
-  const shapedTipOpacity=fullTipOpacity*(virtual && selectedTip<virtual.distanceAtY(virtual.hub) ? branchOpacity : 1)*clamp01((selectedTip-(570-502))/28);
+  const ejectFade=ejecting ? 1-ejecting.fade : 1;   // The filament goes with its spool
+  const shapedTipOpacity=ejectFade*fullTipOpacity*(virtual && selectedTip<virtual.distanceAtY(virtual.hub) ? branchOpacity : 1)*clamp01((selectedTip-(570-502))/28);
   const start = s.tails[gate] === null ? 0 : pathDistance(s.tails[gate]), stop = Math.max(0,selectedTip-coneOffset);
   const macroUnit=s.units?.indexOf(s.unit) ?? 0;
   const macroParams=s.configuration?.parameters?.[macroUnit] || {};
@@ -504,7 +523,7 @@ function rack(c) {
       const branch=virtual?.branches.find(branch=>branch.gate===index);
       if (branch && percent>0 && s.gate_status?.[index]!==0) {
         const top=470+mmuOffset, bottom=y-spoolWindingRadius(percent)*spoolScale, feedTop=Math.min(bottom,Math.max(top,feedFront(index)));
-        const opacity=(.2+.3*selectionLit(index))*endReach();
+        const opacity=(.2+.3*selectionLit(index))*endReach()*(s.gate_eject?.gate === index ? 1-s.gate_eject.fade : 1);
         svg += `<defs><linearGradient id="spool-feed-fade-${index}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${top}" y2="${bottom}"><stop stop-color="#${color}" stop-opacity="${opacity}"/><stop offset="1" stop-color="#${color}" stop-opacity="0"/></linearGradient></defs><path data-part="virtual-spool-feed" data-gate="${index}" d="M${branch.x} ${feedTop} V${bottom}" stroke="url(#spool-feed-fade-${index})" stroke-width="7" fill="none"/>`;
       }
       const knownWeight=Number.isFinite(s.spool_percentages?.[index]);
@@ -513,7 +532,7 @@ function rack(c) {
       svg += `<defs><linearGradient id="spool-shelf-edge-${index}" gradientUnits="userSpaceOnUse" x1="0" y1="${shelfY-3}" x2="0" y2="${shelfY}"><stop stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient><mask id="spool-shelf-mask-${index}" maskUnits="userSpaceOnUse" x="${x-80}" y="${y-70}" width="160" height="150"><rect x="${x-80}" y="${y-70}" width="160" height="150" fill="url(#spool-shelf-edge-${index})"/></mask></defs><g mask="url(#spool-shelf-mask-${index})">`;
       svg += `<g data-part="espooler" data-gate="${index}" data-active="${active}" data-fill-percent="${percent}" data-tooltip="${escape(title)}" transform="translate(${x} ${y}) scale(${spoolScale})" filter="url(#spool-separation-shadow)">`;
       spoolRequests.set(index,{idPrefix:`gate-${index}`, style:spoolStyle, color,
-        fillPercent:percent, showFillPercent:knownWeight, shadowStyle:settings.spoolRealism ? 'blur' : 'crisp',windingLines:settings.spoolRealism, viewAngle:spoolViewAngle, ...spoolMotion(index,operation),
+        fillPercent:percent, showFillPercent:knownWeight, windingOpacity:s.gate_eject?.gate === index ? 1-s.gate_eject.fade : 1, shadowStyle:settings.spoolRealism ? 'blur' : 'crisp',windingLines:settings.spoolRealism, viewAngle:spoolViewAngle, ...spoolMotion(index,operation),
         glow:index===s.gate ? Math.max(0,1-Math.abs(index-focus)) : 0});
       svg += '</g></g>';
     }
@@ -935,7 +954,7 @@ function finish(c) {
       line.setAttribute('x', bounds.x + bounds.width/2);
   }
   $("filament").setAttribute("stroke-dasharray", filamentDash);
-  $("filament").setAttribute("opacity", fullTipOpacity);
+  $("filament").setAttribute("opacity", fullTipOpacity*(s.gate_eject?.gate === gate ? 1-s.gate_eject.fade : 1));
   $("filament").setAttribute("visibility", slidingRack || spoolFill(s,gate)===0 ? "hidden" : "visible");
   const encoderTitle = host.querySelector('.encoder-offset-title');
   if (encoderTitle) host.querySelector('.encoder-offset-value')
