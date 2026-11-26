@@ -82,6 +82,8 @@ export class LiveState {
       if (hotend.plan) {
         Object.assign(hotend.plan,{start_mm:this.purge.start,old_color:this.purge.old});
         hotend.nozzle=purgeColor({purge_transition:hotend.plan},hotend.extruded);
+        // Pushed right through, the filament has filled the nozzle's outlet too
+        if (this.purge.loaded!==null && hotend.extruded-this.purge.loaded>=hotend.plan.retained_mm) hotend.outlet=s.filament.incoming_color;
       }
     } else this.tip=null;
     // Buffer position is reported state, never a result of integrating motor travel.
@@ -211,8 +213,7 @@ export function liveFrame(from,to,fraction) {
     if (emitted(from,to) || dropped(from,to)) {
       s.extruded_mm=(from.extruded_mm || 0)+emitted(from,to)*(out ? Math.min(1,f/out) : 1);
       if (dropped(from,to)) { s.purge_base_mm=from.purge_base_mm || 0; s.purge_drop=fall; }
-      s.nozzle_color=purgeColor(s,s.extruded_mm);
-      s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm);
+      if (emitted(from,to)) { s.nozzle_color=purgeColor(s,s.extruded_mm); s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm); }
     }
   }
   if (from.unit===to.unit) s.gate_focus=(from.gate_focus ?? from.gate)+(to.gate-(from.gate_focus ?? from.gate))*f;
