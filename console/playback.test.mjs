@@ -1103,3 +1103,10 @@ test('a step played alone onto the end of a stream follows it; a pause or a reco
  assert.equal(holdsAfterStep({stepping:false,offline:true,atEnd:true}),true);
  assert.equal(holdsAfterStep({stepping:false,atEnd:true}),false);
 });
+test('only a linear selector is drawn as a sliding rack: every other kind merges into the Bowden',async()=>{
+ const {virtualSelectorLayout,mergedSelector}=await import('./playback.js');
+ const layout=selector_type=>virtualSelectorLayout({selector_type,gate:1,unit_gates:[0,1,2,3],tips:[0,0,0,0]});
+ for (const type of ['VirtualSelector','RotarySelector','ServoSelector','IndexedSelector','MacroSelector']) assert.equal(layout(type).active.gate,1,type);
+ for (const type of ['LinearSelector','LinearServoSelector','LinearMultiGearSelector','LinearMultiGearServoSelector',null]) assert.equal(layout(type),null,type);
+ assert.equal(mergedSelector(undefined),false);
+});

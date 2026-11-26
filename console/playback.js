@@ -43,8 +43,11 @@ export function bowdenLane(spacing=54, verticalOffset=0) {
 // of the gates, right in the second half and at the centre.
 export const syncIndicatorSide=({branches,active})=>branches.indexOf(active) < (branches.length-1)/2 ? -1 : 1;
 
+// Only a linear selector carries one gear along its gates, drawn as a rack sliding under the Bowden. Every other
+// kind (virtual, rotary, servo, indexed, macro) has its gates merge into the Bowden. One not reported is taken as linear.
+export const mergedSelector=type=>Boolean(type) && !type.startsWith('Linear');
 export function virtualSelectorLayout(state, spacing=54, verticalOffset=0) {
-  if (state.selector_type!=='VirtualSelector') return null;
+  if (!mergedSelector(state.selector_type)) return null;
   const gates=state.unit_gates || state.tips.map((_,index)=>index);
   const columns=Math.min(VIRTUAL_COLUMNS,gates.length), selected=Math.max(0,gates.indexOf(state.gate));
   const firstGate=Math.floor(selected/VIRTUAL_COLUMNS)*VIRTUAL_COLUMNS, rowGates=gates.slice(firstGate,firstGate+VIRTUAL_COLUMNS);
@@ -66,7 +69,7 @@ export function rackGrid(layouts, {focus, slide=null, spacing, angle, manual=0, 
   for (const layout of layouts) {
     const count=layout.gates.length;
     if (!count) continue;
-    const virtual=layout.selector_type === 'VirtualSelector';
+    const virtual=mergedSelector(layout.selector_type);
     const columns=Math.min(virtual ? VIRTUAL_COLUMNS : capacity,count), width=(columns-1)*spacing+2*padding;
     units.push({name:layout.name,gates:layout.gates,virtual,columns,first:left+padding,last:left+padding+(columns-1)*spacing,rows:Math.ceil(count/columns),left,right:left+width});
     layout.gates.forEach((index,slot)=>{
@@ -134,7 +137,7 @@ export function gateSelectionLit(state, gate) {
 
 const gateTiming={retract:300,fade:500,slide:1350,advance:300};
 // Between a virtual selector's own gates nothing retracts or fades, so the selection moves at once
-const gatePhases=event=>event.state?.selector_type==='VirtualSelector' && event.before?.unit===event.state.unit
+const gatePhases=event=>mergedSelector(event.state?.selector_type) && event.before?.unit===event.state.unit
   ? {...gateTiming,retract:0,fade:0,advance:0} : gateTiming;
 const gateDuration=event=>{ const {retract,fade,slide,advance}=gatePhases(event); return retract+2*fade+slide+advance; };
 // The interpolation fraction for an evenly timed gate change (a status subscription has no phases of its own)
