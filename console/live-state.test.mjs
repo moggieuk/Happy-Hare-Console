@@ -129,6 +129,14 @@ test('a purge is counted from the live position, else from the suggested volume 
  const at=(extruded_mm,purge_base_mm=0)=>({unit:'u',gate:0,tips:[750],devices:{},extruded_mm,purge_base_mm});
  assert.equal(liveDuration(at(0),at(5),250),2000);
 });
+test('the nozzle keeps the colour that was in it until the purge, and the pile falls at the park retraction',()=>{
+ const area=Math.PI*(1.75/2)**2, start={extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null,origin:null,old:null};
+ const steps=[[{action:'Loading Ext',filament_pos:8},2,'aa0000'],[{action:'Purging',filament_pos:10,toolchange_purge_volume:20*area},0,'00bb00'],
+  [{action:'Idle',filament_pos:10},0,'00bb00'],[{action:'Idle',filament_pos:10},2,'00bb00'],[{action:'Unloading',filament_pos:9},2,'00bb00']];
+ const run=steps.reduce((all,step)=>[...all,purged(all.at(-1),...step)],[start]).slice(1);
+ assert.deepEqual(run.map(p=>[p.old,Math.round(p.extruded),Math.round(p.base)]),
+  [['aa0000',0,0],['aa0000',0,0],['aa0000',20,0],['aa0000',20,20],['00bb00',20,20]]);
+});
 test('an eject and a preload play in the live view as they do from telemetry, and a gate marked empty just switches',async()=>{
  const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS}=await import('./playback.js'), {liveSteady}=await import('./live-state.js');
  const at=(status,percent,homing=null)=>({unit:'u',gate:1,filament_pos:0,tips:[0,0],devices:{},motors:{},homing,gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});

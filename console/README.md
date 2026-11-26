@@ -260,7 +260,10 @@ playback and use **Load telemetry**:
   A purge is drawn while Happy Hare reports the Purging action. Status carries no
   extrusion, so the amount comes from `filament_position_live` where the extruder is
   the stepper it follows, and otherwise from the suggested `toolchange_purge_volume`
-  once the purge is over. The pile falls when the filament is no longer loaded.
+  once the purge is over. The pile falls when the park macro reports its retraction
+  (`retracted_length`), or the filament is no longer loaded. Happy Hare reports the
+  loaded filament as what remains in the nozzle before it has purged, so the nozzle
+  keeps the colour it had until the purge, or until a print carries on without one.
   Extrusion while printing is not drawn.
   **Save capture**, beside the slider, exports those updates as JSONL: the MMU's
   startup configuration, then each update, the first as a complete status. When earlier
