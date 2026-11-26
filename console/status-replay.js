@@ -68,8 +68,10 @@ export class StatusReplay {
   }
   seek(index) {
     if (!this.count) return;
+    const at=clamp(index,0,this.count-1);
+    if (at===this.count-1) return this.follow();   // The end is the printer as it is now
     this.following=false; this.playing=null;
-    this.cursor=clamp(index,0,this.count-1);
+    this.cursor=at;
   }
   follow() { this.following=true; this.playing=null; }
   // One step from the cursor, forwards or back; `once` stops after it, otherwise forward play carries on
@@ -80,7 +82,11 @@ export class StatusReplay {
     this.following=false; this.cursor=from;
     this.playing={from,to,start:now,once:once || reverse,duration:stepDuration(this.entries[Math.min(from,to)],this.entries[Math.max(from,to)])};
   }
-  pause() { if (this.playing) this.playing.once=true; else this.seek(this.index); }
+  // Only a pause holds the replay on the latest update
+  pause() {
+    if (this.playing) { this.playing.once=this.playing.held=true; return; }
+    this.cursor=this.index; this.following=false;
+  }
   // The scene to draw at `now`, advancing the replay as steps finish
   frame(now) {
     if (this.following || !this.count) return null;
@@ -89,7 +95,7 @@ export class StatusReplay {
     const fraction=Math.min(1,(now-step.start)/step.duration);
     if (fraction<1) return liveFrame(this.entries[step.from].state,this.entries[step.to].state,fraction);
     this.cursor=step.to; this.playing=null;
-    if (!step.once) this.play(now);
+    if (!step.once || (!step.held && step.to===this.count-1)) this.play(now);
     return this.entries[this.cursor].state;
   }
 }

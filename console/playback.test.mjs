@@ -1095,3 +1095,11 @@ test('an eject and a preload are read from the gate map; other ways a gate empti
  // A weight or status that changes otherwise
  assert.equal(gateTransition(full,gates([2,2,1,0],[70,50,null,null])),null);
 });
+test('a step played alone onto the end of a stream follows it; a pause or a recording holds there',async()=>{
+ const {holdsAfterStep}=await import('./playback.js');
+ assert.equal(holdsAfterStep({stepping:true,atEnd:true}),false);
+ assert.equal(holdsAfterStep({stepping:true,atEnd:false}),true);
+ assert.equal(holdsAfterStep({stepping:true,held:true,atEnd:true}),true);
+ assert.equal(holdsAfterStep({stepping:false,offline:true,atEnd:true}),true);
+ assert.equal(holdsAfterStep({stepping:false,atEnd:true}),false);
+});

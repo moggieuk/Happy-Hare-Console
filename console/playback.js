@@ -1117,3 +1117,6 @@ export function toolheadProgress(state, position, range=toolheadDrawingRange(sta
   return fraction <= pivot ? fraction*drawn/pivot
     : drawn+(fraction-pivot)*(1-drawn)/(1-pivot);
 }
+// Whether playback stops on the step it has just played. One played alone onto the latest event of a stream
+// carries on following it; only a pause holds it there. A recording has nothing after its end.
+export const holdsAfterStep=({stepping,held,offline,atEnd})=>offline ? stepping || atEnd : stepping && (held || !atEnd);

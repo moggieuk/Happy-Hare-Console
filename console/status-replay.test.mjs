@@ -78,3 +78,12 @@ test('lowering the history limit lets the oldest updates go and keeps the one be
  replay.record({tool:0,num_toolchanges:0},11);
  assert.equal(replay.count,4);
 });
+test('a replay that arrives at the latest update follows the printer again, unless it was paused',()=>{
+ const r=recorded();
+ r.seek(2);r.play(0,{once:true});r.frame(1500);
+ assert.equal(r.following,true);
+ r.seek(1);r.seek(3);
+ assert.equal(r.following,true);
+ r.seek(2);r.play(0);r.pause();r.frame(1500);
+ assert.equal(r.following,false);assert.equal(r.index,3);
+});

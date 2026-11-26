@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {espoolerActive} from './spool.js';
-import {homingHold} from './playback.js';
+import {homingHold, holdsAfterStep} from './playback.js';
 
 // Exercise the actual frame loop without SVG/layout cost or a browser clock.
 const app=readFileSync(new URL('./app.js',import.meta.url),'utf8');
@@ -22,7 +22,7 @@ function harness() {
     // The scene owns spool rotation; here it only reports whether a spool is turning
     scene:{advanceSpools:(now,spools)=>{ context.advances.push(spools); return spools.running && Object.values(spools.espoolers || {}).some(espoolerActive); },
       updateSpoolMotion:()=>context.spoolUpdates++,returnRackWhenIdle:()=>{}},
-    homingHold,scanMove:()=>null,
+    homingHold,holdsAfterStep,scanMove:()=>null,
     updateLiveIndicator:()=>{},
     $:()=>({checked:false}),duration:()=>1000,nozzleArrivalTime:()=>null,
     playbackFrame:()=>({fraction:.1,state}),homingPulse:()=>null,followTrace:()=>{},

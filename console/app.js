@@ -14,7 +14,7 @@ import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
 import {timelineMarkers, scanMove, gateTransition} from './playback.js';
-import {selectorNotice, orderedSteps, homingHold, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
+import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
 import {captureStatus, captureRows, clearStatusCapture, highlightCapture, statusRow} from './status-capture.js';
@@ -744,6 +744,7 @@ function seek(index) {
   store.pauseAfterStep = false; store.nextStepAt = 0;
   scene.resetSpoolArrows();
   store.cursor = Math.max(0, Math.min(index, store.events.length - 1));
+  if (!store.offline && store.cursor === store.events.length - 1) return followLive();   // The end is the stream
   store.live = false; store.paused = true; store.replayingHistory = true; store.playing = null; store.sensorPulse = null;
   draw(); followTrace();
 }
@@ -947,7 +948,7 @@ document.addEventListener('keydown', event => {
   }
 });
 function startPlayback() {
-  store.pauseAfterStep = false; store.nextStepAt = 0;
+  store.pauseAfterStep = store.holdAtEnd = false; store.nextStepAt = 0;
   if (!store.events.length) return;
   if (!store.live) {
     const event = store.events[store.cursor];
@@ -976,7 +977,7 @@ $("play-step").onclick = () => {
 };
 $("replay").onclick = () => {
   if (store.live && !store.paused) {
-    if (store.playing) store.pauseAfterStep = true;
+    if (store.playing) store.pauseAfterStep = store.holdAtEnd = true;
     else store.paused = true;
     draw();
   } else startPlayback();
@@ -1009,11 +1010,12 @@ for (const [id,act] of Object.entries({
     draw();
   };
 }
-$('status-timeline').oninput=()=>{ store.replay.seek(Number($('status-timeline').value)); draw(); };
+const seekStatus=index=>{ store.replay.seek(index); if (store.replay.following) followStatus(); draw(); };
+$('status-timeline').oninput=()=>seekStatus(Number($('status-timeline').value));
 $('status-capture').onclick=event=>{
   const seq=Number(event.target.closest('.capture-group')?.dataset.seq);
   const index=store.replay.entries.findIndex(entry=>entry.seq===seq);
-  if (index>=0 && !event.target.closest('summary')) { store.replay.seek(index); draw(); }
+  if (index>=0 && !event.target.closest('summary')) seekStatus(index);
 };
 $("timeline").oninput = () => seek(Number($("timeline").value));
 $("compress-bowden").onchange = () => renderTrace();
@@ -1175,7 +1177,9 @@ function drawFrame() {
   const jumped=store.viewMode==='playback' && !store.live ? store.events[store.cursor] : null;
   const spoolMoving=scene.advanceSpools(now, {espoolers:(jumped ? jumped.settled_state || jumped.state : store.displayed)?.espoolers, running:spoolRunning, session:store.session,
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
+  const followed=store.viewMode!=='live' || store.replay.following;
   const replayed=store.viewMode==='live' ? store.replay.frame(now) : null;
+  if (!followed && store.replay.following) followStatus();   // Played to the end
   if (replayed) {
     // A step of the recorded status, not the printer as it is now
     if (replayed!==store.displayed) draw();
@@ -1211,7 +1215,9 @@ function drawFrame() {
         store.played=store.playing.event.seq;
         store.nextStepAt=now+homingHold(store.playing.event);
         store.playing=null;
-        if (store.pauseAfterStep || (store.offline && store.played >= store.events.at(-1).seq)) { store.paused = true; store.pauseAfterStep = false; }
+        if (holdsAfterStep({stepping:store.pauseAfterStep, held:store.holdAtEnd, offline:store.offline, atEnd:store.played >= store.events.at(-1).seq})) store.paused = true;
+        else store.replayingHistory = false;
+        store.pauseAfterStep = false;
         followTrace();
       }
       draw();
