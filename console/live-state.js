@@ -103,6 +103,7 @@ export class LiveState {
     s.bowden_progress=status.bowden_progress;
     s.action=status.action;
     s.num_toolchanges=status.num_toolchanges;
+    s.next_tool=status.next_tool;
     s.tip_resolved=true;
     s.live_warnings=warnings;
     return s;
