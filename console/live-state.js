@@ -114,6 +114,7 @@ export class LiveState {
     s.action=status.action;
     s.num_toolchanges=status.num_toolchanges;
     s.next_tool=status.next_tool;
+    s.filament_position_live=status.filament_position_live;
     s.tip_resolved=true;
     s.live_warnings=warnings;
     return s;

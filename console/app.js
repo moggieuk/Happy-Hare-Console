@@ -791,7 +791,9 @@ function currentView() {
     previousToolchange:toolchangeIndex(store.events, index, -1) >= 0, nextToolchange:toolchangeIndex(store.events, index, 1) >= 0,
     modeText: store.viewMode==='live' ? `Live view · ${connected ? s.action || s.filament_pos_name : 'Disconnected'}`
       : `Telemetry playback · ${modeLabel} · event ${annotatedEvent.seq}` + (moveReason ? ` · ${moveReason}` : ''),
-    positionText: `Gate ${gate} · ${s.filament_pos_name || "Unknown state"} · tip ${tip.toFixed(2)} mm`,
+    // A subscription reports Happy Hare's own filament position; telemetry has only the modelled tip
+    positionText: `Gate ${gate} · ${s.filament_pos_name || "Unknown state"} · ` + (store.viewMode==='live' && Number.isFinite(s.filament_position_live)
+      ? `position ${s.filament_position_live.toFixed(1)} mm` : `tip ${tip.toFixed(2)} mm`),
     timelineValue: store.live ? eventIndex : store.cursor,
     atLatest: store.viewMode==='live' || (store.live && !store.paused && !store.playing && store.played >= store.events.at(-1)?.seq),
     ...(store.viewMode==='live' ? statusControls(s,connected) : {})};

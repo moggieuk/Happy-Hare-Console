@@ -99,6 +99,10 @@ test('configuration read at startup is kept when a status update arrived first',
  r.seed({configfile});
  assert.equal(r.accept({mmu:{gate:1}},5).gate,1);
 });
+test('the snapshot carries the filament position Happy Hare reports, for the heading',()=>{
+ const r=new LiveState();r.accept(status(),1);
+ assert.equal(r.accept({mmu:{filament_position_live:715}},2).filament_position_live,715);
+});
 test('the mmu subscription asks for every field except the encoder, which has its own object',()=>{
  assert.deepEqual(liveMmuFields({gate:1,encoder:{encoder_pos:1},operation:''}),['gate','operation']);
 });

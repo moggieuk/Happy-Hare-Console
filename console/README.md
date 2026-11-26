@@ -266,6 +266,7 @@ playback and use **Load telemetry**:
   loaded filament as what remains in the nozzle before it has purged, so the nozzle
   keeps the colour it had until the purge, or until a print carries on without one.
   Extrusion while printing is not drawn.
+  The heading gives Happy Hare's own `filament_position_live`, where telemetry gives the modelled tip.
   **Save capture**, beside the slider, exports those updates as JSONL: the MMU's
   startup configuration, then each update, the first as a complete status. When earlier
   updates have been trimmed or cleared, it also carries where the tip had been put, so
