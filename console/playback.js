@@ -391,14 +391,17 @@ export function gateTransition(before, after) {
 }
 // An eject takes whatever filament is drawn at the gate back into its spool, then fades the spool to the empty one
 // the gate is left with. A preload is that in reverse. `spoolOnly` leaves the filament to the move that feeds it.
+// A preload is brisk: the spool is simply there
 export const EJECT_WITHDRAW_MS=2400, EJECT_FADE_MS=675, EJECT_TAIL_MS=EJECT_WITHDRAW_MS+EJECT_FADE_MS;
-export const gateTransitionMs=(transition,spoolOnly=false)=>spoolOnly ? EJECT_FADE_MS : EJECT_TAIL_MS;
+export const PRELOAD_FADE_MS=250, PRELOAD_FEED_MS=350;
+export const gateTransitionMs=(transition,spoolOnly=false)=>transition.kind === 'ejected' ? EJECT_TAIL_MS
+  : PRELOAD_FADE_MS+(spoolOnly ? 0 : PRELOAD_FEED_MS);
 export function gateTransitionFrame({gate,kind}, before, after, fraction, spoolOnly=false) {
-  const t=fraction*gateTransitionMs(null,spoolOnly), ease=x=>x*x*(3-2*x);
+  const t=fraction*gateTransitionMs({kind},spoolOnly), ease=x=>x*x*(3-2*x);
   // The filament runs at a steady pace, as a move does. The scene draws both from `gate_eject`
   if (kind === 'ejected')
     return {...before,gate_eject:{gate,withdraw:clamp01(t/EJECT_WITHDRAW_MS),fade:ease(clamp01((t-EJECT_WITHDRAW_MS)/EJECT_FADE_MS))}};
-  return {...after,gate_eject:{gate,withdraw:spoolOnly ? 0 : 1-clamp01((t-EJECT_FADE_MS)/EJECT_WITHDRAW_MS),fade:1-ease(clamp01(t/EJECT_FADE_MS))}};
+  return {...after,gate_eject:{gate,withdraw:spoolOnly ? 0 : 1-clamp01((t-PRELOAD_FADE_MS)/PRELOAD_FEED_MS),fade:1-ease(clamp01(t/PRELOAD_FADE_MS))}};
 }
 // One gate's contents taken from another state: the rest of the gate map is left as it is
 export function withGate(state, from, gate) {
@@ -1060,7 +1063,7 @@ export function playbackFrame(event, elapsed, movementMs, selectionGrip = event.
   let state=interpolate(event,fraction);
   if (event.gate_preloading !== undefined && elapsed < movementMs)
     state={...state,gate_eject:gateTransitionFrame({gate:event.gate_preloading,kind:'preloaded'},null,null,
-      Math.min(1,Math.max(0,elapsed)/EJECT_FADE_MS),true).gate_eject};   // The spool appears as the filament comes in
+      Math.min(1,Math.max(0,elapsed)/PRELOAD_FADE_MS),true).gate_eject};   // The spool appears as the filament comes in
   if (event.kind === 'gate_changed' && elapsed < movementMs) {
     // Keep the gears released through retreat, both fades, the slide, and advance.
     state={...state,gate_full_opacity:fullOpacity,

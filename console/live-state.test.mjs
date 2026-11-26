@@ -130,7 +130,7 @@ test('a purge is counted from the live position, else from the suggested volume 
  assert.equal(liveDuration(at(0),at(5),250),2000);
 });
 test('an eject and a preload play in the live view as they do from telemetry, and a gate marked empty just switches',async()=>{
- const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS}=await import('./playback.js'), {liveSteady}=await import('./live-state.js');
+ const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS}=await import('./playback.js'), {liveSteady}=await import('./live-state.js');
  const at=(status,percent)=>({unit:'u',gate:1,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
  const full=at([1,1],[80,60]), ejected=at([0,1],[null,60]), marked=at([0,1],[80,60]);
  assert.equal(liveDuration(full,ejected,250),EJECT_TAIL_MS);
@@ -139,7 +139,7 @@ test('an eject and a preload play in the live view as they do from telemetry, an
  assert.equal(frame.gate_status[0],1);assert.deepEqual(frame.gate_eject,{gate:0,withdraw:.5,fade:0});
  assert.equal(liveFrame(full,ejected,1),ejected);
  // Back again: drawn on the new state, the spool fading in before the filament comes up
- assert.equal(liveDuration(ejected,full,250),EJECT_TAIL_MS);
+ assert.equal(liveDuration(ejected,full,250),PRELOAD_FADE_MS+PRELOAD_FEED_MS);
  const back=liveFrame(ejected,full,.1);
  assert.equal(back.gate_status[0],1);assert.equal(back.gate_eject.withdraw,1);assert.ok(back.gate_eject.fade>0 && back.gate_eject.fade<1);
  // Marked empty, its spool's weight kept

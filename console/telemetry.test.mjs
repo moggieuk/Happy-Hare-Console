@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {TelemetryReplay,parseTelemetry,applyDelta} from './telemetry.js';
 import {spoolPercentage} from './scene-state.js';
-import {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,EJECT_FADE_MS,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
+import {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,EJECT_FADE_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
 const fixture=name=>JSON.parse(fs.readFileSync(new URL(`./fixtures/${name}.json`,import.meta.url)));
 const header=()=>structuredClone(fixture('ercf-vvd')[0]);
 test('spool fill uses known weights, including zero, and rejects unknown weights',()=>{
@@ -1122,7 +1122,8 @@ test('with no move under way, only an eject or a preload is a step: other gate m
  const preloaded=play([['gate_status',set(mmu.gate_status,1,1)]]), step=preloaded.at(-1);
  assert.equal(step.kind,'gate_preloaded');assert.equal(step.label,'Gate 1 preloaded');
  const at=t=>playbackFrame(step,t,duration(step)).state;
- const early=at(EJECT_FADE_MS*.5), late=at(EJECT_FADE_MS+EJECT_WITHDRAW_MS*.5);
+ const early=at(PRELOAD_FADE_MS*.5), late=at(PRELOAD_FADE_MS+PRELOAD_FEED_MS*.5);
+ assert.ok(duration(step)<1000);   // Brisk, where an eject lingers
  assert.equal(early.gate_status[1],1);
  assert.ok(early.gate_eject.fade>0 && early.gate_eject.fade<1);assert.equal(early.gate_eject.withdraw,1);
  assert.equal(late.gate_eject.fade,0);assert.ok(late.gate_eject.withdraw>0 && late.gate_eject.withdraw<1);
