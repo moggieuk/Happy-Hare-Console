@@ -2,7 +2,7 @@
 import {SceneModel} from './scene-state.js';
 import {liveMachine,qualifySensors} from './live-config.js';
 import {short as sensorName, DEFAULT_COLOR, clamp} from './util.js';
-import {interpolate, duration, gateChangeFraction, purgeColor, purgeOutletColor, gateTransition, gateTransitionMs, gateTransitionFrame, withGate} from './playback.js';
+import {duration, playbackFrame, purgeColor, purgeOutletColor, gateTransition, gateTransitionMs, gateTransitionFrame, withGate} from './playback.js';
 import {resolveTip} from './live-tip.js';
 const clone=value=>structuredClone(value);
 const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('') : String(value || DEFAULT_COLOR).replace(/^#/,'').slice(0,6);
@@ -25,7 +25,8 @@ export class LiveState {
   snapshot() {
     const status=this.objects.mmu, machine=liveMachine(this.objects);
     if (!status || !machine) return null;
-    const names=Object.keys(machine.units), unitName=names[status.unit] || names[0];
+    // The gate is reported before the unit it belongs to, so the unit is taken from the gate
+    const names=Object.keys(machine.units), unitName=names.find(name=>machine.units[name].gates?.includes(status.gate)) || names[status.unit] || names[0];
     if (!unitName) return null;
     const sensors=qualifySensors(status.sensors,unitName,status.gate,machine.units[unitName].buffer?.name,machine.units[unitName].toolhead.name);
     machine.units[unitName].sensors=Object.keys(sensors);
@@ -143,8 +144,9 @@ export function liveTransition(from,to) {
 }
 const gateChangeMs=(from,to)=>duration({kind:'gate_changed',before:from,state:to});
 function gateChangeFrame(from,to,fraction) {
-  const event={kind:'gate_changed',before:from,state:to};
-  return interpolate(event,gateChangeFraction(event,fraction));
+  // Played as telemetry plays it: retract, fade out, slide, fade in, advance
+  const event={kind:'gate_changed',before:from,state:to}, ms=duration(event);
+  return playbackFrame(event,fraction*ms,ms).state;
 }
 // A gate ejected or preloaded and a gate change in one: each plays in full, the transition at the gate it
 // happened at. One at the gate arrived at follows the change; any other is over before the gate is left.

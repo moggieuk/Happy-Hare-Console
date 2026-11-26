@@ -18,8 +18,8 @@ export function settingsOf(machine) {
  }
  return settings;
 }
-export function liveObjects() {
- const facts=JSON.parse(fs.readFileSync(new URL('./fixtures/emu.json',import.meta.url)))[0].state;
+export function liveObjects(fixture='emu') {
+ const facts=JSON.parse(fs.readFileSync(new URL(`./fixtures/${fixture}.json`,import.meta.url)))[0].state;
  const m=facts.printer.mmu, machine=facts.printer.mmu_machine;
  const unit=machine.units[m.unit];
  const {sensors,active_sensors,...rest}=m;
@@ -27,5 +27,5 @@ export function liveObjects() {
   save_variables:{variables:{[`mmu_${m.unit}_bowden_lengths`]:unit.gates.map(g=>unit.bowden_lengths[g])}},
   mmu:{...rest,unit:0,sensors:{mmu_entry:false,encoder:false,extruder:false,toolhead:false},
    config_changes:{},bowden_progress:-1,sync_drive:false,filament_pos:0},
-  [`${unit.buffer.name}:filament_proportional`]:{value:-1},extruder:{target:210}};
+  ...(unit.buffer ? {[`${unit.buffer.name}:filament_proportional`]:{value:-1}} : {}),extruder:{target:210}};
 }

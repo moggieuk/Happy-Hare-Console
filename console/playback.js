@@ -140,8 +140,6 @@ const gateTiming={retract:300,fade:500,slide:1350,advance:300};
 const gatePhases=event=>mergedSelector(event.state?.selector_type) && event.before?.unit===event.state.unit
   ? {...gateTiming,retract:0,fade:0,advance:0} : gateTiming;
 const gateDuration=event=>{ const {retract,fade,slide,advance}=gatePhases(event); return retract+2*fade+slide+advance; };
-// The interpolation fraction for an evenly timed gate change (a status subscription has no phases of its own)
-export const gateChangeFraction=(event,fraction)=>gatePhases(event).retract ? fraction : .25+.5*fraction;
 
 // Residual contact melts only the immersed hair; retain at least 5mm.
 export function shortenedHair(length, tip, residualTop) {

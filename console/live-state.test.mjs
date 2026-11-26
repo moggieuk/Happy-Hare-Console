@@ -161,3 +161,18 @@ test('a gate ejected and then left plays the eject in full before the gate chang
  const after=liveFrame(full,left,(EJECT_TAIL_MS+change/2)/total);
  assert.equal(after.gate_eject,undefined);assert.equal(after.gate_status[0],0);
 });
+test('a gate change between units plays in the live view as it does from telemetry',async()=>{
+ const {playbackFrame,duration}=await import('./playback.js');
+ const at=(unit,gate)=>({unit,gate,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:[1,1],gate_colors:['aa0000','00bb00']});
+ const from=at('a',0), to=at('b',1), event={kind:'gate_changed',before:from,state:to}, ms=duration(event);
+ assert.equal(liveDuration(from,to,250),ms);
+ for (const fraction of [.1,.3,.5,.7,.9]) assert.deepEqual(liveFrame(from,to,fraction),playbackFrame(event,fraction*ms,ms).state);
+ assert.equal(liveFrame(from,to,.5).gate_full_opacity,0);   // The Bowden is faded out while the rack slides
+});
+test('a gate on another unit is shown on that unit before Happy Hare reports the unit itself',async()=>{
+ const {liveObjects}=await import('./live-fixture.mjs');
+ const live=new LiveState(), first=live.accept(liveObjects('ercf-vvd'),1);
+ const other=first.unit_layouts.find(layout=>layout.name!==first.unit);
+ const moved=live.accept({mmu:{gate:other.gates[0]}},2);
+ assert.equal(moved.unit,other.name);
+});
