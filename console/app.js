@@ -1,5 +1,5 @@
 import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
-import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, gateChanged, liveMmuFields} from './live-state.js';
+import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, liveTransition, gateChanged, liveMmuFields} from './live-state.js';
 import {lastingWarnings} from './live-tip.js';
 import {pauseStatus} from './pause-status.js';
 import {createAlerts} from './alerts.js';
@@ -13,7 +13,7 @@ import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
-import {timelineMarkers, scanMove, gateTransition} from './playback.js';
+import {timelineMarkers, scanMove} from './playback.js';
 import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
@@ -334,7 +334,7 @@ function acceptLive(delta,time) {
   }
   // Updates that arrive while the rack is sliding to this gate must not restart the slide
   // nor one that arrives while a gate's eject or preload is playing
-  const playing=gateTransition(store.liveFrom,previous), still=playing && gateTransition(store.liveFrom,next);
+  const playing=liveTransition(store.liveFrom,previous), still=playing && liveTransition(store.liveFrom,next);
   const sliding=Boolean(previous) && !store.liveSettled && (liveSteady(previous,next) ||
     gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit ||
     Boolean(still) && still.gate===playing.gate && still.kind===playing.kind);
@@ -343,7 +343,7 @@ function acceptLive(delta,time) {
   const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
   next.motors=liveMotors(store.liveFrom,next,distance);
   store.liveTarget=next;
-  if (sliding && gateTransition(store.liveFrom,next)) store.liveDuration=liveDuration(store.liveFrom,next);   // A gate change joining it plays after
+  if (sliding && liveTransition(store.liveFrom,next)) store.liveDuration=liveDuration(store.liveFrom,next);   // A gate change joining it plays after
   if (!sliding) {
     const now=animationNow();
     store.liveDuration=liveDuration(store.liveFrom,next,now-(store.liveMoved ?? now));
@@ -385,15 +385,25 @@ function dropLoadedCapture() {
   store.replay=newReplay(); store.statusLog=new StatusLog();
   renderStatusTimeline();
 }
+// A timeline's marks. Their labels alternate below and above the slider, so neighbours do not run together
+function timelineTicks(markers,last) {
+  let labelled=0;
+  return markers.map(({index,label})=>{
+    const tick=document.createElement('span');
+    tick.style.left=`${last>0 ? 100*index/last : 0}%`;
+    if (label) {
+      const text=document.createElement('small');
+      text.textContent=label;
+      text.classList.toggle('above',labelled++%2===1);
+      tick.append(text);
+    }
+    return tick;
+  });
+}
 function renderStatusTimeline() {
   const replay=store.replay, last=Math.max(0,replay.count-1), markers=replay.markers();
   $('status-ticks').closest('.timeline-control').classList.toggle('has-labels',markers.some(marker=>marker.label));
-  $('status-ticks').replaceChildren(...markers.map(({index,label})=>{
-    const tick=document.createElement('span');
-    tick.style.left=`${last ? 100*index/last : 0}%`;
-    if (label) { const text=document.createElement('small'); text.textContent=label; tick.append(text); }
-    return tick;
-  }));
+  $('status-ticks').replaceChildren(...timelineTicks(markers,last));
   $('status-timeline').max=last;
   $('status-timeline').value=replay.index;
   $('save-status').disabled=!replay.count;
@@ -900,16 +910,7 @@ function traceRow(e, {showDetails, records, expanded}) {
 function renderTrace() {
   const markers=timelineMarkers(store.events);
   $('toolchange-ticks').closest('.timeline-control').classList.toggle('has-labels',markers.some(marker=>marker.label));
-  $('toolchange-ticks').replaceChildren(...markers.map(({index,label}) => {
-    const tick = document.createElement('span');
-    tick.style.left = `${store.events.length > 1 ? 100*index/(store.events.length-1) : 0}%`;
-    if (label) {
-      const text=document.createElement('small');
-      text.textContent=label;
-      tick.append(text);
-    }
-    return tick;
-  }));
+  $('toolchange-ticks').replaceChildren(...timelineTicks(markers,store.events.length-1));
   const view = $("trace"),
     scroll = view.scrollTop;
   const expanded = new Set([...view.querySelectorAll('details[open]')].map(row=>row.dataset.seq));

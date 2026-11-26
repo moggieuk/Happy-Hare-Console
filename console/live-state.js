@@ -2,7 +2,7 @@
 import {SceneModel} from './scene-state.js';
 import {liveMachine,qualifySensors} from './live-config.js';
 import {short as sensorName, DEFAULT_COLOR, clamp} from './util.js';
-import {interpolate, duration, gateChangeFraction, purgeColor, purgeOutletColor, gateTransition, gateTransitionMs, gateTransitionFrame, withGate} from './playback.js';
+import {duration, playbackFrame, purgeColor, purgeOutletColor, gateTransition, gateTransitionMs, gateTransitionFrame, withGate} from './playback.js';
 import {resolveTip} from './live-tip.js';
 const clone=value=>structuredClone(value);
 const rgb=value=>Array.isArray(value) ? value.slice(0,3).map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('') : String(value || DEFAULT_COLOR).replace(/^#/,'').slice(0,6);
@@ -25,7 +25,8 @@ export class LiveState {
   snapshot() {
     const status=this.objects.mmu, machine=liveMachine(this.objects);
     if (!status || !machine) return null;
-    const names=Object.keys(machine.units), unitName=names[status.unit] || names[0];
+    // The gate is reported before the unit it belongs to, so the unit is taken from the gate
+    const names=Object.keys(machine.units), unitName=names.find(name=>machine.units[name].gates?.includes(status.gate)) || names[status.unit] || names[0];
     if (!unitName) return null;
     const sensors=qualifySensors(status.sensors,unitName,status.gate,machine.units[unitName].buffer?.name,machine.units[unitName].toolhead.name);
     machine.units[unitName].sensors=Object.keys(sensors);
@@ -102,6 +103,7 @@ export class LiveState {
     s.bowden_progress=status.bowden_progress;
     s.action=status.action;
     s.num_toolchanges=status.num_toolchanges;
+    s.next_tool=status.next_tool;
     s.tip_resolved=true;
     s.live_warnings=warnings;
     return s;
@@ -134,10 +136,18 @@ export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 
 const emitted=(from,to)=>(to.extruded_mm || 0)-(from.extruded_mm || 0);
 const dropped=(from,to)=>(to.purge_base_mm || 0)>(from.purge_base_mm || 0);
 const sameGate=(from,to)=>Boolean(from) && from.unit===to.unit && from.gate===to.gate && to.gate>=0;
+// Status has no eject or preload to report, only the gate map they leave. One edited by hand leaves the same, so
+// only a change that comes with the filament being worked on plays: a homing move or an action under way, or the tip moved
+const working=(from,to,gate)=>Boolean(from.homing) || (Boolean(from.action) && from.action!=='Idle') || from.tips?.[gate]!==to.tips?.[gate];
+export function liveTransition(from,to) {
+  const transition=gateTransition(from,to);
+  return transition && working(from,to,transition.gate) ? transition : null;
+}
 const gateChangeMs=(from,to)=>duration({kind:'gate_changed',before:from,state:to});
 function gateChangeFrame(from,to,fraction) {
-  const event={kind:'gate_changed',before:from,state:to};
-  return interpolate(event,gateChangeFraction(event,fraction));
+  // Played as telemetry plays it: retract, fade out, slide, fade in, advance
+  const event={kind:'gate_changed',before:from,state:to}, ms=duration(event);
+  return playbackFrame(event,fraction*ms,ms).state;
 }
 // A gate ejected or preloaded and a gate change in one: each plays in full, the transition at the gate it
 // happened at. One at the gate arrived at follows the change; any other is over before the gate is left.
@@ -152,16 +162,16 @@ function gateChangeWithTransition(from,to,transition,fraction) {
 }
 // As long as the updates are apart, so a steady stream reads as one movement; a long step is a quick sweep
 export function liveDuration(from,to,interval=0) {
-  if (gateChanged(from,to)) return gateChangeMs(from,to)+(gateTransition(from,to) ? gateTransitionMs(gateTransition(from,to)) : 0);
+  if (gateChanged(from,to)) return gateChangeMs(from,to)+(liveTransition(from,to) ? gateTransitionMs(liveTransition(from,to)) : 0);
   // A filament ejected or preloaded, as the gate map shows it, plays as it does from telemetry
-  if (gateTransition(from,to)) return gateTransitionMs(gateTransition(from,to));
+  if (liveTransition(from,to)) return gateTransitionMs(liveTransition(from,to));
   const distance=sameGate(from,to) ? Math.abs(to.tips[to.gate]-from.tips[to.gate]) || 0 : 0;
   // A purge reported only once it is over is drawn coming out, and a pile is given time to fall
   const purge=sameGate(from,to) ? Math.min(4000,Math.max(0,emitted(from,to))*400)+(dropped(from,to) ? 650 : 0) : 0;
   return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3),purge);
 }
 // An update that moves nothing must not restart the movement under way
-export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] && !gateTransition(target,next) &&
+export const liveSteady=(target,next)=>sameGate(target,next) && target.tips[next.gate]===next.tips[next.gate] && !liveTransition(target,next) &&
   emitted(target,next)===0 && !dropped(target,next) &&
   Object.entries(next.devices).every(([name,d])=>target.devices[name]?.travel===d.travel);
 // The frame that reaches the target is drawn once, however late it comes
@@ -173,7 +183,7 @@ export function liveProgress(elapsed,total,settled) {
 // Cosmetic smoothing only: the target always comes from subscribed state.
 export function liveFrame(from,to,fraction) {
   if (!from || fraction>=1) return to;
-  const transition=gateTransition(from,to);
+  const transition=liveTransition(from,to);
   if (gateChanged(from,to)) return transition ? gateChangeWithTransition(from,to,transition,Math.max(0,fraction)) : gateChangeFrame(from,to,fraction);
   if (transition) return gateTransitionFrame(transition,from,to,Math.max(0,fraction));
   const f=Math.max(0,fraction), s={...to,tips:[...to.tips],devices:clone(to.devices)};

@@ -87,3 +87,8 @@ test('a replay that arrives at the latest update follows the printer again, unle
  r.seek(2);r.play(0);r.pause();r.frame(1500);
  assert.equal(r.following,false);assert.equal(r.index,3);
 });
+test('a toolchange under way is marked with the tool being changed to from its first update',()=>{
+ const r=new StatusReplay(), at=(action,filament_pos,extra={})=>state(0,{action,filament_pos,tool:1,next_tool:-1,...extra});
+ [at('Idle',10),at('Unloading',4,{next_tool:3})].forEach((s,i)=>r.record(s,i));
+ assert.deepEqual(r.markers(),[{index:1,label:'T3'}]);
+});

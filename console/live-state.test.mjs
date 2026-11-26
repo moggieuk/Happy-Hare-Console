@@ -131,8 +131,12 @@ test('a purge is counted from the live position, else from the suggested volume 
 });
 test('an eject and a preload play in the live view as they do from telemetry, and a gate marked empty just switches',async()=>{
  const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS}=await import('./playback.js'), {liveSteady}=await import('./live-state.js');
- const at=(status,percent)=>({unit:'u',gate:1,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
- const full=at([1,1],[80,60]), ejected=at([0,1],[null,60]), marked=at([0,1],[80,60]);
+ const at=(status,percent,homing=null)=>({unit:'u',gate:1,filament_pos:0,tips:[0,0],devices:{},motors:{},homing,gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
+ const homing={endstops:['mmu_entry_0'],triggered:false};
+ const full=at([1,1],[80,60],homing), ejected=at([0,1],[null,60],homing), marked=at([0,1],[80,60]);
+ // The same change with nothing moving is the gate map edited by hand: it just switches
+ assert.equal(liveDuration(at([1,1],[80,60]),at([0,1],[null,60]),250),300);
+ assert.equal(liveFrame(at([0,1],[null,60]),at([1,1],[80,60]),.5).gate_eject,undefined);
  assert.equal(liveDuration(full,ejected,250),EJECT_TAIL_MS);
  assert.equal(liveSteady(full,ejected),false);
  const frame=liveFrame(full,ejected,EJECT_WITHDRAW_MS/2/EJECT_TAIL_MS);
@@ -148,7 +152,7 @@ test('an eject and a preload play in the live view as they do from telemetry, an
 });
 test('a gate ejected and then left plays the eject in full before the gate changes',async()=>{
  const {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,duration}=await import('./playback.js');
- const at=(gate,status,percent)=>({unit:'u',gate,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
+ const at=(gate,status,percent)=>({unit:'u',gate,filament_pos:0,tips:[0,0],devices:{},motors:{},homing:{endstops:['mmu_entry_0'],triggered:false},gate_status:status,spool_percentages:percent,gate_colors:['aa0000','00bb00']});
  const full=at(0,[1,1],[80,60]), left=at(1,[0,1],[null,60]);
  const change=duration({kind:'gate_changed',before:full,state:left}), total=change+EJECT_TAIL_MS;
  assert.equal(liveDuration(full,left,250),total);
@@ -156,4 +160,19 @@ test('a gate ejected and then left plays the eject in full before the gate chang
  assert.equal(frame.gate,0);assert.deepEqual(frame.gate_eject,{gate:0,withdraw:.5,fade:0});
  const after=liveFrame(full,left,(EJECT_TAIL_MS+change/2)/total);
  assert.equal(after.gate_eject,undefined);assert.equal(after.gate_status[0],0);
+});
+test('a gate change between units plays in the live view as it does from telemetry',async()=>{
+ const {playbackFrame,duration}=await import('./playback.js');
+ const at=(unit,gate)=>({unit,gate,filament_pos:0,tips:[0,0],devices:{},motors:{},gate_status:[1,1],gate_colors:['aa0000','00bb00']});
+ const from=at('a',0), to=at('b',1), event={kind:'gate_changed',before:from,state:to}, ms=duration(event);
+ assert.equal(liveDuration(from,to,250),ms);
+ for (const fraction of [.1,.3,.5,.7,.9]) assert.deepEqual(liveFrame(from,to,fraction),playbackFrame(event,fraction*ms,ms).state);
+ assert.equal(liveFrame(from,to,.5).gate_full_opacity,0);   // The Bowden is faded out while the rack slides
+});
+test('a gate on another unit is shown on that unit before Happy Hare reports the unit itself',async()=>{
+ const {liveObjects}=await import('./live-fixture.mjs');
+ const live=new LiveState(), first=live.accept(liveObjects('ercf-vvd'),1);
+ const other=first.unit_layouts.find(layout=>layout.name!==first.unit);
+ const moved=live.accept({mmu:{gate:other.gates[0]}},2);
+ assert.equal(moved.unit,other.name);
 });

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {TelemetryReplay,parseTelemetry,applyDelta} from './telemetry.js';
 import {spoolPercentage} from './scene-state.js';
-import {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,EJECT_FADE_MS,PRELOAD_FADE_MS,PRELOAD_FEED_MS,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
+import {EJECT_TAIL_MS,EJECT_WITHDRAW_MS,EJECT_FADE_MS,orderedSteps,visibleSteps,interpolate,playbackFrame,purgeOutletColor,constrainFilament,duration,selectorNotice,selectorSummary,traceText,annotatedStep} from './playback.js';
 const fixture=name=>JSON.parse(fs.readFileSync(new URL(`./fixtures/${name}.json`,import.meta.url)));
 const header=()=>structuredClone(fixture('ercf-vvd')[0]);
 test('spool fill uses known weights, including zero, and rejects unknown weights',()=>{
@@ -778,9 +778,9 @@ test('hidden gate delta does not swap filament before the selection animation',(
  event(r,'gate_changed',{previous_gate:0,gate:2,unit:r.facts.printer.mmu.unit});
  const steps=visibleSteps(r.events),selection=steps.at(-1),previous=steps.at(-2);
  assert.equal((previous.settled_state || previous.state).gate,0);
- assert.equal(playbackFrame(selection,1,2950).state.gate,0);
- assert.equal(playbackFrame(selection,1475,2950).state.gate_focus,1);
- assert.equal(playbackFrame(selection,2950,2950).state.gate,2);
+ assert.equal(playbackFrame(selection,1,1980).state.gate,0);
+ assert.equal(playbackFrame(selection,990,1980).state.gate_focus,1);
+ assert.equal(playbackFrame(selection,1980,1980).state.gate,2);
 });
 
 
@@ -1102,32 +1102,21 @@ test('a gate reported empty is its own step: the move before it ends with the fi
  // The espooler step that follows shows the gate empty
  assert.equal(steps[7].state.gate_status[0],0);
 });
-test('with no move under way, only an eject or a preload is a step: other gate map changes just switch',()=>{
+test('with no move under way a gate map change is an edit, not an eject or a preload: it just switches',()=>{
  const h=()=>structuredClone(fixture('boxturtle-eject')[0]);
  const mmu=h().state.printer.mmu, set=(list,value,gate=2)=>list.map((v,g)=>g===gate ? value : v);
  const play=changes=>{ const r=new TelemetryReplay();
   r.accept([h(),{sequence:1,event:'state_delta',timestamp:h().timestamp+1,changes:changes.map(([key,value])=>({path:['printer','mmu',key],value}))}]);
   return visibleSteps(r.events); };
  assert.equal(mmu.gate_status[2],1);assert.equal(mmu.gate_status[1],0);
- // Marked unavailable, its spool's weight kept: no step, and the change is shown on the step before it
- const marked=play([['gate_status',set(mmu.gate_status,0)]]);
- assert.deepEqual(marked.map(e=>e.kind),['session']);assert.equal(marked[0].settled_state.gate_status[2],0);
- // A colour set in the gate map likewise
  const coloured=play([['gate_color',set(mmu.gate_color,'ff0000')]]);
  assert.deepEqual(coloured.map(e=>e.kind),['session']);assert.equal(coloured[0].settled_state.gate_colors[2],'ff0000');
- // Emptied with its weight cleared, as an eject leaves it
- const ejected=play([['gate_status',set(mmu.gate_status,0)],['gate_initial_weight',set(mmu.gate_initial_weight,-1)],['gate_remaining_weight',set(mmu.gate_remaining_weight,-1)]]);
- assert.equal(ejected.at(-1).kind,'gate_emptied');assert.deepEqual(ejected.at(-1).gate_transition,{gate:2,kind:'ejected'});
- // An empty gate given filament: the spool fades in, then the filament is drawn up from it
- const preloaded=play([['gate_status',set(mmu.gate_status,1,1)]]), step=preloaded.at(-1);
- assert.equal(step.kind,'gate_preloaded');assert.equal(step.label,'Gate 1 preloaded');
- const at=t=>playbackFrame(step,t,duration(step)).state;
- const early=at(PRELOAD_FADE_MS*.5), late=at(PRELOAD_FADE_MS+PRELOAD_FEED_MS*.5);
- assert.ok(duration(step)<1000);   // Brisk, where an eject lingers
- assert.equal(early.gate_status[1],1);
- assert.ok(early.gate_eject.fade>0 && early.gate_eject.fade<1);assert.equal(early.gate_eject.withdraw,1);
- assert.equal(late.gate_eject.fade,0);assert.ok(late.gate_eject.withdraw>0 && late.gate_eject.withdraw<1);
- assert.equal(at(duration(step)).gate_eject,undefined);
+ // Marked empty with its attributes cleared, as MMU_GATE_MAP AVAILABLE=0 leaves it, and an empty gate marked available
+ const emptied=play([['gate_status',set(mmu.gate_status,0)],['gate_initial_weight',set(mmu.gate_initial_weight,-1)],['gate_remaining_weight',set(mmu.gate_remaining_weight,-1)]]);
+ assert.deepEqual(emptied.map(e=>e.kind),['session']);assert.equal(emptied[0].settled_state.gate_status[2],0);
+ const filled=play([['gate_status',set(mmu.gate_status,1,1)],['gate_color',set(mmu.gate_color,'ff0000',1)]]);
+ assert.deepEqual(filled.map(e=>e.kind),['session']);
+ assert.equal(filled[0].settled_state.gate_status[1],1);assert.equal(filled[0].settled_state.gate_colors[1],'ff0000');
 });
 test('holding an ejected gate as it was for the move leaves the other gates\' changes showing',()=>{
  const records=structuredClone(fixture('boxturtle-eject'));
@@ -1137,4 +1126,11 @@ test('holding an ejected gate as it was for the move leaves the other gates\' ch
  const eject=visibleSteps(r.events).find(e=>e.seq===9);
  assert.equal(eject.state.gate_colors[0],'cac60c');assert.equal(eject.state.gate_status[0],1);
  assert.equal(eject.state.gate_colors[5],'123456');
+});
+test('an eject that reports its gate empty just after its move is still an emptying step',()=>{
+ const steps=()=>{ const r=new TelemetryReplay(); r.accept(structuredClone(fixture('ercf-eject'))); return visibleSteps(r.events); };
+ const all=steps(), emptied=all.findIndex(e=>e.kind==='gate_emptied');
+ assert.equal(all[emptied-1].label,'Ejecting filament out of gate');
+ assert.deepEqual(all[emptied].gate_transition,{gate:2,kind:'ejected'});
+ assert.equal(all[emptied].before.gate_status[2],1);assert.equal(all[emptied].state.gate_status[2],0);
 });

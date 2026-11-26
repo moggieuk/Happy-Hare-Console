@@ -1,8 +1,7 @@
 /* Copyright (C) 2022-2026 Paul Morgan. GPLv3. */
 // Replay of the status updates a subscription has delivered: the steps the Status capture panel lists, and those
 // it has since let go, each kept with the scene it produced. Nothing is recorded by the printer; this is only what this page has seen.
-import {liveDuration, liveFrame, gateChanged} from './live-state.js';
-import {gateTransition} from './playback.js';
+import {liveDuration, liveFrame, gateChanged, liveTransition} from './live-state.js';
 import {clamp} from './util.js';
 
 // A toolchange as status shows it: Happy Hare counts one, or the selected tool changes
@@ -19,7 +18,8 @@ function operationLabel(before,after) {
   return to<from ? 'U' : to>from ? toolLabel(after) : null;
 }
 // Status has no commands, so an operation is the run of updates in which Happy Hare is not idle, marked where
-// it starts. One still under way is labelled by how far it has got. A toolchange reported with no such run is marked too.
+// it starts. One still under way is labelled by the tool Happy Hare says it is changing to, else by how far it has
+// got. A toolchange reported with no such run is marked too.
 export function operationMarkers(entries) {
   const markers=[];
   for (let i=1;i<entries.length;i++) {
@@ -28,7 +28,8 @@ export function operationMarkers(entries) {
     if (!busy(state)) { if (toolchanged(before,state)) markers.push({index:i,label:toolLabel(state)}); continue; }
     let end=i;
     while (end+1<entries.length && busy(entries[end+1].state)) end++;
-    const label=operationLabel(before,(entries[end+1] || entries[end]).state);
+    const latest=(entries[end+1] || entries[end]).state;
+    const label=!entries[end+1] && latest.next_tool>=0 ? `T${latest.next_tool}` : operationLabel(before,latest);
     if (label) markers.push({index:i,label});
     i=end;
   }
@@ -100,4 +101,4 @@ export class StatusReplay {
   }
 }
 // As long as the updates were apart, within what is watchable
-export const stepDuration=(a,b)=>gateChanged(a.state,b.state) || gateTransition(a.state,b.state) ? liveDuration(a.state,b.state) : clamp((b.time-a.time)*1000,150,1500);
+export const stepDuration=(a,b)=>gateChanged(a.state,b.state) || liveTransition(a.state,b.state) ? liveDuration(a.state,b.state) : clamp((b.time-a.time)*1000,150,1500);
