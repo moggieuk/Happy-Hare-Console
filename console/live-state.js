@@ -157,10 +157,13 @@ export function purged(memory,status,retracted=0,remaining=null) {
 // Klipper resends a whole dictionary field when one value in it changes; the encoder's own object sends just that value
 export const liveMmuFields=mmu=>Object.keys(mmu || {}).filter(field=>field!=='encoder');
 export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 && from.gate!==to.gate;
-const emitted=(from,to)=>(to.extruded_mm || 0)-(from.extruded_mm || 0);
+// What has come out between two states: a count that starts again, as after a reconnect, has put nothing back
+const emitted=(from,to)=>Math.max(0,(to.extruded_mm || 0)-(from.extruded_mm || 0));
 const dropped=(from,to)=>(to.purge_base_mm || 0)>(from.purge_base_mm || 0);
-const DROP_MS=650, purgeMs=(from,to)=>Math.min(4000,Math.max(0,emitted(from,to))*400);
+const DROP_MS=650, purgeMs=(from,to)=>Math.min(4000,emitted(from,to)*400);
 const sameGate=(from,to)=>Boolean(from) && from.unit===to.unit && from.gate===to.gate && to.gate>=0;
+// How long a purge takes to come out and its pile to fall
+export const purgeDuration=(from,to)=>sameGate(from,to) ? purgeMs(from,to)+(dropped(from,to) ? DROP_MS : 0) : 0;
 // Status has no eject or preload to report, only the gate map they leave. One edited by hand leaves the same, so
 // only a change that comes with the filament being worked on plays: a homing move or an action under way, or the tip moved
 const working=(from,to,gate)=>Boolean(from.homing) || (Boolean(from.action) && from.action!=='Idle') || from.tips?.[gate]!==to.tips?.[gate];
@@ -192,7 +195,7 @@ export function liveDuration(from,to,interval=0) {
   if (liveTransition(from,to)) return gateTransitionMs(liveTransition(from,to));
   const distance=sameGate(from,to) ? Math.abs(to.tips[to.gate]-from.tips[to.gate]) || 0 : 0;
   // A purge reported only once it is over is drawn coming out, and a pile is given time to fall
-  const purge=sameGate(from,to) ? purgeMs(from,to)+(dropped(from,to) ? DROP_MS : 0) : 0;
+  const purge=purgeDuration(from,to);
   return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3),purge);
 }
 // An update that moves nothing must not restart the movement under way

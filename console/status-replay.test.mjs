@@ -62,6 +62,10 @@ test('steps whose capture rows have gone are dropped, keeping the place in the r
 test('a step lasts as long as its updates were apart, within limits',()=>{
  const at=(time,tip=0)=>({time,state:state(tip)});
  assert.deepEqual([stepDuration(at(1),at(1.01)),stepDuration(at(1),at(1.5)),stepDuration(at(1),at(60))],[150,500,1500]);
+ // A purge is given the time it takes to come out, and a pile the time it takes to fall
+ const purged=(time,extruded_mm,purge_base_mm=0)=>({time,state:{...state(0),extruded_mm,purge_base_mm}});
+ assert.equal(stepDuration(purged(1,0),purged(1.25,2)),800);
+ assert.equal(stepDuration(purged(1,2),purged(1.25,2,2)),650);
 });
 test('only the latest updates are kept, however many rows the capture panel still lists',()=>{
  const r=new StatusReplay(3);
