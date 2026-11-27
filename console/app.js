@@ -14,7 +14,7 @@ import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
 import {timelineMarkers, scanMove} from './playback.js';
-import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
+import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, arrowKeySteps, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
 import {captureStatus, captureRows, clearStatusCapture, highlightCapture, statusRow} from './status-capture.js';
@@ -934,8 +934,8 @@ for (const [id, direction] of [['previous-toolchange', -1], ['next-toolchange', 
 }
 $("next").onclick = () => seek(currentIndex() + 1);
 document.addEventListener('keydown', event => {
-  if ((store.viewMode==='live' ? store.replay.following : !store.paused && store.live) || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey
-      || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || !['ArrowLeft', 'ArrowRight'].includes(event.key)
+      || !arrowKeySteps(store.viewMode==='live' ? store.replay.following : !store.paused && store.live,event.key)) return;
   if (event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="slider"]')) return;
   const button = $(event.shiftKey
     ? (event.key === 'ArrowLeft' ? 'play-previous' : 'play-step')
