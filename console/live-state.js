@@ -39,11 +39,15 @@ export class LiveState {
     // As Happy Hare finds it: the park macro's own retraction, else _MMU_PARK's
     const retracted=[machine.park_macro,'_MMU_PARK'].map(name=>Object.entries(macros)
       .find(([macro])=>macro.toLowerCase()===String(name).toLowerCase())?.[1]?.retracted_length).find(Number.isFinite) || 0;
+    // Happy Hare forgets a cut fragment once the filament is loaded, before the purge that pushes it out
+    let kept=0;
     for (const u of Object.values(machine.units)) {
       const ext=this.objects[`mmu_extruder ${u.extruder.name}`] || (u===machine.units[unitName] ? status : {});
       Object.assign(u.extruder,ext,{filament_remaining_color:rgb(ext.filament_remaining_color),
         target_temperature:this.objects[u.extruder.name]?.target},
         u===machine.units[unitName] ? {retracted_length:retracted} : {});
+      if (u===machine.units[unitName] && status.filament_pos===10 && !(ext.filament_cut_fragment>0) && this.purge.fragment>0)
+        u.extruder.filament_cut_fragment=kept=this.purge.fragment;
       if (u.encoder) {
         u.encoder.status=this.objects[`mmu_encoder ${u.encoder.name}`] || {};
         u.encoder.distance=u.encoder.status.encoder_pos ?? 0;
@@ -68,9 +72,16 @@ export class LiveState {
       if (parked!==null && m.filament_pos===10) model.shapes[m.gate]='cone';
       // A cut leaves the filament's end at the blade
       const blade=s.cutters.find(cutter=>cutter.kind==='toolhead' && !cutter.before_extruder)?.position;
-      this.purge=purged(this.purge,status,retracted,s.filament.retained_color);
-      // A load stops short of the melt left in the nozzle: the purge is what pushes the filament through it
-      const melt=this.purge.loaded===null ? 0 : Math.max(0,s.filament.residual_mm-(this.purge.extruded-this.purge.loaded));
+      this.purge=purged(this.purge,status,retracted,s.filament.retained_color,s.filament.fragment_mm);
+      // A load stops short of the melt left in the nozzle, and of a fragment behind it: the purge is what pushes
+      // the filament through them
+      const pushed=this.purge.loaded===null ? Infinity : this.purge.extruded-this.purge.loaded;
+      const melt=Math.max(0,s.filament.residual_mm+kept-pushed);
+      const fragment=kept && model.fragments[s.filament.extruder];
+      if (fragment) {
+        Object.assign(fragment,{start:Math.min(s.layout.nozzle,fragment.start+pushed),end:Math.min(s.layout.nozzle,fragment.end+pushed),color:this.purge.old});
+        if (fragment.start>=fragment.end) delete model.fragments[s.filament.extruder];
+      }
       // An uncalibrated Bowden is drawn at a nominal length, which the position cannot be placed along
       const calibrated=machine.units[unitName].bowden_lengths[m.gate]>0;
       const resolved=resolveTip(this.tip,status,s,pos=>pos===10 ? parked ?? s.layout.nozzle-melt
@@ -130,8 +141,8 @@ export class LiveState {
 // filament is retracted to park, or leaves. Happy Hare reports the loaded filament as what remains in the nozzle before
 // it has purged, so the colour that was there is kept until the filament leaves, or a print carries on without a purge.
 const FILAMENT_AREA=Math.PI*(1.75/2)**2;
-const newPurge=()=>({extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null,origin:null,old:null,loaded:null});
-export function purged(memory,status,retracted=0,remaining=null) {
+const newPurge=()=>({extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null,origin:null,old:null,loaded:null,fragment:0});
+export function purged(memory,status,retracted=0,remaining=null,fragment=0) {
   const p={...memory}, purging=status.action==='Purging';
   const position=Number.isFinite(status.filament_position_live) ? status.filament_position_live : null;
   if (purging && !p.active) Object.assign(p,{active:true,from:p.extruded,start:p.extruded,base:p.extruded,amount:0,origin:position});
@@ -148,8 +159,8 @@ export function purged(memory,status,retracted=0,remaining=null) {
   }
   const printed=!purging && p.extruded===p.base && status.print_state==='printing' && status.action==='Idle';
   if (status.filament_pos!==10 || printed || !p.old) p.old=remaining;
-  if (status.filament_pos!==10) p.loaded=p.extruded;
-  else if (printed) p.loaded=null;
+  if (status.filament_pos!==10) { p.loaded=p.extruded; p.fragment=fragment; }
+  else if (printed) { p.loaded=null; p.fragment=0; }
   p.position=position;
   return p;
 }
@@ -223,6 +234,13 @@ export function liveFrame(from,to,fraction) {
     if (emitted(from,to) || dropped(from,to)) {
       s.extruded_mm=(from.extruded_mm || 0)+emitted(from,to)*(out ? Math.min(1,f/out) : 1);
       if (dropped(from,to)) { s.purge_base_mm=from.purge_base_mm || 0; s.purge_drop=fall; }
+      const segment=from.retained_segment;
+      if (segment && emitted(from,to)) {
+        // A fragment ahead of the filament is pushed out by it, as a replayed purge shows
+        const push=Math.max(0,s.tips[to.gate]-Math.max(from.tips[to.gate],segment.start)), nozzle=to.layout.nozzle;
+        const start=Math.min(nozzle,segment.start+push), end=Math.min(nozzle,segment.end+push);
+        s.retained_segment=start<end ? {...segment,start,end} : null;
+      }
       if (emitted(from,to)) {
         s.nozzle_color=purgeColor(s,s.extruded_mm); s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm);
         // The outlet is reached only once that much has been pushed through

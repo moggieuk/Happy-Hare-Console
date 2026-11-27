@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { syncIndicatorSide, bowdenAttachment, BOWDEN_EXIT_X, EXTRUDER_X, bowdenLane, bowdenLaneOffset, gateSelectionLit, timelineMarkers, homingHold, spoolTooltip, tweenTo, rackGrid, rackIdleReturn, movingTip, withdrawTip, nfcScan, scanMove} from './playback.js';
+import { syncIndicatorSide, bowdenAttachment, BOWDEN_EXIT_X, EXTRUDER_X, bowdenLane, bowdenLaneOffset, gateSelectionLit, timelineMarkers, homingHold, spoolTooltip, tweenTo, rackGrid, rackIdleReturn, movingTip, drawnStart, withdrawTip, nfcScan, scanMove} from './playback.js';
 
 test('timeline labels distinguish loads, unloads and requested toolchanges',()=>{
  const marker=(command,tool,label=command)=>({kind:'toolchange',telemetry:{command,tool,label}});
@@ -1113,4 +1113,12 @@ test('only a linear selector is drawn as a sliding rack: every other kind merges
 test('the arrow keys still step back from the end of a playback, where there is nothing ahead to step to',async()=>{
   const {arrowKeySteps}=await import('./playback.js');
   assert.deepEqual([arrowKeySteps(true,'ArrowLeft'),arrowKeySteps(true,'ArrowRight'),arrowKeySteps(false,'ArrowRight')],[true,false,true]);
+});
+
+test('a move played backward does not start from where the tip was last drawn, which is its end',()=>{
+ const last={gate:0,raw:804.1,drawn:804.1};
+ assert.equal(drawnStart(last,0,802.1,false),804.1);   // Forward: the tip carries on from where it was drawn
+ assert.equal(drawnStart(last,0,802.1,true),null);     // Backward: that is where the move ends
+ assert.equal(drawnStart(last,1,802.1,false),null);
+ assert.equal(drawnStart({...last,raw:700},0,802.1,false),null);
 });

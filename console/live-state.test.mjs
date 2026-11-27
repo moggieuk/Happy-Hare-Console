@@ -167,6 +167,21 @@ test('the nozzle keeps the colour that was in it until the purge, and the pile f
  assert.deepEqual(run.map(p=>[p.old,Math.round(p.extruded),Math.round(p.base)]),
   [['aa0000',0,0],['aa0000',0,0],['aa0000',20,0],['aa0000',20,20],['00bb00',20,20]]);
 });
+test('a cut fragment left in the extruder stops the loaded filament short, and the purge pushes it out',()=>{
+ const r=new LiveState();r.accept(status(),1);
+ const cut=r.accept({mmu:{filament_cut_fragment:5}},2), nozzle=cut.layout.nozzle, residual=cut.filament.residual_mm, area=Math.PI*(1.75/2)**2;
+ assert.deepEqual([cut.retained_segment.start,cut.retained_segment.end],[nozzle-residual-5,nozzle-residual]);
+ // Happy Hare forgets the fragment once the filament is loaded, before the purge that pushes it out
+ const loaded=r.accept({mmu:{filament_pos:10,action:'Purging',filament_cut_fragment:0,toolchange_purge_volume:(5+residual)*area,
+  sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:true}}},3);
+ assert.equal(loaded.tips[loaded.gate],nozzle-residual-5);
+ assert.deepEqual([loaded.retained_segment.start,loaded.retained_segment.end],[nozzle-residual-5,nozzle-residual]);
+ const purged=r.accept({mmu:{action:'Purging'}},4);
+ assert.equal(purged.tips[purged.gate],nozzle);assert.equal(purged.retained_segment,null);
+ const half=liveFrame(loaded,purged,.5);
+ assert.equal(half.tips[half.gate],nozzle-(residual+5)/2);
+ assert.deepEqual([half.retained_segment.start,half.retained_segment.end],[half.tips[half.gate],nozzle]);
+});
 test('a filament purged through the nozzle leaves its colour in the outlet when it retracts, fading to what was there',()=>{
  const r=new LiveState(), before=r.accept(status(),1);
  r.accept({mmu:{gate_color:before.gate_colors.map(()=>'00bb00')}},1);

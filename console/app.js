@@ -424,10 +424,10 @@ function renderStatusTimeline() {
   $('status-timeline').value=replay.index;
   $('save-status').disabled=!replay.count;
 }
-// Back to the printer: carry on from what is on screen
-function followStatus() {
+// Back to the printer. A jump shows it as it is now; a step played off the end carries on from what is on screen
+function followStatus(carryOn=false) {
   store.replay.follow();
-  store.liveFrom=store.displayed; store.liveStart=animationNow(); store.liveSettled=false;
+  store.liveFrom=carryOn || !store.liveTarget ? store.displayed : store.liveTarget; store.liveStart=animationNow(); store.liveSettled=false;
   if (store.liveTarget) store.liveDuration=liveDuration(store.liveFrom,store.liveTarget);
   draw();
 }
@@ -823,7 +823,7 @@ function currentView() {
 function statusControls(s,connected) {
   const replay=store.replay, what=connected || store.offline ? s.action || s.filament_pos_name : 'Disconnected';
   const mode=replay.playing ? 'Playing' : replay.following ? 'End of recording ·' : 'Paused at';
-  return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
+  return {running:Boolean(replay.playing) && !replay.playing.once, stepping:replay.stepping, index:replay.index, count:replay.count, pauseAfterStep:false,
     previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
     modeText:replay.following && !store.offline ? `Live view · ${what}`
       : `Status playback · ${mode} update ${replay.entries[replay.applying]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};
@@ -1198,7 +1198,7 @@ function drawFrame() {
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
   const followed=store.viewMode!=='live' || store.replay.following;
   const replayed=store.viewMode==='live' ? store.replay.frame(now) : null;
-  if (!followed && store.replay.following) followStatus();   // Played to the end
+  if (!followed && store.replay.following) followStatus(true);   // Played to the end
   if (replayed) {
     // A step of the recorded status, not the printer as it is now
     if (replayed!==store.displayed) draw();

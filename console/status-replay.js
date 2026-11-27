@@ -40,8 +40,10 @@ export class StatusReplay {
   constructor(limit=5000) { this.limit=limit; this.entries=[]; this.sequence=0; this.following=true; this.cursor=0; this.playing=null; }
   get count() { return this.entries.length; }
   get index() { return this.following ? Math.max(0,this.count-1) : this.playing ? this.playing.from : this.cursor; }
-  // The update whose state is shown, or is being played towards
-  get applying() { return this.playing && !this.following ? this.playing.to : this.index; }
+  // The update whose state is shown, or is being played: applied going forward, undone going back
+  get applying() { return this.playing && !this.following ? Math.max(this.playing.from,this.playing.to) : this.index; }
+  // A step is being played: playing it again would only start it over
+  get stepping() { return Boolean(this.playing) && !this.following; }
   record(state, time) {
     const entry={seq:++this.sequence,time,state};
     this.entries.push(entry);
@@ -96,7 +98,9 @@ export class StatusReplay {
     const step=this.playing;
     if (!step) return this.entries[this.cursor].state;
     const fraction=Math.min(1,(now-step.start)/step.duration);
-    if (fraction<1) return liveFrame(this.entries[step.from].state,this.entries[step.to].state,fraction);
+    // A step back is the step forward run backward, so what it did is undone as it was done
+    if (fraction<1) return step.to<step.from ? liveFrame(this.entries[step.to].state,this.entries[step.from].state,1-fraction)
+      : liveFrame(this.entries[step.from].state,this.entries[step.to].state,fraction);
     this.cursor=step.to; this.playing=null;
     if (!step.once || (!step.held && step.to===this.count-1)) this.play(now);
     return this.entries[this.cursor].state;

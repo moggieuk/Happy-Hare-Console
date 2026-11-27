@@ -104,3 +104,24 @@ test('a toolchange under way is marked with the tool being changed to from its f
  [at('Idle',10),at('Unloading',4,{next_tool:3})].forEach((s,i)=>r.record(s,i));
  assert.deepEqual(r.markers(),[{index:1,label:'T3'}]);
 });
+
+test('a step is under way from when it is played until its last frame, so its buttons can wait for it',()=>{
+ const replay=new StatusReplay(), at=tip=>({unit:'u',gate:0,tips:[tip],devices:{},motors:{}});
+ [0,10,20].forEach((tip,i)=>replay.record(at(tip),i));
+ replay.seek(0);assert.equal(replay.stepping,false);
+ replay.play(0,{once:true});assert.equal(replay.stepping,true);
+ replay.frame(1);assert.equal(replay.stepping,true);
+ replay.frame(1e6);assert.equal(replay.stepping,false);
+});
+
+test('a step played backward is the forward step run backward, and is named by the update it undoes',()=>{
+ const replay=new StatusReplay(), at=(tip,extruded_mm)=>({unit:'u',gate:0,tips:[tip],devices:{},motors:{},extruded_mm,purge_base_mm:0,layout:{nozzle:20}});
+ [at(0,0),at(10,0),at(10,5)].forEach((state,i)=>replay.record(state,i));
+ replay.seek(2);replay.pause();
+ replay.play(0,{reverse:true});
+ assert.equal(replay.applying,2);
+ const duration=replay.playing.duration, back=replay.frame(duration*.25);
+ replay.seek(1);replay.play(0,{once:true});
+ assert.equal(back.extruded_mm,replay.frame(duration*.75).extruded_mm);   // The purge goes back in as it came out
+ assert.ok(back.extruded_mm>0 && back.extruded_mm<5);
+});

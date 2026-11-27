@@ -334,6 +334,10 @@ export function movingTip(free, progress, startHold, endHold) {
   return free + startHold*(1-progress) + endHold*progress;
 }
 
+// Where a playing move's tip was last drawn, when that is where the move starts. A move played backward starts
+// from its end, so its start is wherever the state before it is drawn.
+export const drawnStart=(last,gate,from,reverse)=>!reverse && last?.gate===gate && Math.abs(last.raw-from)<25 ? last.drawn : null;
+
 // An empty gate has no filament to show: what was drawn there withdraws into the spool, and returns the same way.
 // `previous` is the last result (null at first); the result's `tip` is the one to draw.
 export function withdrawTip(previous, {gate, tip, empty, spool, now, animate = true}) {

@@ -2,7 +2,7 @@
 // The main view: draws one scene state into the host <svg>. It reads nothing from the page outside the host and
 // changes nothing outside it; the caller passes what to draw (view) and how (settings).
 import { SpoolRenderer, renderSpool, spoolWindingRadius, espoolerActive } from './spool.js';
-import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, branchFade, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, bowdenProgressLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, meltColor, retractionLabel, movingTip, visualTip, withdrawTip} from './playback.js';
+import { SCENE_WIDTH, BUFFER_CENTER_X, BOWDEN_EXIT_X as EXIT, EXTRUDER_X as E, gateSelectionLit, branchFade, rackIdleReturn, spoolTooltip, tweenTo, virtualSelectorLayout, syncIndicatorSide, bowdenLane, rackGrid, bowdenAttachment, toolheadProgress, toolheadDrawingRange, switchFilamentDistance, syncForDisplay, encoderFilamentDistance, excessFilamentLabel, constrainFilament, gearAngle, homingTarget, bladeStroke, bowdenLengthLabel, bowdenProgressLabel, toolheadReferences, coolingTubeMeasurements, dimensionParameter, lastEncoderReading, encoderReference, gateDevicePositions, purgeOutletColor, purgeCoils, purgeStrandLength, fragmentTipShape, meltColor, retractionLabel, movingTip, visualTip, withdrawTip, drawnStart} from './playback.js';
 import {$, escape, short as sensorName, DEFAULT_COLOR, round1, clamp01, dimensionArrow, spanArrow} from './util.js';
 import {renderBuffer} from './buffer-view.js';
 import {measurePath} from './path-measure.js';
@@ -381,8 +381,7 @@ function measure(c) {
     const held = (position,state) => constrainFilament(drawnAt(position), tail,
       presenceSensors.map(d=>({...d,state:state.sensors?.[d.name]?.state ?? d.state})), fragments).tip;
     // The move leaves from where the tip was last drawn and arrives where the settled frame will draw it
-    if (moveHold?.seq !== e.seq) moveHold = {seq:e.seq, start:(lastTip?.gate === gate && Math.abs(lastTip.raw-from) < 25
-      ? lastTip.drawn : held(from,e.before))-drawnAt(from)};
+    if (moveHold?.seq !== e.seq) moveHold = {seq:e.seq, start:(drawnStart(lastTip,gate,from,playing.reverse) ?? held(from,e.before))-drawnAt(from)};
     constrained.tip = movingTip(schematicTip ?? pathDistance(tip), clamp01((rawTip-from)/(to-from)), moveHold.start,
       held(after.tips[gate],after)-drawnAt(to));
     // A sensor that changes during the move does so as the drawn tip reaches it
