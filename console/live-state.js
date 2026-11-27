@@ -68,16 +68,26 @@ export class LiveState {
       if (parked!==null && m.filament_pos===10) model.shapes[m.gate]='cone';
       // A cut leaves the filament's end at the blade
       const blade=s.cutters.find(cutter=>cutter.kind==='toolhead' && !cutter.before_extruder)?.position;
-      const resolved=resolveTip(this.tip,status,s,pos=>pos===10 && parked!==null ? parked
+      this.purge=purged(this.purge,status,retracted,s.filament.retained_color);
+      // A load stops short of the melt left in the nozzle: the purge is what pushes the filament through it
+      const melt=this.purge.loaded===null ? 0 : Math.max(0,s.filament.residual_mm-(this.purge.extruded-this.purge.loaded));
+      const resolved=resolveTip(this.tip,status,s,pos=>pos===10 ? parked ?? s.layout.nozzle-melt
         : pos===9 && Number.isFinite(blade) ? blade : model.logicalTip(s,pos,true),
         s.layout.extruder_gears-(machine.units[unitName].bowden_lengths[m.gate] || 700));
       this.tip=resolved.memory;
       model.tips[m.gate]=resolved.tip;
       warnings=resolved.warnings;
       const hotend=model.hotends[s.filament.extruder];
-      this.purge=purged(this.purge,status);
       hotend.extruded=this.purge.extruded; hotend.base=this.purge.base;
-      if (hotend.plan) hotend.plan.start_mm=this.purge.start;
+      if (hotend.plan) {
+        Object.assign(hotend.plan,{start_mm:this.purge.start,old_color:this.purge.old});
+        hotend.nozzle=purgeColor({purge_transition:hotend.plan},hotend.extruded);
+        // Pushed right through, the filament has reached the nozzle's outlet, which fades to what was there until that is flushed
+        if (this.purge.loaded!==null && hotend.extruded-this.purge.loaded>=hotend.plan.retained_mm) {
+          hotend.outlet=s.filament.incoming_color;
+          hotend.plan.nozzle_arrival_mm=this.purge.loaded+hotend.plan.retained_mm;
+        }
+      }
     } else this.tip=null;
     // Buffer position is reported state, never a result of integrating motor travel.
     model.bufferPositions={};
@@ -104,6 +114,7 @@ export class LiveState {
     s.action=status.action;
     s.num_toolchanges=status.num_toolchanges;
     s.next_tool=status.next_tool;
+    s.filament_position_live=status.filament_position_live;
     s.tip_resolved=true;
     s.live_warnings=warnings;
     return s;
@@ -112,10 +123,12 @@ export class LiveState {
 
 // What has come out of the nozzle, in mm of filament: Happy Hare reports that it is purging and the volume it
 // suggests, not the extrusion itself. The live position counts it where the extruder is the stepper being followed;
-// only where none was seen is the suggested volume taken to have gone, once the purge is over. The pile falls when the filament leaves.
+// where it has not moved by the second update of a purge, the suggested volume is taken to be going. The pile falls when the
+// filament is retracted to park, or leaves. Happy Hare reports the loaded filament as what remains in the nozzle before
+// it has purged, so the colour that was there is kept until the filament leaves, or a print carries on without a purge.
 const FILAMENT_AREA=Math.PI*(1.75/2)**2;
-const newPurge=()=>({extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null,origin:null});
-export function purged(memory,status) {
+const newPurge=()=>({extruded:0,base:0,start:0,active:false,from:0,amount:0,position:null,origin:null,old:null,loaded:null});
+export function purged(memory,status,retracted=0,remaining=null) {
   const p={...memory}, purging=status.action==='Purging';
   const position=Number.isFinite(status.filament_position_live) ? status.filament_position_live : null;
   if (purging && !p.active) Object.assign(p,{active:true,from:p.extruded,start:p.extruded,base:p.extruded,amount:0,origin:position});
@@ -123,9 +136,17 @@ export function purged(memory,status) {
   // only the furthest the filament has been fed counts: a purge retracts and primes again as it goes.
   // The update that ends a purge still carries the last of its movement
   if (p.active && position!==null && p.origin!==null) p.extruded=Math.max(p.extruded,p.from+position-p.origin);
+  const still=position===null || position===p.origin;
   if (purging) p.amount=Math.max(p.amount,(Number(status.toolchange_purge_volume) || 0)/FILAMENT_AREA);
-  else if (p.active) Object.assign(p,{active:false,extruded:p.extruded>p.from ? p.extruded : p.from+p.amount});
-  else if (status.filament_pos!==10) p.base=p.extruded;
+  if (p.active && (!purging || memory.active && still) && p.extruded===p.from) p.extruded=p.from+p.amount;
+  if (!purging) {
+    p.active=false;
+    if (status.filament_pos!==10 || retracted>0) p.base=p.extruded;
+  }
+  const printed=!purging && p.extruded===p.base && status.print_state==='printing' && status.action==='Idle';
+  if (status.filament_pos!==10 || printed || !p.old) p.old=remaining;
+  if (status.filament_pos!==10) p.loaded=p.extruded;
+  else if (printed) p.loaded=null;
   p.position=position;
   return p;
 }
@@ -135,6 +156,7 @@ export const liveMmuFields=mmu=>Object.keys(mmu || {}).filter(field=>field!=='en
 export const gateChanged=(from,to)=>Boolean(from) && from.gate>=0 && to.gate>=0 && from.gate!==to.gate;
 const emitted=(from,to)=>(to.extruded_mm || 0)-(from.extruded_mm || 0);
 const dropped=(from,to)=>(to.purge_base_mm || 0)>(from.purge_base_mm || 0);
+const DROP_MS=650, purgeMs=(from,to)=>Math.min(4000,Math.max(0,emitted(from,to))*400);
 const sameGate=(from,to)=>Boolean(from) && from.unit===to.unit && from.gate===to.gate && to.gate>=0;
 // Status has no eject or preload to report, only the gate map they leave. One edited by hand leaves the same, so
 // only a change that comes with the filament being worked on plays: a homing move or an action under way, or the tip moved
@@ -167,7 +189,7 @@ export function liveDuration(from,to,interval=0) {
   if (liveTransition(from,to)) return gateTransitionMs(liveTransition(from,to));
   const distance=sameGate(from,to) ? Math.abs(to.tips[to.gate]-from.tips[to.gate]) || 0 : 0;
   // A purge reported only once it is over is drawn coming out, and a pile is given time to fall
-  const purge=sameGate(from,to) ? Math.min(4000,Math.max(0,emitted(from,to))*400)+(dropped(from,to) ? 650 : 0) : 0;
+  const purge=sameGate(from,to) ? purgeMs(from,to)+(dropped(from,to) ? DROP_MS : 0) : 0;
   return Math.max(clamp(interval*1.2,300,1200),Math.min(1500,distance*3),purge);
 }
 // An update that moves nothing must not restart the movement under way
@@ -188,13 +210,14 @@ export function liveFrame(from,to,fraction) {
   if (transition) return gateTransitionFrame(transition,from,to,Math.max(0,fraction));
   const f=Math.max(0,fraction), s={...to,tips:[...to.tips],devices:clone(to.devices)};
   if (from.unit===to.unit && from.gate===to.gate && to.gate>=0) {
-    s.tips[to.gate]=from.tips[to.gate]+(to.tips[to.gate]-from.tips[to.gate])*f;
+    // What is still coming out is drawn before the retraction that lets the pile fall
+    const out=dropped(from,to) ? purgeMs(from,to)/(purgeMs(from,to)+DROP_MS) : 1, fall=out<1 ? Math.max(0,(f-out)/(1-out)) : 0;
+    s.tips[to.gate]=from.tips[to.gate]+(to.tips[to.gate]-from.tips[to.gate])*(dropped(from,to) ? fall : f);
     s.motors=Object.fromEntries(Object.entries(to.motors).map(([n,v])=>[n,(from.motors[n] || 0)+(v-(from.motors[n] || 0))*f]));
     if (emitted(from,to) || dropped(from,to)) {
-      s.extruded_mm=(from.extruded_mm || 0)+emitted(from,to)*f;
-      if (dropped(from,to)) { s.purge_base_mm=from.purge_base_mm || 0; s.purge_drop=f; }
-      s.nozzle_color=purgeColor(s,s.extruded_mm);
-      s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm);
+      s.extruded_mm=(from.extruded_mm || 0)+emitted(from,to)*(out ? Math.min(1,f/out) : 1);
+      if (dropped(from,to)) { s.purge_base_mm=from.purge_base_mm || 0; s.purge_drop=fall; }
+      if (emitted(from,to)) { s.nozzle_color=purgeColor(s,s.extruded_mm); s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm); }
     }
   }
   if (from.unit===to.unit) s.gate_focus=(from.gate_focus ?? from.gate)+(to.gate-(from.gate_focus ?? from.gate))*f;
