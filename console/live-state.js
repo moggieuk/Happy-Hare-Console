@@ -32,7 +32,7 @@ export class LiveState {
     machine.units[unitName].sensors=Object.keys(sensors);
     const m={...clone(status),unit:unitName, sensors,active_sensors:Object.keys(sensors),
       gate_color:(status.gate_color_rgb || status.gate_color || []).map(rgb),
-      drive_motors:{gear:['gear'],extruder:['extruder']},sync_mode:status.sync_drive ? 1 : 0};
+      drive_motors:{gear:['gear'],extruder:['extruder']},sync_mode:Number.isFinite(status.sync_mode) ? status.sync_mode : status.sync_drive ? 3 : 0};
     while (m.gate_color.length<machine.num_gates) m.gate_color.push(DEFAULT_COLOR);
     const macros={};
     for (const [name,object] of Object.entries(this.objects)) if (name.startsWith('gcode_macro ')) macros[name.slice(12)]=clone(object);

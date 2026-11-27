@@ -40,6 +40,15 @@ test('an uncalibrated gate is labelled as one, drawn at a nominal length and not
  const s=r.accept({mmu:{filament_pos:3,filament_position_live:300,sensors:{mmu_entry:true,encoder:true,extruder:false,toolhead:false}}},3);
  assert.notEqual(s.tips[s.gate],parked.tips[parked.gate]+300);
 });
+test('the extruder following the gear is shown as synced, where Happy Hare reports the drive mode',()=>{
+ const r=new LiveState();r.accept(status(),1);
+ assert.equal(r.accept({mmu:{sync_drive:false,sync_mode:1}},2).synced,true);
+ assert.equal(r.accept({mmu:{sync_mode:2}},3).synced,false);
+ assert.equal(r.accept({mmu:{sync_drive:true,sync_mode:3}},4).synced,true);
+ // An older Happy Hare reports only the gear following the extruder
+ const old=new LiveState(),objects=status();delete objects.mmu.sync_mode;old.accept(objects,1);
+ assert.equal(old.accept({mmu:{sync_drive:true}},2).synced,true);
+});
 test('dictionary fields replace rather than retain removed sensors',()=>{
  const r=new LiveState();r.accept(status(),1);
  const s=r.accept({mmu:{sensors:{}}},2);
