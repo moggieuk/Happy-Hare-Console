@@ -42,6 +42,8 @@ export class StatusReplay {
   get index() { return this.following ? Math.max(0,this.count-1) : this.playing ? this.playing.from : this.cursor; }
   // The update whose state is shown, or is being played towards
   get applying() { return this.playing && !this.following ? this.playing.to : this.index; }
+  // A step is being played: playing it again would only start it over
+  get stepping() { return Boolean(this.playing) && !this.following; }
   record(state, time) {
     const entry={seq:++this.sequence,time,state};
     this.entries.push(entry);

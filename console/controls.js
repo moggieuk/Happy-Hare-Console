@@ -2,7 +2,7 @@
 // The playback buttons, timeline and the two status lines above the scene.
 import {$} from './util.js';
 
-export function renderControls({running, index, count, pauseAfterStep, offline, previousToolchange, nextToolchange,
+export function renderControls({running, stepping, index, count, pauseAfterStep, offline, previousToolchange, nextToolchange,
     modeText, positionText, timelineValue}) {
   $("replay").disabled = pauseAfterStep || (!running && index >= count - 1);
   const playLabel = running ? 'Pause after current step' : offline ? 'Play recording' : 'Play continuously — follow stream when caught up';
@@ -12,8 +12,8 @@ export function renderControls({running, index, count, pauseAfterStep, offline, 
     ? 'M6 4h4v16H6z M14 4h4v16h-4z' : 'M7 4v16l13-8z');
   $("beginning").disabled = $("previous").disabled = index <= 0;
   $("next").disabled = index >= count - 1;
-  $("play-step").disabled = Boolean(running) || $("next").disabled;
-  $("play-previous").disabled = Boolean(running) || $("previous").disabled;
+  $("play-step").disabled = Boolean(running || stepping) || $("next").disabled;
+  $("play-previous").disabled = Boolean(running || stepping) || $("previous").disabled;
   $("previous-toolchange").disabled = !previousToolchange;
   $("next-toolchange").disabled = !nextToolchange;
   $("mode").textContent = modeText;

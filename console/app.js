@@ -823,7 +823,7 @@ function currentView() {
 function statusControls(s,connected) {
   const replay=store.replay, what=connected || store.offline ? s.action || s.filament_pos_name : 'Disconnected';
   const mode=replay.playing ? 'Playing' : replay.following ? 'End of recording ·' : 'Paused at';
-  return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
+  return {running:Boolean(replay.playing) && !replay.playing.once, stepping:replay.stepping, index:replay.index, count:replay.count, pauseAfterStep:false,
     previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
     modeText:replay.following && !store.offline ? `Live view · ${what}`
       : `Status playback · ${mode} update ${replay.entries[replay.applying]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};

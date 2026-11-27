@@ -104,3 +104,12 @@ test('a toolchange under way is marked with the tool being changed to from its f
  [at('Idle',10),at('Unloading',4,{next_tool:3})].forEach((s,i)=>r.record(s,i));
  assert.deepEqual(r.markers(),[{index:1,label:'T3'}]);
 });
+
+test('a step is under way from when it is played until its last frame, so its buttons can wait for it',()=>{
+ const replay=new StatusReplay(), at=tip=>({unit:'u',gate:0,tips:[tip],devices:{},motors:{}});
+ [0,10,20].forEach((tip,i)=>replay.record(at(tip),i));
+ replay.seek(0);assert.equal(replay.stepping,false);
+ replay.play(0,{once:true});assert.equal(replay.stepping,true);
+ replay.frame(1);assert.equal(replay.stepping,true);
+ replay.frame(1e6);assert.equal(replay.stepping,false);
+});
