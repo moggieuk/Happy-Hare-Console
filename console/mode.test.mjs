@@ -6,7 +6,8 @@ import {detectConnection, telemetryAvailable, hasMmuConfig, versionProblem, vers
 import {connectionControls} from './telemetry-stream.js';
 const app=readFileSync(new URL('./app.js',import.meta.url),'utf8');
 const isSimulator=app.match(/function isSimulator\(\) \{.*\}/)[0];
-const initialize=app.slice(app.indexOf('async function initializeConnection()'),app.indexOf('async function subscribeLive()'));
+const initialize=app.slice(app.indexOf('async function initializeConnection()'),app.indexOf('async function subscribeStatus()'))
+ +app.slice(app.indexOf('async function startView()'),app.indexOf('function advanceLive('));
 async function connection(kind,chosen=false,mode='live',offline=false,components=[]) {
  const calls=[];
  const c=vm.createContext({store:{connectionGeneration:1,modeChosen:chosen,viewMode:mode,setup:null,offline,socket:{readyState:1}},
@@ -15,7 +16,7 @@ async function connection(kind,chosen=false,mode='live',offline=false,components
    detectConnection,telemetryAvailable,versionProblem:async()=>null,$:()=>({value:'0'}),sourceMode:()=>{},setConnection:()=>{},refreshLiveEditor:async()=>{},message:()=>{},
    refresh:async probed=>{c.store.setup=probed;},
    startStream:async()=>calls.push('telemetry'),
-   changeView:async mode=>calls.push(mode),subscribeLive:async()=>calls.push('subscribe')});
+   changeView:async mode=>calls.push(mode),subscribeStatus:async()=>calls.push('subscribe')});
  vm.runInContext(isSimulator+initialize,c);await vm.runInContext('initializeConnection()',c);return calls;
 }
 test('simulator and a printer with telemetry default to the stream, a printer without it to subscriptions',async()=>{
@@ -38,10 +39,10 @@ test('the connection panel shows what the source in use allows',()=>{
  const unknown=show({kind:undefined});
  assert.deepEqual([unknown.sourceRow,unknown.save,unknown.simulator],[false,false,false]);
 });
-test('reconnect preserves explicitly selected live or playback mode',async()=>{
+test('reconnect preserves explicitly selected live or playback mode, and status is subscribed to in both',async()=>{
  assert.deepEqual(await connection('simulator',true,'live'),['subscribe']);
- assert.deepEqual(await connection('simulator',true,'playback'),['telemetry']);
- assert.deepEqual(await connection('live_machine',true,'playback'),['telemetry']);
+ assert.deepEqual(await connection('simulator',true,'playback'),['subscribe','telemetry']);
+ assert.deepEqual(await connection('live_machine',true,'playback'),['subscribe','telemetry']);
 });
 
 const warning=app.slice(app.indexOf('function renderWarning('),app.indexOf('const RPC_TIMEOUT_MS'));
