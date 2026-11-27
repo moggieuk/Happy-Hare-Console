@@ -135,3 +135,12 @@ test('jumping to the end of a status capture shows the latest state at once, as 
  vm.runInContext('followStatus()',c);assert.equal(c.store.liveFrom,latest);
  vm.runInContext('followStatus(true)',c);assert.equal(c.store.liveFrom,shown);   // A step played off the end carries on from it
 });
+
+test('a status capture played to its end goes back to the printer from its last state, not the frame before it',()=>{
+ const frame=app.slice(app.indexOf('  const followed=store.viewMode'),app.indexOf("  } else if (store.viewMode==='live' && store.liveTarget)"))+'}';
+ const partway={drop:.9}, last={drop:0}, from=[];
+ const c=vm.createContext({now:0,draw:()=>{},followStatus:()=>from.push(c.store.displayed),
+  store:{viewMode:'live',displayed:partway,replay:{following:false,frame(){ this.following=true; return last; }}}});
+ vm.runInContext(frame,c);
+ assert.deepEqual(from,[last]);
+});
