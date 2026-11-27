@@ -7,7 +7,6 @@ const GATE_SENSOR=/^mmu_(entry|exit)$/;
 const SHARED_SENSOR=/^(extruder|toolhead)$/;
 const BUFFER_SENSOR=/^filament_(compression|tension|proportional)$/;
 const UNREGISTERED=/^mmu_(pre_gate|gate|gear)$/; // Reported as active but never part of the sensor map
-const BOWDEN_DEFAULT=700;
 const list=value=>Array.isArray(value) ? value : value ? [value] : [];
 const first=name=>String(name || '').trim().split(/\s+/)[0];
 
@@ -36,7 +35,7 @@ export function liveMachine(objects) {
       parameters:{...unit,...effective(objects,`mmu_unit_parameters ${name}`)},
       toolhead:{name:toolhead,parameters:effective(objects,`mmu_toolhead ${toolhead}`)},
       extruder:{name:unit.extruder_name || 'extruder'},
-      bowden_lengths:Object.fromEntries(gates.map((g,i)=>[String(g),lengths[i]>0 ? lengths[i] : BOWDEN_DEFAULT])),
+      bowden_lengths:Object.fromEntries(gates.map((g,i)=>[String(g),lengths[i] ?? -1])),
       sensors:[],
       encoder:settings[`mmu_encoder ${unit.encoder || name}`.toLowerCase()] ? {name:unit.encoder || name,
         // The calibrated resolution is saved; the configured one is only the starting point

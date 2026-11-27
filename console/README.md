@@ -227,9 +227,17 @@ connections default to telemetry playback; other connections default to live vie
 Explicit mode choices survive reconnects. To open a recording, select telemetry
 playback and use **Load telemetry**:
 
-- **Live view** uses Moonraker object queries/subscriptions only. It smoothly
-  follows `mmu.filament_pos` and `mmu.bowden_progress`; transitions are cosmetic,
-  not a reconstruction of motor travel. Heater targets, encoder readings,
+- **Live view** uses Moonraker object queries/subscriptions only. Where the gate's
+  Bowden length is calibrated and Happy Hare reports `mmu.filament_position_live`,
+  that position places the filament tip: a load counts on from the gate park, and an
+  unload that began in the extruder is read back from the nozzle, which is how Happy
+  Hare re-sets the position as it unloads. `mmu.filament_pos` and the sensors bound
+  it. Happy Hare restarts the position from zero without saying so; landing on zero,
+  or a step of more than 25mm against the direction of travel, is taken to be that.
+  An uncalibrated gate (labelled "Uncalibrated length" and drawn at a nominal 700mm),
+  or a Happy Hare that does not report the live position, follows `mmu.filament_pos`
+  and `mmu.bowden_progress` instead, so its tip moves between the places each state
+  stands for. Transitions between updates are cosmetic. Heater targets, encoder readings,
   proportional buffer values and sensor states update directly from subscriptions.
   **Status capture** takes the place of Movement trace and lists every change the
   subscription reports for the `mmu` objects as it arrives (latest 500 rows),

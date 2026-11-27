@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {LiveState,liveFrame,liveMmuFields,purged,liveDuration} from './live-state.js';
 import {liveObjects as status} from './live-fixture.mjs';
 import {qualifySensors} from './live-config.js';
+import {bowdenLengthLabel} from './playback.js';
 test('live status needs no telemetry session or movement records',()=>{
  const r=new LiveState(),s=r.accept(status(),1);
  assert.equal(s.filament_pos,0);assert.equal(s.extruder_target_temperature,210);
@@ -22,6 +23,22 @@ test('Bowden progress sets the target, and a step of filament_position across a 
  assert.equal(s.tips[s.gate],s.layout.extruder_gears-length/2);
  const end=r.accept({mmu:{filament_pos:6,bowden_progress:-1,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:false}}},3);
  assert.equal(end.tips[end.gate],end.layout.extruder_gears);
+});
+test('with a calibrated Bowden the live position carries the tip on from the gate park',()=>{
+ const r=new LiveState();r.accept(status(),1);
+ const parked=r.accept({mmu:{filament_position_live:0,filament_direction:1}},2);
+ const s=r.accept({mmu:{filament_pos:3,filament_position_live:300,sensors:{mmu_entry:true,encoder:true,extruder:false,toolhead:false}}},3);
+ assert.equal(s.tips[s.gate],parked.tips[parked.gate]+300);
+});
+test('an uncalibrated gate is labelled as one, drawn at a nominal length and not placed by the live position',()=>{
+ const objects=status(),key=Object.keys(objects.save_variables.variables)[0];
+ objects.save_variables.variables[key]=objects.save_variables.variables[key].map(()=>-1);
+ const r=new LiveState();r.accept(objects,1);
+ const parked=r.accept({mmu:{filament_position_live:0,filament_direction:1}},2);
+ assert.match(bowdenLengthLabel(parked),/Uncalibrated/);
+ assert.ok(parked.layout.extruder_gears>=700 && parked.layout.extruder_gears<=720);
+ const s=r.accept({mmu:{filament_pos:3,filament_position_live:300,sensors:{mmu_entry:true,encoder:true,extruder:false,toolhead:false}}},3);
+ assert.notEqual(s.tips[s.gate],parked.tips[parked.gate]+300);
 });
 test('dictionary fields replace rather than retain removed sensors',()=>{
  const r=new LiveState();r.accept(status(),1);
@@ -144,8 +161,11 @@ test('the nozzle keeps the colour that was in it until the purge, and the pile f
 test('a filament purged through the nozzle leaves its colour in the outlet when it retracts, fading to what was there',()=>{
  const r=new LiveState(), before=r.accept(status(),1);
  r.accept({mmu:{gate_color:before.gate_colors.map(()=>'00bb00')}},1);
- r.accept({mmu:{filament_pos:10,action:'Purging',toolchange_purge_volume:before.filament.residual_mm*Math.PI*(1.75/2)**2,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:true}}},2);
+ const started=r.accept({mmu:{filament_pos:10,action:'Purging',toolchange_purge_volume:before.filament.residual_mm*Math.PI*(1.75/2)**2,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:true}}},2);
  const purging=r.accept({mmu:{action:'Purging'}},3);
+ // Until the filament being pushed through has got there, the outlet is not drawn as reached
+ assert.equal(liveFrame(started,purging,.5).purge_transition.nozzle_arrival_mm,undefined);
+ assert.equal(liveFrame(started,purging,1).purge_transition.nozzle_arrival_mm,purging.extruded_mm);
  const parked=r.accept({mmu:{action:'Idle'},'gcode_macro _MMU_PARK':{retracted_length:4}},4);
  assert.notEqual(before.nozzle_outlet_color,'00bb00');
  assert.equal(parked.nozzle_outlet_color,parked.filament.incoming_color);

@@ -16,11 +16,40 @@ export function tipRange(pos,at) {
 // reported: the place it may reach by then. Only the live position can show that travel.
 const FED_ON={5:6,6:8,8:10};
 
+// With a calibrated Bowden the live position places the tip, so it may also carry a parked or gate-homed filament
+// on, and an unloading one back, before the next state is reported
+const FED_FROM={0:6,1:6,...FED_ON}, FED_BACK={8:6,6:5};
+// Happy Hare restarts the position from zero at the start of a load or unload without saying so: landing on zero, or
+// a step against the direction of travel larger than any tightening move, is taken to be that
+const RESET_MM=25;
+
+// A load counts on from where it began. An unload that began in the extruder is re-set by Happy Hare to the distance
+// back from the nozzle wherever it learns where the end is, so that is read from the nozzle.
+function positionedTip(memory,status,pos,[lo,hi,reference],at,nozzle) {
+  const p=status.filament_position_live, direction=status.filament_direction===-1 ? -1 : 1;
+  let frame='anchor', anchor, ceiling=Infinity, tip=reference;
+  if (memory) {
+    const last=memory.filamentPosition;
+    frame=memory.frame || 'anchor'; ceiling=memory.ceiling ?? Infinity;
+    anchor=finite(memory.anchor) ? memory.anchor : memory.tip-(finite(last) ? last : p);
+    const reset=(memory.direction ?? direction)!==direction
+      || finite(last) && (p===0 && last!==0 || frame==='anchor' && (p-last)*direction<-RESET_MM);
+    if (reset) { frame=direction===-1 && memory.pos>=7 ? 'nozzle' : 'anchor'; anchor=ceiling=memory.tip; }
+    tip=frame==='nozzle' ? Math.min(ceiling,nozzle+p) : anchor+p;
+  }
+  // Only a load carries a filament on from the gate: UNLOADED is otherwise the park, wherever the tip was last put
+  const loading=frame==='anchor' && direction===1;
+  if (pos===0 && !(loading && memory?.pos===0)) tip=reference;
+  const low=direction===-1 && FED_BACK[pos]!==undefined ? Math.min(lo,at(FED_BACK[pos])) : lo;
+  const high=FED_FROM[pos]!==undefined && (pos>1 || loading) ? Math.max(hi,at(FED_FROM[pos])) : hi;
+  return {tip:clamp(tip,low,high),frame,ceiling,direction};
+}
+
 // The selected gate's tip from status alone. filament_position is the commanded position: it steps to a move's
 // target and restarts from a different zero on unload, so it only moves the tip within a state.
 // filament_position_live, where Happy Hare reports it, is where the stepper has got to: it is used in its place,
 // and is true during a homing move, which the commanded position is not.
-export function resolveTip(memory,status,s,at,bowdenStart) {
+export function resolveTip(memory,status,s,at,bowdenStart,frame) {
   const pos=status.filament_pos, range=tipRange(pos,at), name=positions[pos] || 'UNKNOWN';
   const same=Boolean(memory) && memory.unit===s.unit && memory.gate===s.gate;
   const progress=finite(status.bowden_progress) && status.bowden_progress>=0 ? Math.min(100,status.bowden_progress) : null;
@@ -37,8 +66,10 @@ export function resolveTip(memory,status,s,at,bowdenStart) {
   }
   const [lo,hi,reference]=range;
   const fed=live && FED_ON[pos]!==undefined, reach=fed ? Math.max(hi,at(FED_ON[pos])) : hi;
+  const followed=frame?.calibrated && live ? positionedTip(same && finite(memory.tip) ? memory : null,status,pos,range,at,frame.nozzle) : null;
   let tip;
-  if (progress!==null && lo<hi) tip=clamp(bowdenStart+(at(6)-bowdenStart)*progress/100,lo,hi);
+  if (followed) tip=followed.tip;
+  else if (progress!==null && lo<hi) tip=clamp(bowdenStart+(at(6)-bowdenStart)*progress/100,lo,hi);
   else if (same && memory.pos===pos) {
     const moved=!held && finite(reported) && finite(last) ? reported-last : 0;
     tip=clamp(memory.tip+moved,lo,reach);
@@ -63,8 +94,10 @@ export function resolveTip(memory,status,s,at,bowdenStart) {
   if (lower>upper) warnings.push('presence sensors disagree');
   else tip=clamp(tip,lower,upper);
   if (pos>0 && s.gate_status?.[s.gate]===0) warnings.push(`${name} but the gate is marked empty`);
-  if (progress!==null && (pos<2 || pos>4)) warnings.push(`${name} but Bowden progress is reported`);
-  return {tip,warnings,memory:{unit:s.unit,gate:s.gate,pos,filamentPosition,tip}};
+  if (!followed && progress!==null && (pos<2 || pos>4)) warnings.push(`${name} but Bowden progress is reported`);
+  const frameMemory=followed ? {frame:followed.frame,ceiling:followed.ceiling,direction:followed.direction,
+    ...(followed.frame==='anchor' ? {anchor:tip-filamentPosition} : {})} : {};
+  return {tip,warnings,memory:{unit:s.unit,gate:s.gate,pos,filamentPosition,tip,...frameMemory}};
 }
 
 // Sensor and state changes arrive in separate updates, so a disagreement counts only once it has lasted

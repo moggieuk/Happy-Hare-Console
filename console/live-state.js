@@ -71,9 +71,12 @@ export class LiveState {
       this.purge=purged(this.purge,status,retracted,s.filament.retained_color);
       // A load stops short of the melt left in the nozzle: the purge is what pushes the filament through it
       const melt=this.purge.loaded===null ? 0 : Math.max(0,s.filament.residual_mm-(this.purge.extruded-this.purge.loaded));
+      // An uncalibrated Bowden is drawn at a nominal length, which the position cannot be placed along
+      const calibrated=machine.units[unitName].bowden_lengths[m.gate]>0;
       const resolved=resolveTip(this.tip,status,s,pos=>pos===10 ? parked ?? s.layout.nozzle-melt
         : pos===9 && Number.isFinite(blade) ? blade : model.logicalTip(s,pos,true),
-        s.layout.extruder_gears-(machine.units[unitName].bowden_lengths[m.gate] || 700));
+        s.layout.extruder_gears-(calibrated ? machine.units[unitName].bowden_lengths[m.gate] : 700),
+        {calibrated,nozzle:s.layout.nozzle});
       this.tip=resolved.memory;
       model.tips[m.gate]=resolved.tip;
       warnings=resolved.warnings;
@@ -217,7 +220,11 @@ export function liveFrame(from,to,fraction) {
     if (emitted(from,to) || dropped(from,to)) {
       s.extruded_mm=(from.extruded_mm || 0)+emitted(from,to)*(out ? Math.min(1,f/out) : 1);
       if (dropped(from,to)) { s.purge_base_mm=from.purge_base_mm || 0; s.purge_drop=fall; }
-      if (emitted(from,to)) { s.nozzle_color=purgeColor(s,s.extruded_mm); s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm); }
+      if (emitted(from,to)) {
+        s.nozzle_color=purgeColor(s,s.extruded_mm); s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm);
+        // The outlet is reached only once that much has been pushed through
+        if (s.extruded_mm<s.purge_transition?.nozzle_arrival_mm-1e-6) s.purge_transition={...s.purge_transition,nozzle_arrival_mm:undefined};
+      }
     }
   }
   if (from.unit===to.unit) s.gate_focus=(from.gate_focus ?? from.gate)+(to.gate-(from.gate_focus ?? from.gate))*f;
