@@ -7,8 +7,8 @@ import {actionMotion, settleMotion, withMotion, motionActive} from './live-actio
 import {liveMachine} from './live-config.js';
 import {simulatorApi, detectConnection, telemetryAvailable, hasMmuConfig, versionProblem} from './simulator.js';
 import {overlayAllowed, overlaySnapshot} from './overlay.js';
-import {unitInfo, unitObjectFields, savedUnits, recordedUnitInfo, extruderObjectFields, extruderTarget} from './unit-info.js';
-import {gateMenu, GATE_MENU_OBJECTS, GATE_MENU_MMU_FIELDS} from './gate-menu.js';
+import {unitInfo, unitObjectFields, savedUnits, recordedUnitInfo, extruderTarget} from './unit-info.js';
+import {gateMenu, GATE_MENU_OBJECTS} from './gate-menu.js';
 import {createGateMenu} from './gate-menu-view.js';
 import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
@@ -191,6 +191,7 @@ function connect() {
   store.socket.onopen = () => {
     if (generation!==store.connectionGeneration) return;
     store.setup=null;
+    store.liveSubscribed=false; store.liveLatest=null;
     store.liveState=new LiveState(); store.statusSensors=null; store.statusRecordMode=null; store.unitObjects={};
     sourceMode();
     if (store.offline) return;
@@ -209,11 +210,11 @@ function connect() {
       telemetryStream.receive(data.params[0]);
     } else if (data.method === 'notify_status_update') {
       acceptUnitObjects(data.params[0]);
-      if (store.viewMode==='live') {
-        const state=acceptLive(data.params[0],data.params[1]);
-        if (store.liveSubscribed) recordStatus(data.params[0],data.params[1],state);
-      }
-      else {
+      // Status is captured in either view; only the Live view shows it
+      const state=advanceLive(data.params[0],data.params[1]);
+      if (store.viewMode==='live') presentLive(state);
+      if (store.liveSubscribed) recordStatus(data.params[0],data.params[1],state);
+      if (store.viewMode!=='live') {
         const mmu=data.params[0].mmu;
         if (mmu?.sensors) store.statusSensors=mmu.sensors;
         draw();
@@ -222,14 +223,11 @@ function connect() {
     } else if (['notify_klippy_ready','notify_klippy_shutdown','notify_klippy_disconnected'].includes(data.method)) {
       if (store.offline) return;
       if (data.method==='notify_klippy_ready') { reloadEditor(); clearCapture(); }
-      if (store.viewMode!=='live') {
-        telemetryStream.stop(false);
-        if (data.method==='notify_klippy_ready') startStream().catch(e=>message(e.message,true));
-        return;
-      }
-      store.liveState=new LiveState(); store.statusSensors=null; store.statusRecordMode=null; store.unitObjects={}; store.liveTarget=null; store.displayed=null; store.playing=null; store.sensorPulse=null;
-      if (data.method==='notify_klippy_ready') subscribeLive().catch(e=>message(e.message,true));
-      else { $('mode').textContent='Live view · Printer unavailable'; $('scene').replaceChildren(); }
+      store.liveState=new LiveState(); store.liveLatest=null; store.statusSensors=null; store.statusRecordMode=null; store.unitObjects={};
+      if (store.viewMode!=='live') telemetryStream.stop(false);
+      else { store.liveTarget=null; store.displayed=null; store.playing=null; store.sensorPulse=null; }
+      if (data.method==='notify_klippy_ready') startView().catch(e=>message(e.message,true));
+      else if (store.viewMode==='live') { $('mode').textContent='Live view · Printer unavailable'; $('scene').replaceChildren(); }
     } else if (data.method === "notify_gcode_command") {
       consoleLine(data.params[0], "command");
     } else if (data.method === "notify_gcode_response") {
@@ -238,7 +236,7 @@ function connect() {
   };
   store.socket.onclose = () => {
     if (generation!==store.connectionGeneration) return;
-    store.subscriptionGeneration++;
+    store.subscriptionGeneration++; store.liveSubscribed=false;
     telemetryStream.stop(false);
     store.statusSensors=null; store.statusRecordMode=null; store.unitObjects={};
     if (store.liveTarget) { store.liveTarget.homing=null; store.liveTarget.espoolers={}; }
@@ -276,8 +274,7 @@ async function initializeConnection() {
   } else await refresh(probe);
   if (generation!==store.connectionGeneration || store.offline) return;
   if (!store.modeChosen && store.telemetryAvailable) await changeView('playback');
-  else if (store.viewMode==='live') await subscribeLive();
-  else await startStream();
+  else await startView();
 }
 // The unit footers read the machine's units and their heaters and climate sensors, in either connected mode
 async function unitObjectsWanted(available) {
@@ -290,7 +287,8 @@ function acceptUnitObjects(status) {
   for (const [name,fields] of Object.entries(status || {})) store.unitObjects[name]={...store.unitObjects[name],...fields};
   store.unitObjectsChanged?.();
 }
-async function subscribeLive() {
+// One status subscription serves both views: a connection has only one, and each request replaces the last
+async function subscribeStatus() {
   const generation=++store.subscriptionGeneration;
   store.liveSubscribed=false; // Status capture starts from the subscription's first status
   const {objects}=await rpc('printer.objects.list');
@@ -311,14 +309,27 @@ async function subscribeLive() {
   if (subscribed) store.liveSubscribed=true;
   acceptUnitObjects(initial.status);
   store.liveState.seed({configfile:startup.configfile});
-  if (store.viewMode==='live' && subscribed) {
+  if (subscribed && !store.offline) {
     store.statusLog.config=captureConfig(startup);
-    recordStatus(initial.status,initial.eventtime,acceptLive(initial.status,initial.eventtime),true);
+    const state=advanceLive(initial.status,initial.eventtime);
+    if (store.viewMode==='live') presentLive(state);
+    recordStatus(initial.status,initial.eventtime,state,true);
   }
 }
-function acceptLive(delta,time) {
-  const next=store.liveState.accept(delta,time);
-  if (next) store.liveReceived=performance.now()/1000;
+// The subscription, then the event stream where the Telemetry view is shown
+async function startView() {
+  const generation=store.viewGeneration;
+  await subscribeStatus();
+  if (generation===store.viewGeneration && store.viewMode==='playback') await startStream();
+}
+function advanceLive(delta,time) {
+  const previous=store.liveLatest, next=store.liveState.accept(delta,time);
+  if (!next) return;
+  store.liveReceived=performance.now()/1000;
+  if (store.viewMode!=='live') next.motors=motorsFrom(previous,next);
+  return store.liveLatest=next;
+}
+function presentLive(next) {
   if (!next) { if (!store.liveTarget) $('mode').textContent='Live view · Waiting for MMU configuration'; return; }
   const previous=store.liveTarget;
   if (store.setup?.connection_kind==='live_machine' || store.liveState.objects.configfile) toolheadPanel.show(toolheadObjects(store.liveState.objects));
@@ -333,9 +344,7 @@ function acceptLive(delta,time) {
     gateChanged(store.liveFrom,previous) && previous.gate===next.gate && previous.unit===next.unit ||
     Boolean(still) && still.gate===playing.gate && still.kind===playing.kind);
   if (!sliding) store.liveFrom=store.displayed;
-  const sameGate=store.liveFrom?.unit===next.unit && store.liveFrom?.gate===next.gate && next.gate>=0;
-  const distance=sameGate ? next.tips[next.gate]-store.liveFrom.tips[next.gate] : 0;
-  next.motors=liveMotors(store.liveFrom,next,distance);
+  next.motors=motorsFrom(store.liveFrom,next);
   store.liveTarget=next;
   if (sliding && liveTransition(store.liveFrom,next)) store.liveDuration=liveDuration(store.liveFrom,next);   // A gate change joining it plays after
   if (!sliding) {
@@ -352,10 +361,23 @@ function acceptLive(delta,time) {
   }
   store.live=true; store.paused=false; store.playing=null; store.session='subscription';
   draw();
-  return next;
 }
 const liveMotors=(from,next,distance)=>({gear:(from?.motors.gear || 0)+(next.mmu_gripped || next.synced ? distance : 0),
   extruder:(from?.motors.extruder || 0)+(next.synced || next.filament_pos>=6 ? distance : 0)});
+function motorsFrom(from,next) {
+  const sameGate=from?.unit===next.unit && from?.gate===next.gate && next.gate>=0;
+  return liveMotors(from,next,sameGate ? next.tips[next.gate]-from.tips[next.gate] : 0);
+}
+// The Live view opened on a capture already under way: the printer as last reported, with nothing to animate from
+function showLatest() {
+  store.replay.follow(); renderStatusTimeline();
+  const state=store.liveLatest;
+  if (!state) { $('mode').textContent='Live view · Waiting for MMU configuration'; return; }
+  if (store.setup?.connection_kind==='live_machine' || store.liveState.objects.configfile) toolheadPanel.show(toolheadObjects(store.liveState.objects));
+  store.liveTarget=store.liveFrom=store.displayed=state; store.liveStart=store.liveMoved=animationNow(); store.liveDuration=1; store.liveSettled=true;
+  store.live=true; store.paused=false; store.session='subscription';
+  draw();
+}
 // Each update the capture panel lists is a step the playback controls can return to, kept after its rows have gone
 function recordStatus(delta,time,state,initial=false,memory=store.liveState.memory()) {
   const listed=captureRows(delta).length>0, seq=listed && state ? store.replay.record(state,time).seq : null;
@@ -410,15 +432,10 @@ function followStatus() {
   draw();
 }
 // The near-live stream shows the printer's event stream; sensor readings are overlaid while it is idle, and the
-// recording mode (a status variable) drives the Record control.
+// recording mode (a status variable) drives the Record control. Both come from the status subscription.
 async function startStream() {
-  const generation=store.viewGeneration;
-  const {objects}=await rpc('printer.objects.list');
-  const wanted={...await unitObjectsWanted(objects),...extruderObjectFields(objects)};
-  const status=(await rpc('printer.objects.subscribe',{objects:{...wanted,mmu:['sensors','telemetry_mode','drying_state',...GATE_MENU_MMU_FIELDS]}})).status;
-  const mmu=status.mmu;
-  if (generation!==store.viewGeneration || store.viewMode!=='playback' || store.offline) return;
-  acceptUnitObjects(status);
+  const mmu=store.liveState.objects.mmu;
+  if (store.viewMode!=='playback' || store.offline) return;
   store.statusSensors=mmu?.sensors || null; store.statusRecordMode=mmu?.telemetry_mode ?? null;
   renderRecordControl();
   await telemetryStream.start();
@@ -426,11 +443,14 @@ async function startStream() {
 async function changeView(mode) {
   const generation=++store.viewGeneration;
   await telemetryStream.stop();
-  store.subscriptionGeneration++;
+  // The status subscription and what it has captured carry over from one view to the other
+  const kept=Boolean(store.liveSubscribed) && !store.offline;
+  if (!kept) store.subscriptionGeneration++;
   dropLoadedCapture();
   store.viewMode=mode; store.offline=false; store.playing=null; store.displayed=null; store.sensorPulse=null;
   store.events=[]; store.rawEvents=[]; store.sourceRecords=[]; store.sourceReplay=new TelemetryReplay();
-  store.liveTarget=null; store.liveFrom=null; store.liveState=new LiveState(); store.statusSensors=null; store.statusRecordMode=null; store.unitObjects={};
+  store.liveTarget=null; store.liveFrom=null;
+  if (!kept) { store.liveState=new LiveState(); store.liveLatest=null; store.statusSensors=null; store.statusRecordMode=null; store.unitObjects={}; }
   store.live=true; store.paused=false; store.replayingHistory=false;
   $('scene').replaceChildren();
   $('mode').textContent=mode==='live' ? 'Live view · Connecting…' : isSimulator() ? 'Telemetry playback · Waiting for simulator stream' : 'Telemetry playback · Waiting for printer stream';
@@ -438,7 +458,8 @@ async function changeView(mode) {
   if (store.socket?.readyState!==1 || generation!==store.viewGeneration) return;
   // A reconnect while a recording was loaded left the connection unidentified.
   if (!store.setup) return initializeConnection();
-  if (mode==='live') await subscribeLive();
+  if (!kept) await startView();
+  else if (mode==='live') showLatest();
   else await startStream();
 }
 $('view-mode').onchange=()=>{
@@ -1092,7 +1113,7 @@ $('telemetry-file').onchange = async () => {
     if (!capture) replay.accept(checkTelemetry(records)); // Validate completely before replacing the current view.
     if (!store.offline && store.socket?.readyState===1) rpc('printer.objects.subscribe',{objects:{}}).catch(()=>{}); // Not awaited: a long G-code would hold the load up
     await telemetryStream.stop();
-    store.modeChosen=true; store.viewMode=capture ? 'live' : 'playback'; store.offline=true; store.subscriptionGeneration++; store.liveTarget=null; store.liveFrom=null;
+    store.modeChosen=true; store.viewMode=capture ? 'live' : 'playback'; store.offline=true; store.subscriptionGeneration++; store.liveSubscribed=false; store.liveTarget=null; store.liveFrom=null;
     store.pending.forEach(p=>p.reject(Error('Switched to offline recording'))); store.pending.clear();
     store.sourceReplay=replay; store.sourceRecords=capture ? [] : records;
     store.rawEvents=replay.events; store.events=visibleSteps(store.rawEvents); store.session=capture ? 'subscription' : replay.session;

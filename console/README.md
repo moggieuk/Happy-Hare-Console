@@ -29,6 +29,8 @@ Everything outside `app.js`, `scene.js` and the small DOM modules has no DOM acc
 - **Live status subscription**: subscribes to Moonraker printer objects (`configfile`, `save_variables`, `mmu`, macros).
   Needs nothing from Happy Hare beyond `mmu.homing` and `mmu.config_changes`.
 - **Telemetry stream**: follows the `server.mmu.telemetry.*` stream and overlays the latest sensor readings.
+  The same status subscription stays in force in this view, so Status capture goes on recording and
+  switching between the two views keeps it. Telemetry's own history is read again from the stream.
 - **Loaded telemetry recording**: plays a saved recording (`.jsonl`) offline.
 
 The Console needs Happy Hare 4.3.0 or later (`REQUIRED_VERSION` in `simulator.js`). On connect it reads
