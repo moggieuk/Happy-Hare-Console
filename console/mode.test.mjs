@@ -126,3 +126,12 @@ test('a command from elsewhere never pulls a paused view back to live; one typed
  const form=app.slice(app.indexOf('$("command-form").onsubmit'),app.indexOf('$("restart").onclick'));
  assert.match(form,/sendScript\(script\)/);
 });
+
+test('jumping to the end of a status capture shows the latest state at once, as the telemetry view does',()=>{
+ const follow=app.slice(app.indexOf('function followStatus('),app.indexOf('// The near-live stream'));
+ const shown={tip:1}, latest={tip:9};
+ const c=vm.createContext({store:{replay:{follow(){}},displayed:shown,liveTarget:latest},animationNow:()=>0,liveDuration:()=>1,draw:()=>{}});
+ vm.runInContext(follow,c);
+ vm.runInContext('followStatus()',c);assert.equal(c.store.liveFrom,latest);
+ vm.runInContext('followStatus(true)',c);assert.equal(c.store.liveFrom,shown);   // A step played off the end carries on from it
+});

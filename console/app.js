@@ -424,10 +424,10 @@ function renderStatusTimeline() {
   $('status-timeline').value=replay.index;
   $('save-status').disabled=!replay.count;
 }
-// Back to the printer: carry on from what is on screen
-function followStatus() {
+// Back to the printer. A jump shows it as it is now; a step played off the end carries on from what is on screen
+function followStatus(carryOn=false) {
   store.replay.follow();
-  store.liveFrom=store.displayed; store.liveStart=animationNow(); store.liveSettled=false;
+  store.liveFrom=carryOn || !store.liveTarget ? store.displayed : store.liveTarget; store.liveStart=animationNow(); store.liveSettled=false;
   if (store.liveTarget) store.liveDuration=liveDuration(store.liveFrom,store.liveTarget);
   draw();
 }
@@ -1198,7 +1198,7 @@ function drawFrame() {
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
   const followed=store.viewMode!=='live' || store.replay.following;
   const replayed=store.viewMode==='live' ? store.replay.frame(now) : null;
-  if (!followed && store.replay.following) followStatus();   // Played to the end
+  if (!followed && store.replay.following) followStatus(true);   // Played to the end
   if (replayed) {
     // A step of the recorded status, not the printer as it is now
     if (replayed!==store.displayed) draw();
