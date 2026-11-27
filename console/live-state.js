@@ -220,7 +220,11 @@ export function liveFrame(from,to,fraction) {
     if (emitted(from,to) || dropped(from,to)) {
       s.extruded_mm=(from.extruded_mm || 0)+emitted(from,to)*(out ? Math.min(1,f/out) : 1);
       if (dropped(from,to)) { s.purge_base_mm=from.purge_base_mm || 0; s.purge_drop=fall; }
-      if (emitted(from,to)) { s.nozzle_color=purgeColor(s,s.extruded_mm); s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm); }
+      if (emitted(from,to)) {
+        s.nozzle_color=purgeColor(s,s.extruded_mm); s.nozzle_outlet_color=purgeOutletColor(s,s.extruded_mm);
+        // The outlet is reached only once that much has been pushed through
+        if (s.extruded_mm<s.purge_transition?.nozzle_arrival_mm-1e-6) s.purge_transition={...s.purge_transition,nozzle_arrival_mm:undefined};
+      }
     }
   }
   if (from.unit===to.unit) s.gate_focus=(from.gate_focus ?? from.gate)+(to.gate-(from.gate_focus ?? from.gate))*f;

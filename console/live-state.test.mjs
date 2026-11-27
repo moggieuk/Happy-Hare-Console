@@ -161,8 +161,11 @@ test('the nozzle keeps the colour that was in it until the purge, and the pile f
 test('a filament purged through the nozzle leaves its colour in the outlet when it retracts, fading to what was there',()=>{
  const r=new LiveState(), before=r.accept(status(),1);
  r.accept({mmu:{gate_color:before.gate_colors.map(()=>'00bb00')}},1);
- r.accept({mmu:{filament_pos:10,action:'Purging',toolchange_purge_volume:before.filament.residual_mm*Math.PI*(1.75/2)**2,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:true}}},2);
+ const started=r.accept({mmu:{filament_pos:10,action:'Purging',toolchange_purge_volume:before.filament.residual_mm*Math.PI*(1.75/2)**2,sensors:{mmu_entry:true,encoder:false,extruder:true,toolhead:true}}},2);
  const purging=r.accept({mmu:{action:'Purging'}},3);
+ // Until the filament being pushed through has got there, the outlet is not drawn as reached
+ assert.equal(liveFrame(started,purging,.5).purge_transition.nozzle_arrival_mm,undefined);
+ assert.equal(liveFrame(started,purging,1).purge_transition.nozzle_arrival_mm,purging.extruded_mm);
  const parked=r.accept({mmu:{action:'Idle'},'gcode_macro _MMU_PARK':{retracted_length:4}},4);
  assert.notEqual(before.nozzle_outlet_color,'00bb00');
  assert.equal(parked.nozzle_outlet_color,parked.filament.incoming_color);
