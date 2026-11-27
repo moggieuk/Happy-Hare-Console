@@ -1125,4 +1125,6 @@ export function toolheadProgress(state, position, range=toolheadDrawingRange(sta
 }
 // Whether playback stops on the step it has just played. One played alone onto the latest event of a stream
 // carries on following it; only a pause holds it there. A recording has nothing after its end.
+// Following the latest state there is nothing ahead to step to, but the arrow keys still step back from it
+export const arrowKeySteps=(following,key)=>!following || key==='ArrowLeft';
 export const holdsAfterStep=({stepping,held,offline,atEnd})=>offline ? stepping || atEnd : stepping && (held || !atEnd);

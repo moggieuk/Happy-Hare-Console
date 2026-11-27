@@ -14,7 +14,7 @@ import {ttgMapChart} from './ttg-map.js';
 import {parameterCommand, macroCommand, editorParameters, macroCatalog, editorMacroParameters, toolheadObjects} from './editor.js';
 import {TelemetryReplay, parseRecords, checkTelemetry} from './telemetry.js';
 import {timelineMarkers, scanMove} from './playback.js';
-import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
+import {selectorNotice, orderedSteps, homingHold, holdsAfterStep, arrowKeySteps, nozzleArrivalTime, playbackFrame, isInternalUpdate, changeRows, visibleSteps, toolchangeIndex, annotatedStep, interpolate, duration, CommandHistory, traceText, homingPulse, configurationLabel} from './playback.js';
 import {$, options, syncChildren, spoolSpacingPixels} from './util.js';
 import {consoleLine, consoleEndsWith, scrollConsoleToEnd} from './console-log.js';
 import {captureStatus, captureRows, clearStatusCapture, highlightCapture, statusRow} from './status-capture.js';
@@ -805,7 +805,7 @@ function statusControls(s,connected) {
   return {running:Boolean(replay.playing) && !replay.playing.once, index:replay.index, count:replay.count, pauseAfterStep:false,
     previousToolchange:replay.toolchange(-1)>=0, nextToolchange:replay.toolchange(1)>=0, timelineValue:replay.index,
     modeText:replay.following && !store.offline ? `Live view · ${what}`
-      : `Status playback · ${mode} update ${replay.entries[replay.index]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};
+      : `Status playback · ${mode} update ${replay.entries[replay.applying]?.seq ?? 0} of ${replay.entries.at(-1)?.seq ?? 0} · ${what}`};
 }
 function renderScene() {
   if (store.viewMode==='live' ? !store.displayed : !store.events.length) return;
@@ -934,8 +934,8 @@ for (const [id, direction] of [['previous-toolchange', -1], ['next-toolchange', 
 }
 $("next").onclick = () => seek(currentIndex() + 1);
 document.addEventListener('keydown', event => {
-  if ((store.viewMode==='live' ? store.replay.following : !store.paused && store.live) || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey
-      || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || !['ArrowLeft', 'ArrowRight'].includes(event.key)
+      || !arrowKeySteps(store.viewMode==='live' ? store.replay.following : !store.paused && store.live,event.key)) return;
   if (event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="slider"]')) return;
   const button = $(event.shiftKey
     ? (event.key === 'ArrowLeft' ? 'play-previous' : 'play-step')

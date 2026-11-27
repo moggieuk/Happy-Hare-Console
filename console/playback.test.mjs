@@ -1110,3 +1110,7 @@ test('only a linear selector is drawn as a sliding rack: every other kind merges
  for (const type of ['LinearSelector','LinearServoSelector','LinearMultiGearSelector','LinearMultiGearServoSelector',null]) assert.equal(layout(type),null,type);
  assert.equal(mergedSelector(undefined),false);
 });
+test('the arrow keys still step back from the end of a playback, where there is nothing ahead to step to',async()=>{
+  const {arrowKeySteps}=await import('./playback.js');
+  assert.deepEqual([arrowKeySteps(true,'ArrowLeft'),arrowKeySteps(true,'ArrowRight'),arrowKeySteps(false,'ArrowRight')],[true,false,true]);
+});

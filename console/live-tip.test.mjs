@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {resolveTip,tipRange,lastingWarnings} from './live-tip.js';
-import {LiveState,liveDuration,liveSteady} from './live-state.js';
+import {LiveState,liveDuration,liveSteady,liveFrame} from './live-state.js';
 import {bowdenLengthLabel,bowdenProgressLabel} from './playback.js';
 import {liveObjects as status} from './live-fixture.mjs';
 
@@ -138,6 +138,11 @@ test('a movement lasts as long as the updates are apart, a long step sweeps, and
  assert.equal(liveSteady(state(5),state(5)),true);
  assert.equal(liveSteady(state(5),state(6)),false);
  assert.equal(liveSteady(state(5),{...state(5),devices:{b:{travel:2}}}),false);
+});
+test('a purge count that starts again, as after a reconnect, is not played as a purge running backwards',()=>{
+ const state=(extruded_mm,purge_base_mm)=>({unit:'u',gate:0,tips:[5],devices:{},motors:{},extruded_mm,purge_base_mm});
+ assert.equal(liveFrame(state(2,2),state(0,0),.5).extruded_mm,0);
+ assert.equal(liveSteady(state(2,2),state(0,0)),true);
 });
 test('the Bowden label reports progress only for a status that carries it',()=>{
  assert.equal(bowdenProgressLabel({bowden_progress:42}),'42% travelled');

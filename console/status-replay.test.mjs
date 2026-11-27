@@ -21,6 +21,14 @@ test('status is followed until a step is chosen, and playing to the end follows 
  assert.equal(r.frame(1000+750+1500),r.entries[3].state);   // The last step done: nothing left to replay
  assert.equal(r.following,true);assert.equal(r.frame(5000),null);assert.equal(r.index,3);
 });
+test('a step being played is named by the update it applies, as a telemetry step is',()=>{
+ const r=recorded();
+ r.seek(1);assert.equal(r.applying,1);
+ r.play(0,{once:true});
+ assert.deepEqual([r.index,r.applying],[1,2]);
+ r.frame(750);
+ assert.deepEqual([r.index,r.applying],[2,2]);
+});
 test('one step can be played forwards or back, and pausing lets the step under way finish',()=>{
  const r=recorded();
  r.seek(1);r.play(0,{reverse:true});
@@ -62,6 +70,10 @@ test('steps whose capture rows have gone are dropped, keeping the place in the r
 test('a step lasts as long as its updates were apart, within limits',()=>{
  const at=(time,tip=0)=>({time,state:state(tip)});
  assert.deepEqual([stepDuration(at(1),at(1.01)),stepDuration(at(1),at(1.5)),stepDuration(at(1),at(60))],[150,500,1500]);
+ // A purge is given the time it takes to come out, and a pile the time it takes to fall
+ const purged=(time,extruded_mm,purge_base_mm=0)=>({time,state:{...state(0),extruded_mm,purge_base_mm}});
+ assert.equal(stepDuration(purged(1,0),purged(1.25,2)),800);
+ assert.equal(stepDuration(purged(1,2),purged(1.25,2,2)),650);
 });
 test('only the latest updates are kept, however many rows the capture panel still lists',()=>{
  const r=new StatusReplay(3);
