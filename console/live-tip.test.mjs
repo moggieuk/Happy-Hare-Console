@@ -54,6 +54,38 @@ test('an unload driven by Bowden progress never moves the tip forward',()=>{
  assert.deepEqual(tips,[750,740,690,700,350,42,42,0,-10]);
  assert.ok(tips.slice(4).every((tip,i,all)=>i===0 || tip<=all[i-1]));
 });
+// With a calibrated Bowden the live position places the tip: from where a load began, and from the nozzle on an unload
+const frame={calibrated:true,nozzle:750};
+const follow=(steps,with_=frame)=>{
+ let memory=null;
+ return steps.map(([filament_pos,filament_position_live,filament_direction=1])=>{
+  const r=resolveTip(memory,{bowden_progress:-1,filament_pos,filament_position_live,filament_direction},scene(),at,0,with_);
+  memory=r.memory;return r;
+ });
+};
+test('a load is followed from the gate park by the live position, across its changes of state',()=>{
+ const tips=follow([[0,0],[0,6],[2,10],[3,360],[3,690],[6,710],[7,725],[10,757]]).map(r=>r.tip);
+ assert.deepEqual(tips,[-10,-4,0,350,680,700,715,750]);
+});
+test('an unload from the extruder is placed from the nozzle, through the positions Happy Hare re-sets',()=>{
+ const tips=follow([[10,757],[10,0,-1],[9,0,-1],[9,-15,-1],[8,-20,-1],[6,-50,-1],[3,-400,-1],[1,-750,-1],[0,-760,-1]]).map(r=>r.tip);
+ assert.deepEqual(tips,[750,750,750,735,730,700,350,0,-10]);
+});
+test('a position that restarts from zero keeps the tip and carries on from it',()=>{
+ assert.deepEqual(follow([[3,200],[3,0],[3,100]]).map(r=>r.tip),[350,350,450]);
+ // A tip remembered before the position placed it is moved on from where it was
+ const old={unit:'u',gate:0,pos:3,filamentPosition:100,tip:350};
+ assert.equal(resolveTip(old,{filament_pos:3,filament_position_live:110,filament_direction:1},scene(),at,0,frame).tip,360);
+});
+test('an uncalibrated gate, and a status with no live position, are resolved as they were',()=>{
+ const steps=[{filament_pos:2,filament_position_live:0},{filament_pos:3,filament_position_live:300},{filament_pos:6,filament_position_live:710}];
+ const plain=run(steps);
+ let memory=null;
+ const uncalibrated=steps.map(step=>{const r=resolveTip(memory,{bowden_progress:-1,...step},scene(),at,0,{calibrated:false,nozzle:750});memory=r.memory;return r;});
+ assert.deepEqual(uncalibrated,plain);
+ const commanded={filament_pos:9,filament_position:-10};
+ assert.deepEqual(resolveTip(null,commanded,scene(),at,0,frame),resolveTip(null,commanded,scene(),at,0));
+});
 test('sensors hold the tip and a state they contradict is reported',()=>{
  const held=run([{filament_pos:3}],scene({toolhead:[730,false],extruder:[690,false],mmu_exit_0:[0,true]}))[0];
  assert.deepEqual([held.tip,held.warnings],[350,[]]);
