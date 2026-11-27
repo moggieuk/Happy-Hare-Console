@@ -40,6 +40,8 @@ export class StatusReplay {
   constructor(limit=5000) { this.limit=limit; this.entries=[]; this.sequence=0; this.following=true; this.cursor=0; this.playing=null; }
   get count() { return this.entries.length; }
   get index() { return this.following ? Math.max(0,this.count-1) : this.playing ? this.playing.from : this.cursor; }
+  // The update whose state is shown, or is being played towards
+  get applying() { return this.playing && !this.following ? this.playing.to : this.index; }
   record(state, time) {
     const entry={seq:++this.sequence,time,state};
     this.entries.push(entry);
