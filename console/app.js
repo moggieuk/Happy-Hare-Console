@@ -1,4 +1,4 @@
-import {TelemetryStream, recordControl, connectionControls} from './telemetry-stream.js';
+import {TelemetryStream, recordControl, connectionControls, historyEnd} from './telemetry-stream.js';
 import {LiveState, liveFrame, liveDuration, liveProgress, liveSteady, liveTransition, gateChanged, liveMmuFields} from './live-state.js';
 import {lastingWarnings} from './live-tip.js';
 import {pauseStatus} from './pause-status.js';
@@ -432,7 +432,19 @@ async function startStream() {
   if (store.viewMode!=='playback' || store.offline) return;
   store.statusSensors=mmu?.sensors || null; store.statusRecordMode=mmu?.telemetry_mode ?? null;
   renderRecordControl();
+  // The status subscription's clock is the stream's: what was recorded before now is history
+  store.historyUntil=Number.isFinite(store.liveState.eventtime) ? store.liveState.eventtime : null;
   await telemetryStream.start();
+}
+// The stream opens on the printer as it is now, however many batches its history arrives in
+function skipHistory() {
+  if (store.historyUntil==null) return;
+  const {event,complete}=historyEnd(store.events,store.historyUntil);
+  const following=store.live && !store.paused && !store.replayingHistory;
+  if (complete || !following) store.historyUntil=null;
+  if (!event || !following || event.seq<=store.played) return;
+  store.playing=null; store.sensorPulse=null; store.played=event.seq; store.displayed=event.settled_state || event.state;
+  draw(); followTrace();
 }
 async function changeView(mode) {
   const generation=++store.viewGeneration;
@@ -1157,6 +1169,7 @@ function updateSource(records, reset=false) {
 const telemetryStream=new TelemetryStream(rpc, async data=>{
   if (store.offline || store.viewMode!=='playback') return false;
   updateSource(data.records,data.reset);
+  skipHistory();
   const latest=store.rawEvents.at(-1)?.state;
   const selectedGate=latest ? `${store.session}:${latest.unit}:${latest.gate}` : null;
   if (latest && selectedGate!==store.parameterGate && isSimulator()) {

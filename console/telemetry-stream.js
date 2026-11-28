@@ -13,6 +13,12 @@ export function connectionControls({kind,offline,connected,viewMode,telemetryAva
     hint:identified && !telemetryAvailable, save:telemetry, saveEnabled:telemetry && records>0,
     simulator:identified && kind==='simulator'};
 }
+// History sent as a stream opens is not replayed. The last step from before it was opened, and whether a later
+// one has arrived: only then is the history known to be complete
+export function historyEnd(events,until) {
+  const at=events.findLastIndex(event=>event.time<=until);
+  return {event:at>=0 ? events[at] : null,complete:at<events.length-1};
+}
 export class TelemetryStream {
   constructor(rpc, accept, error) {
     Object.assign(this,{rpc,accept,error,generation:0,active:false});
