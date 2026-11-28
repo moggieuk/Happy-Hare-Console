@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {TelemetryStream, recordControl} from './telemetry-stream.js';
+import {TelemetryStream, recordControl, historyEnd} from './telemetry-stream.js';
 const batch={stream_id:'a',delivery_id:1,records:[]};
 test('accept a batch before acknowledging it; no HTTP polling',async()=>{
  const calls=[];
@@ -63,4 +63,10 @@ test('a batch repeated while it is still being accepted, or after, is not replay
  await stream.receive(slow);                // A repeat after it was acknowledged: the acknowledgement was lost
  assert.equal(accepted,2);
  assert.deepEqual(calls.slice(-2),['server.mmu.telemetry.ack','server.mmu.telemetry.ack']);
+});
+test('history sent as the stream opens ends at the last step from before it, and is complete once a later one arrives',()=>{
+ const events=[{seq:1,time:10},{seq:2,time:20},{seq:3,time:30}];
+ assert.deepEqual(historyEnd(events,25),{event:events[1],complete:true});
+ assert.deepEqual(historyEnd(events,30),{event:events[2],complete:false});
+ assert.deepEqual(historyEnd(events,5),{event:null,complete:true});
 });
