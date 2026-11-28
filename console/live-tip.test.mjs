@@ -71,6 +71,10 @@ test('an unload from the extruder is placed from the nozzle, through the positio
  const tips=follow([[10,757],[10,0,-1],[9,0,-1],[9,-15,-1],[8,-20,-1],[6,-50,-1],[3,-400,-1],[1,-750,-1],[0,-760,-1]]).map(r=>r.tip);
  assert.deepEqual(tips,[750,750,750,735,730,700,350,0,-10]);
 });
+test('a loaded filament is drawn back and forth by the live position as its tip is formed or cut',()=>{
+ const tips=follow([[10,757],[10,-5,-1],[10,-28,-1],[10,-16,-1],[9,-38,-1]]).map(r=>r.tip);
+ assert.deepEqual(tips,[750,745,722,734,730]);
+});
 test('a position that restarts from zero keeps the tip and carries on from it',()=>{
  assert.deepEqual(follow([[3,200],[3,0],[3,100]]).map(r=>r.tip),[350,350,450]);
  // A tip remembered before the position placed it is moved on from where it was

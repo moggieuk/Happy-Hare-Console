@@ -65,7 +65,7 @@ export class LiveState {
     model.hairLengths=model.tips.map(()=>15);
     let s=model.snapshot();
     for (const g of s.unit_gates) model.tips[g]=model.logicalTip({...s,gate:g},0,true);
-    let warnings=[];
+    let warnings=[], followed=false;
     if (m.gate>=0) {
       // A loaded filament parked with a retraction has left its melt in the nozzle, as a replayed retract shows it
       const parked=retracted>0 ? s.layout.nozzle-s.filament.residual_mm-retracted : null;
@@ -90,7 +90,7 @@ export class LiveState {
         {calibrated,nozzle:s.layout.nozzle});
       this.tip=resolved.memory;
       model.tips[m.gate]=resolved.tip;
-      warnings=resolved.warnings;
+      warnings=resolved.warnings; followed=Boolean(resolved.memory.frame);
       const hotend=model.hotends[s.filament.extruder];
       hotend.extruded=this.purge.extruded; hotend.base=this.purge.base;
       if (hotend.plan) {
@@ -130,14 +130,15 @@ export class LiveState {
     s.next_tool=status.next_tool;
     s.filament_position_live=status.filament_position_live;
     s.tip_resolved=true;
+    s.tip_followed=followed;
     s.live_warnings=warnings;
     return s;
   }
 }
 
 // What has come out of the nozzle, in mm of filament: Happy Hare reports that it is purging and the volume it
-// suggests, not the extrusion itself. The live position counts it where the extruder is the stepper being followed;
-// where it has not moved by the second update of a purge, the suggested volume is taken to be going. The pile falls when the
+// suggests, not the extrusion itself. The live position counts it; a status without one is taken to be purging the
+// suggested volume from the second update of a purge. The pile falls when the
 // filament is retracted to park, or leaves. Happy Hare reports the loaded filament as what remains in the nozzle before
 // it has purged, so the colour that was there is kept until the filament leaves, or a print carries on without a purge.
 const FILAMENT_AREA=Math.PI*(1.75/2)**2;
@@ -150,9 +151,8 @@ export function purged(memory,status,retracted=0,remaining=null,fragment=0) {
   // only the furthest the filament has been fed counts: a purge retracts and primes again as it goes.
   // The update that ends a purge still carries the last of its movement
   if (p.active && position!==null && p.origin!==null) p.extruded=Math.max(p.extruded,p.from+position-p.origin);
-  const still=position===null || position===p.origin;
   if (purging) p.amount=Math.max(p.amount,(Number(status.toolchange_purge_volume) || 0)/FILAMENT_AREA);
-  if (p.active && (!purging || memory.active && still) && p.extruded===p.from) p.extruded=p.from+p.amount;
+  if (p.active && p.origin===null && (!purging || memory.active) && p.extruded===p.from) p.extruded=p.from+p.amount;
   if (!purging) {
     p.active=false;
     if (status.filament_pos!==10 || retracted>0) p.base=p.extruded;

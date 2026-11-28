@@ -156,6 +156,10 @@ test('a purge is counted from the live position, else from the suggested volume,
   {action:'Purging',filament_pos:10,filament_position_live:112},{action:'Purging',filament_pos:10,filament_position_live:110},{action:'Purging',filament_pos:10,filament_position_live:125},
   {action:'Idle',filament_pos:10,filament_position_live:127},{action:'Idle',filament_pos:10,filament_position_live:130}]);
  assert.deepEqual(seen.map(p=>Math.round(p.extruded)),[0,0,8,8,21,23,23]);
+ // A live position that has yet to move, as while the toolhead travels to where it purges, is waited for
+ const waited=run([{action:'Purging',filament_pos:10,toolchange_purge_volume:40*area,filament_position_live:100},
+  {action:'Purging',filament_pos:10,filament_position_live:100},{action:'Purging',filament_pos:10,filament_position_live:106},{action:'Idle',filament_pos:10,filament_position_live:106}]);
+ assert.deepEqual(waited.map(p=>Math.round(p.extruded)),[0,0,6,6]);
  const at=(extruded_mm,purge_base_mm=0)=>({unit:'u',gate:0,tips:[750],devices:{},extruded_mm,purge_base_mm});
  assert.equal(liveDuration(at(0),at(5),250),2000);
 });
