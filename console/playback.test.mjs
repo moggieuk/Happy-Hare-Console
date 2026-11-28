@@ -1122,3 +1122,11 @@ test('a move played backward does not start from where the tip was last drawn, w
  assert.equal(drawnStart(last,1,802.1,false),null);
  assert.equal(drawnStart({...last,raw:700},0,802.1,false),null);
 });
+
+test('the purge pile builds at half the rate of the strand, so it falls away half as often',()=>{
+  const feed=strand=>strand/purgeStrandLength(1);
+  assert.equal(purgeCoils({extruded_mm:feed(38)}).drop,0);
+  assert.ok(Math.abs(purgeCoils({extruded_mm:feed(38)}).amount-19)<1e-9);
+  assert.ok(purgeCoils({extruded_mm:feed(70)}).drop>0);
+  assert.ok(Math.abs(purgeCoils({extruded_mm:feed(74)}).amount-1)<1e-9);
+});

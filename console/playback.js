@@ -879,11 +879,14 @@ export function purgeStrandLength(feedLength, nozzleDiameter = .4) {
   return Math.max(0, feedLength) * (1.75 / nozzleDiameter) ** 2;
 }
 
+// Strand drawn per unit of pile: the pile builds at half the strand's rate, so it falls away half as often
+const PILE_STRAND = 2;
+
 export function purgeCoils(state, nozzleDiameter = .4) {
   const ratio = purgeStrandLength(1, nozzleDiameter);
   const total = purgeStrandLength((state.extruded_mm || 0)-(state.purge_base_mm || 0), nozzleDiameter);
-  const amount = total % 36;
-  const base = (state.purge_base_mm || 0) + (total-amount)/ratio;
+  const amount = total % (36*PILE_STRAND) / PILE_STRAND;
+  const base = (state.purge_base_mm || 0) + (total-amount*PILE_STRAND)/ratio;
   // The drawing uses 7px for 1.75mm filament; leave a small gap between strands.
   const pitch = (7 * nozzleDiameter / 1.75) * 1.15;
   const capacity = 32 / pitch;
@@ -893,7 +896,7 @@ export function purgeCoils(state, nozzleDiameter = .4) {
     const height=layer*pitch, y=498-height, radius=23-height*1.75/3.2;
     const bend=pitch/3.2;
     coils.push({path:`M${EXTRUDER_X},${y} C${EXTRUDER_X+radius},${y-5*bend} ${EXTRUDER_X+radius},${y+5*bend} ${EXTRUDER_X},${y+2*bend} S${EXTRUDER_X-radius*1.6},${y-3*bend} ${EXTRUDER_X},${y-3*bend}`,
-      fraction: Math.min(1,layers-layer), color:purgeOutletColor(state,base+(1.2+layer*28.8/capacity)/ratio)});
+      fraction: Math.min(1,layers-layer), color:purgeOutletColor(state,base+(1.2+layer*28.8/capacity)*PILE_STRAND/ratio)});
   }
   return {amount, layers, pitch, coils, drop:state.purge_drop ?? Math.max(0,(amount-30)/6)};
 }
