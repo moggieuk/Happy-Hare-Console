@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {detectConnection, telemetryAvailable, hasMmuConfig, versionProblem, versionAtLeast} from './simulator.js';
+import {detectConnection, telemetryAvailable, hasMmuConfig, versionProblem, versionAtLeast, simulatorApi} from './simulator.js';
 import {connectionControls} from './telemetry-stream.js';
 const app=readFileSync(new URL('./app.js',import.meta.url),'utf8');
 const isSimulator=app.match(/function isSimulator\(\) \{.*\}/)[0];
@@ -143,4 +143,11 @@ test('a status capture played to its end goes back to the printer from its last 
   store:{viewMode:'live',displayed:partway,replay:{following:false,frame(){ this.following=true; return last; }}}});
  vm.runInContext(frame,c);
  assert.deepEqual(from,[last]);
+});
+
+test('the simulator keeps the pace it was given, whichever view is shown',()=>{
+  const calls=[];
+  const api=simulatorApi((method,params)=>calls.push(method));
+  for (const request of Object.values(api)) request();
+  assert.ok(!calls.includes('sim.console.pace'));
 });
