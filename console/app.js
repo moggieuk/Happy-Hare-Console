@@ -1198,11 +1198,11 @@ function drawFrame() {
     scan:playingScan(), backward:Boolean(store.playing?.reverse)});
   const followed=store.viewMode!=='live' || store.replay.following;
   const replayed=store.viewMode==='live' ? store.replay.frame(now) : null;
-  if (!followed && store.replay.following) followStatus(true);   // Played to the end
   if (replayed) {
     // A step of the recorded status, not the printer as it is now
     if (replayed!==store.displayed) draw();
     store.displayed=replayed;
+    if (!followed && store.replay.following) followStatus(true);   // Played to the end
   } else if (store.viewMode==='live' && store.liveTarget) {
     const progress=liveProgress(now-store.liveStart,store.liveDuration,store.liveSettled);
     // The reported action plays for as long as it lasts
