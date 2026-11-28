@@ -14,6 +14,8 @@ test('tip forming dips the tip and returns it, and only a filament in the nozzle
  assert.equal(frame.tips[1],750-FORM_TRAVEL/2);assert.equal(frame.tip_shapes[1],'cone');
  assert.deepEqual(s.tips,[0,750]);
  assert.equal(withMotion({...s,filament_pos:3},{tip:.5}).tips,s.tips);
+ // A tip the live position places already moves as it is formed
+ assert.equal(withMotion({...s,tip_followed:true},{tip:.5}).tips,s.tips);
  assert.equal(withMotion(s,{}),s);
  assert.deepEqual(withMotion(s,{mmu:.4}).cutter_stroke,{toolhead:0,mmu:.4});
 });

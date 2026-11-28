@@ -17,8 +17,9 @@ export function tipRange(pos,at) {
 const FED_ON={5:6,6:8,8:10};
 
 // With a calibrated Bowden the live position places the tip, so it may also carry a parked or gate-homed filament
-// on, and an unloading one back, before the next state is reported
-const FED_FROM={0:6,1:6,...FED_ON}, FED_BACK={8:6,6:5};
+// on, and an unloading one back, before the next state is reported: a loaded filament is drawn back as its tip is
+// formed or cut
+const FED_FROM={0:6,1:6,...FED_ON}, FED_BACK={10:6,8:6,6:5};
 // Happy Hare restarts the position from zero at the start of a load or unload without saying so: landing on zero, or
 // a step against the direction of travel larger than any tightening move, is taken to be that
 const RESET_MM=25;

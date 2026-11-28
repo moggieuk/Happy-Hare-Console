@@ -24,11 +24,12 @@ export function settleMotion(current, target, dt) {
   return next;
 }
 export const motionActive=motion=>Object.keys(motion).length>0;
-// The frame with that motion applied; the frame given is not changed
+// The frame with that motion applied; the frame given is not changed. A tip placed by the live position already
+// moves as it is formed
 export function withMotion(s, motion) {
   if (!motionActive(motion)) return s;
   const frame={...s,cutter_stroke:{toolhead:motion.toolhead || 0,mmu:motion.mmu || 0}};
-  if (motion.tip && s.gate>=0 && s.filament_pos>=9) {
+  if (motion.tip && s.gate>=0 && s.filament_pos>=9 && !s.tip_followed) {
     frame.tips=[...s.tips];
     frame.tips[s.gate]-=motion.tip*FORM_TRAVEL;
     frame.tip_shapes=[...s.tip_shapes];
